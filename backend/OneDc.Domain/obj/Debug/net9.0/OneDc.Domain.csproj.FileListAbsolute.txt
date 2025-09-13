@@ -1,0 +1,12 @@
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/bin/Debug/net9.0/OneDc.Domain.deps.json
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/bin/Debug/net9.0/OneDc.Domain.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/bin/Debug/net9.0/OneDc.Domain.pdb
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.AssemblyInfoInputs.cache
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.AssemblyInfo.cs
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.csproj.CoreCompileInputs.cache
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.sourcelink.json
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/refint/OneDc.Domain.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/OneDc.Domain.pdb
+/Users/arul/oneDC/oneDC/backend/OneDc.Domain/obj/Debug/net9.0/ref/OneDc.Domain.dll
