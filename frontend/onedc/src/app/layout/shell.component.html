@@ -1,0 +1,78 @@
+<mat-sidenav-container class="h-screen">
+  <mat-sidenav
+    [mode]="isHandset() ? 'over' : 'side'"
+    [opened]="sidenavOpened()"
+    class="w-64"
+  >
+    <div class="p-4">
+      <div class="text-lg font-semibold">OneDC</div>
+      <div class="text-xs opacity-70">Centralized Timesheets</div>
+    </div>
+    <mat-divider></mat-divider>
+
+    <mat-nav-list>
+      <a mat-list-item routerLink="/dashboard" routerLinkActive="mat-elevated-button" [activated]="false">
+        <mat-icon>dashboard</mat-icon><span class="ml-2">Dashboard</span>
+      </a>
+      <a mat-list-item routerLink="/timesheets">
+        <mat-icon>watch_later</mat-icon><span class="ml-2">My Timesheet</span>
+      </a>
+      <a mat-list-item routerLink="/approvals">
+        <mat-icon>task_alt</mat-icon><span class="ml-2">Approvals</span>
+      </a>
+      <a mat-list-item routerLink="/projects">
+        <mat-icon>work</mat-icon><span class="ml-2">Projects</span>
+      </a>
+      <a mat-list-item routerLink="/reports">
+        <mat-icon>query_stats</mat-icon><span class="ml-2">Reports</span>
+      </a>
+      <a mat-list-item routerLink="/admin">
+        <mat-icon>admin_panel_settings</mat-icon><span class="ml-2">Admin</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar color="primary" style="height: var(--header-h)">
+      <button mat-icon-button (click)="sidenavOpened.set(!sidenavOpened())" *ngIf="isHandset()" aria-label="Toggle sidenav">
+        <mat-icon>menu</mat-icon>
+      </button>
+
+      <span class="px-2">OneDC</span>
+      <span class="flex-1"></span>
+
+      <button mat-button disabled>
+        <mat-icon>rocket_launch</mat-icon>
+        <span>{{ envLabel }}</span>
+      </button>
+
+      <button mat-icon-button matTooltip="Toggle theme" (click)="toggleTheme()">
+        <mat-icon>{{ theme() === 'light' ? 'dark_mode' : 'light_mode' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button matBadge="3" matBadgeColor="accent" matTooltip="Notifications (stub)">
+        <mat-icon>notifications</mat-icon>
+      </button>
+
+      <button mat-button [matMenuTriggerFor]="userMenu">
+        <mat-icon>account_circle</mat-icon>
+        <span class="ml-1">Dev</span>
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <button mat-menu-item (click)="openDevUserDialog()">
+          <mat-icon>fingerprint</mat-icon>
+          <span>Set Dev User (GUID)</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item disabled>
+          <mat-icon>logout</mat-icon>
+          <span>Sign out (later)</span>
+        </button>
+      </mat-menu>
+    </mat-toolbar>
+
+    <div class="page">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

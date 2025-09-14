@@ -1,0 +1,225 @@
+
+// Include theming for Angular Material with `mat.theme()`.
+// This Sass mixin will define CSS variables that are used for styling Angular Material
+// components according to the Material 3 design spec.
+// Learn more about theming and how to use it for your application's
+// custom components at https://material.angular.dev/guide/theming
+@use '@angular/material' as mat;
+:root {
+  --header-h: 56px;
+  --gap: 16px;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+html {
+  @include mat.theme((
+    color: (
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+body {
+  // Default the application to a light color theme. This can be changed to
+  // `dark` to enable the dark color theme, or to `light dark` to defer to the
+  // user's system settings.
+  color-scheme: light;
+
+  // Set a default background, font and text colors for the application using
+  // Angular Material's system-level CSS variables. Learn more about these
+  // variables at https://material.angular.dev/guide/system-variables
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  // Reset the user agent margin.
+  margin: 0;
+  
+  // Global font size reduction
+  font-size: 14px;
+}
+
+/* Global Font Size Overrides */
+// Reduce Material Design component font sizes globally
+.mat-mdc-button,
+.mat-mdc-unelevated-button,
+.mat-mdc-raised-button,
+.mat-mdc-outlined-button {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.mat-mdc-icon-button {
+  .mat-icon {
+    font-size: 20px !important;
+  }
+}
+
+.mat-mdc-form-field {
+  font-size: 13px !important;
+  
+  .mat-mdc-form-field-label,
+  .mat-mdc-floating-label {
+    font-size: 13px !important;
+  }
+  
+  .mat-mdc-input-element {
+    font-size: 13px !important;
+  }
+}
+
+.mat-mdc-card {
+  .mat-mdc-card-title {
+    font-size: 15px !important;
+    font-weight: 500 !important;
+  }
+  
+  .mat-mdc-card-subtitle {
+    font-size: 12px !important;
+    font-weight: 400 !important;
+  }
+  
+  .mat-mdc-card-content {
+    font-size: 13px !important;
+  }
+}
+
+.mat-mdc-table {
+  font-size: 13px !important;
+  
+  .mat-mdc-header-cell {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+  }
+  
+  .mat-mdc-cell {
+    font-size: 13px !important;
+  }
+}
+
+.mat-mdc-tab-labels {
+  .mat-mdc-tab-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+}
+
+.mat-mdc-menu-panel {
+  .mat-mdc-menu-item {
+    font-size: 13px !important;
+  }
+}
+
+.mat-mdc-dialog-title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.mat-mdc-dialog-content {
+  font-size: 13px !important;
+}
+
+.mat-mdc-snack-bar-label {
+  font-size: 13px !important;
+}
+
+// Toolbar and navigation
+.mat-toolbar {
+  font-size: 14px !important;
+  
+  .mat-toolbar-title {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+  }
+}
+
+// List components
+.mat-mdc-list-item {
+  font-size: 13px !important;
+  
+  .mat-mdc-list-item-title {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+  
+  .mat-mdc-list-item-line {
+    font-size: 12px !important;
+  }
+}
+/* You can add global styles to this file, and also import other style files */
+
+html, body { height: 100%; }
+body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+html, body { height: 100%; margin: 0; }
+.h-screen { height: 100vh; }
+
+// Additional global font size reductions for custom elements
+h1 {
+  font-size: 20px !important;
+  font-weight: 500 !important;
+}
+
+h2 {
+  font-size: 18px !important;
+  font-weight: 500 !important;
+}
+
+h3 {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+h4 {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+h5 {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+h6 {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+p {
+  font-size: 13px !important;
+}
+
+// Icon size adjustments
+.mat-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+// Small icons variant
+.mat-icon.small {
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+// Large icons variant (for important actions)
+.mat-icon.large {
+  font-size: 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+/* Page container spacing */
+.page {
+  padding: var(--gap);
+}
+
+/* Utility */
+.flex-1 { flex: 1 1 auto; }
+.mono   { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
