@@ -1,0 +1,15 @@
+.w-64 { width: 260px; }
+.p-4  { padding: 16px; }
+.ml-1 { margin-left: 4px; }
+.ml-2 { margin-left: 8px; }
+
+mat-sidenav {
+  border-right: 1px solid rgba(0,0,0,0.06);
+}
+:root[data-theme='dark'] mat-sidenav {
+  border-right-color: rgba(255,255,255,0.08);
+}
+
+mat-nav-list a.mat-list-item mat-icon {
+  opacity: 0.85;
+}
