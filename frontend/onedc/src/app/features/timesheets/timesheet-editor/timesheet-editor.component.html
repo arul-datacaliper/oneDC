@@ -2,25 +2,25 @@
 <mat-card class="header-card">
   <div class="header-row">
     <div class="left">
-      <button mat-stroked-button color="primary" (click)="prevDay()">
-        <mat-icon>chevron_left</mat-icon> Prev
+      <button type="button" class="btn btn-outline-primary" (click)="prevDay()">
+        <i class="bi bi-chevron-left"></i> Prev
       </button>
       <div class="range">
         <div class="label">Date</div>
         <div class="value">{{ selectedDate() }}</div>
       </div>
-      <button mat-stroked-button color="primary" (click)="nextDay()">
-        Next <mat-icon>chevron_right</mat-icon>
+      <button type="button" class="btn btn-outline-primary" (click)="nextDay()">
+        Next <i class="bi bi-chevron-right"></i>
       </button>
     </div>
 
     <div class="right">
-      <button mat-icon-button (click)="load()" matTooltip="Refresh timesheet entries" 
-              [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="load()" 
+              title="Refresh timesheet entries" [disabled]="loading()">
+        <i class="bi bi-arrow-clockwise"></i>
       </button>
       <div class="total">
-        <mat-icon>functions</mat-icon>
+        <i class="bi bi-calculator"></i>
         <span>Total: {{ dailyTotal() | number:'1.0-2' }} h</span>
       </div>
     </div>
@@ -29,7 +29,9 @@
   <mat-divider></mat-divider>
 
   <div class="new-row">
-    <div class="title"><mat-icon>add_circle</mat-icon> New entry</div>
+    <div class="title">
+      <i class="bi bi-plus-circle-fill"></i> New entry
+    </div>
     <div class="fields">
       <mat-form-field appearance="outline">
         <mat-label>Date</mat-label>
@@ -65,8 +67,8 @@
         <input matInput [formControl]="newRow.controls.ticketRef" />
       </mat-form-field>
 
-      <button mat-flat-button color="primary" (click)="addRow()">
-        <mat-icon>save</mat-icon>&nbsp;Add
+      <button type="button" class="btn btn-primary" (click)="addRow()">
+        <i class="bi bi-plus-circle"></i>&nbsp;Add
       </button>
     </div>
   </div>
@@ -82,7 +84,7 @@
   </div>
 
   <div *ngIf="!loading() && items.controls.length === 0" class="empty-state">
-    <mat-icon>schedule</mat-icon>
+    <i class="bi bi-clock-history display-1 text-muted"></i>
     <p>No timesheet entries for this date yet.</p>
     <p>Use the form above to add your first entry.</p>
   </div>
@@ -142,20 +144,20 @@
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef> Actions </th>
       <td mat-cell *matCellDef="let g; let i = index" class="actions">
-        <button mat-icon-button color="primary" (click)="saveRow(i)"
+        <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
                 [disabled]="!isDraft(g.get('status')!.value) || !g.get('dirty')!.value"
                 matTooltip="Save changes">
-          <mat-icon>save</mat-icon>
+          <i class="bi bi-save"></i>
         </button>
-        <button mat-icon-button color="accent" (click)="submitRow(i)"
+        <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
                 [disabled]="!isDraft(g.get('status')!.value)"
                 matTooltip="Submit for approval">
-          <mat-icon>send</mat-icon>
+          <i class="bi bi-send"></i>
         </button>
-        <button mat-icon-button color="warn" (click)="deleteRow(i)"
+        <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
                 [disabled]="!isDraft(g.get('status')!.value)" 
                 matTooltip="Delete entry">
-          <mat-icon>delete</mat-icon>
+          <i class="bi bi-trash"></i>
         </button>
       </td>
     </ng-container>    <tr mat-header-row *matHeaderRowDef="displayed"></tr>

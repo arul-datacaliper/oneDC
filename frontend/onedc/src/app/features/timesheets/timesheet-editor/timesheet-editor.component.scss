@@ -32,6 +32,8 @@
     display: grid;
     grid-template-columns: 170px 1.6fr 120px 1fr 150px auto;
     gap: 12px; align-items: center;
+        padding-left: 10px;
+    padding-right: 10px;
   }
   .grow { width: 100%; }
 }
@@ -114,7 +116,13 @@
   }
 }
 
-.ts-table { width: 100%; }
+.ts-table { 
+  width: 100%; 
+  
+  .mat-mdc-cell {
+    vertical-align: middle;
+  }
+}
 
 .hours-input, .desc-input, .ticket-input {
   width: 100%;
@@ -126,17 +134,46 @@
   background: rgba(0,0,0,0.03);
 }
 
+// Bootstrap button overrides for better integration
+.btn {
+  --bs-btn-font-size: 0.875rem;
+  
+  &.btn-sm {
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-padding-x: 0.5rem;
+    --bs-btn-font-size: 0.8125rem;
+  }
+}
+
+// Icon styling for Bootstrap icons  
+i.bi {
+  line-height: 1;
+}
+
 .actions { 
   display: flex; 
   align-items: center; 
   justify-content: center;
-  gap: 4px; 
+  gap: 6px;
+  min-height: 48px; // Ensure consistent height for table cells
+}
+
+.actions .btn {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 4px;
+  
+  i {
+    font-size: 14px;
+  }
 }
 
 .actions button {
   width: 32px;
   height: 32px;
   line-height: 32px;
+  margin: 0; // Remove any default margins
 }
 
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
