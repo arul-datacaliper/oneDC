@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OneDc.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+06ef4f5bdef497f46141c6559e8cc37245c71a01")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6c3d74ca2f447b5f9d1935f63dc7b09174310625")]
 [assembly: System.Reflection.AssemblyProductAttribute("OneDc.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OneDc.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

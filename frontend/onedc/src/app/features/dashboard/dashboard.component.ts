@@ -1,18 +1,7 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
-
 
 import { TimesheetsService } from '../../core/services/timesheets.service';
 import { ReportsService } from '../../core/services/reports.service';
@@ -32,15 +21,6 @@ type UtilRow = {
   imports: [
     CommonModule,
     FormsModule,
-    MatCardModule,
-    MatIconModule,
-    MatButtonModule,
-    MatTableModule,
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatNativeDateModule,
-    MatTooltipModule,
     RouterModule
   ],
   templateUrl: './dashboard.component.html',
@@ -52,8 +32,11 @@ export class DashboardComponent implements OnInit {
   private tsSvc = inject(TimesheetsService);
   private repSvc = inject(ReportsService);
 
-  from = signal(this.iso(startOfWeek(new Date())));
-  to   = signal(this.iso(endOfWeek(new Date())));
+  // Date range mode toggle
+  dateRangeMode = signal<'week' | 'month'>('month');
+  
+  from = signal(this.iso(startOfMonth(new Date())));
+  to   = signal(this.iso(endOfMonth(new Date())));
 
   myHours = signal({ total: 0, submitted: 0, approved: 0 });
   util = signal<UtilRow[]>([]);
@@ -65,8 +48,11 @@ export class DashboardComponent implements OnInit {
   }
 
   load() {
-    // My totals (sum of all statuses for quick glance)
-    this.tsSvc.list(this.from(), this.to()).subscribe(rows => {
+    // My totals (sum of all statuses for current week for quick glance)
+    const weekFrom = this.iso(startOfWeek(new Date()));
+    const weekTo = this.iso(endOfWeek(new Date()));
+    
+    this.tsSvc.list(weekFrom, weekTo).subscribe(rows => {
       const total     = rows.reduce((s: number, r: any) => s + (r.hours || 0), 0);
       const submitted = rows.filter((r: any) => r.status === 'SUBMITTED').reduce((s: number, r: any) => s + (r.hours || 0), 0);
       const approved  = rows.filter((r: any) => r.status === 'APPROVED' || r.status === 'LOCKED')
@@ -74,10 +60,35 @@ export class DashboardComponent implements OnInit {
       this.myHours.set({ total, submitted, approved });
     });
 
-    // Utilization per project
+    // Utilization per project (using selected date range)
     this.repSvc.utilization(this.from(), this.to(), 'project').subscribe(rows => {
       this.util.set(rows as any);
     });
+  }
+
+  toggleDateRange() {
+    const newMode = this.dateRangeMode() === 'week' ? 'month' : 'week';
+    this.dateRangeMode.set(newMode);
+    
+    if (newMode === 'week') {
+      this.from.set(this.iso(startOfWeek(new Date())));
+      this.to.set(this.iso(endOfWeek(new Date())));
+    } else {
+      this.from.set(this.iso(startOfMonth(new Date())));
+      this.to.set(this.iso(endOfMonth(new Date())));
+    }
+    
+    // Reload data with new date range
+    this.repSvc.utilization(this.from(), this.to(), 'project').subscribe(rows => {
+      this.util.set(rows as any);
+    });
+  }
+
+  getUtilizationBadgeClass(percentage: number): string {
+    if (percentage >= 80) return 'badge bg-success';
+    if (percentage >= 60) return 'badge bg-warning';
+    if (percentage >= 40) return 'badge bg-info';
+    return 'badge bg-secondary';
   }
 
   iso(d: Date) { return d.toISOString().slice(0,10); }
@@ -95,6 +106,21 @@ function endOfWeek(d: Date) {
   const s = startOfWeek(d);
   const x = new Date(s);
   x.setDate(x.getDate() + 6);
+  x.setHours(23,59,59,999);
+  return x;
+}
+
+function startOfMonth(d: Date) {
+  const x = new Date(d);
+  x.setDate(1);
+  x.setHours(0,0,0,0);
+  return x;
+}
+
+function endOfMonth(d: Date) {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + 1);
+  x.setDate(0); // Last day of previous month (current month)
   x.setHours(23,59,59,999);
   return x;
 }

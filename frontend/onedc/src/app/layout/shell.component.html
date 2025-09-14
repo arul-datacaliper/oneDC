@@ -1,78 +1,131 @@
-<mat-sidenav-container class="h-screen">
-  <mat-sidenav
-    [mode]="isHandset() ? 'over' : 'side'"
-    [opened]="sidenavOpened()"
-    class="w-64"
-  >
-    <div class="p-4">
-      <div class="text-lg font-semibold">OneDC</div>
-      <div class="text-xs opacity-70">Centralized Timesheets</div>
+<div class="d-flex h-100">
+  <!-- Bootstrap Sidebar -->
+  <nav class="sidebar d-flex flex-column" 
+       [class.sidebar-collapsed]="isHandset() && !sidenavOpened()"
+       [class.sidebar-overlay]="isHandset() && sidenavOpened()">
+    
+    <!-- Sidebar Header -->
+    <div class="sidebar-header">
+      <div class="sidebar-brand">OneDC</div>
+      <div class="sidebar-subtitle">Centralized Timesheets</div>
     </div>
-    <mat-divider></mat-divider>
+    
+    <hr class="sidebar-divider">
 
-    <mat-nav-list>
-      <a mat-list-item routerLink="/dashboard" routerLinkActive="mat-elevated-button" [activated]="false">
-        <mat-icon>dashboard</mat-icon><span class="ml-2">Dashboard</span>
-      </a>
-      <a mat-list-item routerLink="/timesheets">
-        <mat-icon>watch_later</mat-icon><span class="ml-2">My Timesheet</span>
-      </a>
-      <a mat-list-item routerLink="/approvals">
-        <mat-icon>task_alt</mat-icon><span class="ml-2">Approvals</span>
-      </a>
-      <a mat-list-item routerLink="/projects">
-        <mat-icon>work</mat-icon><span class="ml-2">Projects</span>
-      </a>
-      <a mat-list-item routerLink="/reports">
-        <mat-icon>query_stats</mat-icon><span class="ml-2">Reports</span>
-      </a>
-      <a mat-list-item routerLink="/admin">
-        <mat-icon>admin_panel_settings</mat-icon><span class="ml-2">Admin</span>
-      </a>
-    </mat-nav-list>
-  </mat-sidenav>
+    <!-- Navigation Menu -->
+    <ul class="nav nav-pills flex-column">
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">
+          <i class="bi bi-speedometer2"></i>
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/timesheets" routerLinkActive="active">
+          <i class="bi bi-clock-history"></i>
+          <span class="nav-text">My Timesheet</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/approvals" routerLinkActive="active">
+          <i class="bi bi-check-circle"></i>
+          <span class="nav-text">Approvals</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/projects" routerLinkActive="active">
+          <i class="bi bi-briefcase"></i>
+          <span class="nav-text">Projects</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/reports" routerLinkActive="active">
+          <i class="bi bi-graph-up"></i>
+          <span class="nav-text">Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/admin" routerLinkActive="active">
+          <i class="bi bi-gear"></i>
+          <span class="nav-text">Admin</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  
+  <!-- Overlay for mobile -->
+  <div class="sidebar-overlay-backdrop" 
+       *ngIf="isHandset() && sidenavOpened()" 
+       (click)="sidenavOpened.set(false)"></div>
 
-  <mat-sidenav-content>
-    <mat-toolbar color="primary" style="height: var(--header-h)">
-      <button mat-icon-button (click)="sidenavOpened.set(!sidenavOpened())" *ngIf="isHandset()" aria-label="Toggle sidenav">
-        <mat-icon>menu</mat-icon>
-      </button>
-
-      <span class="px-2">OneDC</span>
-      <span class="flex-1"></span>
-
-      <button mat-button disabled>
-        <mat-icon>rocket_launch</mat-icon>
-        <span>{{ envLabel }}</span>
-      </button>
-
-      <button mat-icon-button matTooltip="Toggle theme" (click)="toggleTheme()">
-        <mat-icon>{{ theme() === 'light' ? 'dark_mode' : 'light_mode' }}</mat-icon>
-      </button>
-
-      <button mat-icon-button matBadge="3" matBadgeColor="accent" matTooltip="Notifications (stub)">
-        <mat-icon>notifications</mat-icon>
-      </button>
-
-      <button mat-button [matMenuTriggerFor]="userMenu">
-        <mat-icon>account_circle</mat-icon>
-        <span class="ml-1">Dev</span>
-      </button>
-      <mat-menu #userMenu="matMenu">
-        <button mat-menu-item (click)="openDevUserDialog()">
-          <mat-icon>fingerprint</mat-icon>
-          <span>Set Dev User (GUID)</span>
+  <!-- Main Content Area -->
+  <div class="main-content flex-fill d-flex flex-column">
+    <!-- Bootstrap Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container-fluid">
+        <!-- Mobile menu toggle -->
+        <button class="btn btn-outline-light me-3" 
+                *ngIf="isHandset()" 
+                (click)="sidenavOpened.set(!sidenavOpened())"
+                aria-label="Toggle navigation">
+          <i class="bi bi-list"></i>
         </button>
-        <mat-divider></mat-divider>
-        <button mat-menu-item disabled>
-          <mat-icon>logout</mat-icon>
-          <span>Sign out (later)</span>
-        </button>
-      </mat-menu>
-    </mat-toolbar>
 
-    <div class="page">
+        <span class="navbar-brand mb-0 h1">OneDC</span>
+        
+        <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-2">
+          <button class="btn btn-outline-light btn-sm" disabled>
+            <i class="bi bi-rocket-takeoff"></i>
+            <span class="ms-1">{{ envLabel }}</span>
+          </button>
+
+          <button class="btn btn-outline-light btn-sm" 
+                  (click)="toggleTheme()" 
+                  [attr.title]="'Toggle theme'">
+            <i class="bi" [class.bi-sun]="theme() === 'dark'" [class.bi-moon]="theme() === 'light'"></i>
+          </button>
+
+          <div class="position-relative">
+            <button class="btn btn-outline-light btn-sm" title="Notifications (stub)">
+              <i class="bi bi-bell"></i>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning">
+                3
+              </span>
+            </button>
+          </div>
+
+          <!-- User Dropdown -->
+          <div class="dropdown">
+            <button class="btn btn-outline-light btn-sm dropdown-toggle" 
+                    type="button" 
+                    data-bs-toggle="dropdown" 
+                    aria-expanded="false">
+              <i class="bi bi-person-circle"></i>
+              <span class="ms-1">Dev</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <button class="dropdown-item" (click)="openDevUserDialog()">
+                  <i class="bi bi-fingerprint"></i>
+                  <span class="ms-2">Set Dev User (GUID)</span>
+                </button>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <button class="dropdown-item" disabled>
+                  <i class="bi bi-box-arrow-right"></i>
+                  <span class="ms-2">Sign out (later)</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Page Content -->
+    <main class="page flex-fill p-3">
       <router-outlet></router-outlet>
-    </div>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+    </main>
+  </div>
+</div>

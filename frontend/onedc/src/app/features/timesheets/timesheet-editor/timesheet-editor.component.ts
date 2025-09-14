@@ -1,21 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormsModule } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { Project, TimesheetEntry } from '../../../shared/models';
@@ -36,19 +23,25 @@ type Entry = {
   selector: 'app-timesheet-editor',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, FormsModule,
-    MatCardModule, MatTableModule, MatIconModule, MatButtonModule, MatSnackBarModule,
-    MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule,
-    MatSelectModule, MatTooltipModule, MatChipsModule, MatDividerModule, MatProgressSpinnerModule
+    CommonModule, ReactiveFormsModule, FormsModule
   ],
   templateUrl: './timesheet-editor.component.html',
   styleUrls: ['./timesheet-editor.component.scss']
 })
 export class TimesheetEditorComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private snack = inject(MatSnackBar);
   private tsSvc = inject(TimesheetsService);
   private projSvc = inject(ProjectsService);
+  private toastr = inject(ToastrService);
+
+  // Bootstrap-styled toast notification method
+  private showNotification(message: string, action?: string, config?: any) {
+    this.toastr.info(message, '', {
+      timeOut: config?.duration || 3000,
+      progressBar: true,
+      positionClass: 'toast-top-right'
+    });
+  }
 
   // selected date (stored as UTC date string)
   selectedDate = signal(this.toUtcDateString(new Date()));
@@ -68,12 +61,20 @@ export class TimesheetEditorComponent implements OnInit {
 
   // header add-row form
   newRow = this.fb.group({
-    workDate: new FormControl<Date | null>(new Date(), { nonNullable: false }),
+    workDate: [new Date().toISOString().slice(0, 10)],
     projectId: ['', Validators.required],
     hours: [0, [Validators.min(0), Validators.max(24)]],
     description: [''],
     ticketRef: ['']
   });
+
+  onDateChange(event: any) {
+    const newDateStr = event.target.value; // YYYY-MM-DD format
+    if (newDateStr && newDateStr !== this.selectedDate()) {
+      this.selectedDate.set(newDateStr);
+      this.load(); // Refresh entries for the new date
+    }
+  }
 
   // computed totals
   totalHours = computed(() => this.items.controls.reduce((sum, g) => sum + (+g.get('hours')!.value || 0), 0));
@@ -99,11 +100,10 @@ export class TimesheetEditorComponent implements OnInit {
     
     // Listen for date changes in the new entry form
     this.newRow.get('workDate')?.valueChanges.subscribe(newDate => {
-      if (newDate) {
-        const newDateStr = this.toUtcDateString(newDate);
+      if (newDate && typeof newDate === 'string') {
         // Only update if it's different from current selected date
-        if (newDateStr !== this.selectedDate()) {
-          this.selectedDate.set(newDateStr);
+        if (newDate !== this.selectedDate()) {
+          this.selectedDate.set(newDate);
           this.load(); // Refresh entries for the new date
         }
       }
@@ -112,9 +112,8 @@ export class TimesheetEditorComponent implements OnInit {
 
   updateNewRowDate() {
     const selectedDateStr = this.selectedDate();
-    // Convert UTC date string to local Date object for the date picker
-    const localDate = this.utcDateStringToLocal(selectedDateStr);
-    this.newRow.patchValue({ workDate: localDate }, { emitEvent: false });
+    // Use the UTC date string directly for the date input (YYYY-MM-DD format)
+    this.newRow.patchValue({ workDate: selectedDateStr }, { emitEvent: false });
   }
 
   loadProjects() {
@@ -127,7 +126,7 @@ export class TimesheetEditorComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load projects:', err);
-        this.snack.open('Failed to load projects', 'OK', { duration: 3000 });
+                this.showNotification('Failed to load projects', 'error');
         // Set some mock data for development
         this.projects.set([
           { projectId: '1', clientId: 'client1', code: 'DEMO', name: 'Demo Project', status: 'ACTIVE', billable: true },
@@ -161,7 +160,7 @@ export class TimesheetEditorComponent implements OnInit {
       error: (err) => {
         console.error('Failed to load timesheets:', err);
         this.loading.set(false);
-        this.snack.open('Failed to load timesheets. Please check your connection.', 'OK', { duration: 4000 });
+        this.showNotification('Failed to load timesheets. Please check your connection.', 'error');
       }
     });
   }
@@ -193,21 +192,21 @@ export class TimesheetEditorComponent implements OnInit {
     // validations
     const hours = Number(val.hours ?? 0);
     if (!val.workDate || !val.projectId) {
-      this.snack.open('Select date and project', 'OK', { duration: 2000 });
+      this.showNotification('Select date and project', 'OK', { duration: 2000 });
       return;
     }
     if (hours < 0 || hours > 24) {
-      this.snack.open('Hours must be between 0 and 24', 'OK', { duration: 2000 });
+      this.showNotification('Hours must be between 0 and 24', 'OK', { duration: 2000 });
       return;
     }
     if (hours > 0 && !val.description?.trim()) {
-      this.snack.open('Description required when hours > 0', 'OK', { duration: 2000 });
+      this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
 
     const dto = {
       projectId: val.projectId!,
-      workDate: this.toUtcDateString(val.workDate as Date),
+      workDate: val.workDate as string, // Already in YYYY-MM-DD format
       hours,
       description: val.description?.trim() || undefined,
       ticketRef: val.ticketRef?.trim() || undefined
@@ -218,9 +217,9 @@ export class TimesheetEditorComponent implements OnInit {
     this.tsSvc.create(dto).subscribe({
       next: (created: any) => {
         console.log('addRow: Created entry:', created); // Debug log
-        this.snack.open('Draft entry created', 'OK', { duration: 1500 });
+        this.showNotification('Draft entry created', 'OK', { duration: 1500 });
         this.newRow.reset({
-          workDate: this.utcDateStringToLocal(this.selectedDate()),
+          workDate: this.selectedDate(), // Already in YYYY-MM-DD format
           projectId: '',
           hours: 0,
           description: '',
@@ -244,7 +243,7 @@ export class TimesheetEditorComponent implements OnInit {
           errorMessage = err.error;
         }
         
-        this.snack.open(errorMessage, 'OK', { duration: 4000 });
+        this.showNotification(errorMessage, 'OK', { duration: 4000 });
       }
     });
   }
@@ -253,12 +252,12 @@ export class TimesheetEditorComponent implements OnInit {
     const g = this.items.at(ix);
     if (!g) return;
     if (!this.isDraft(g.get('status')!.value)) {
-      this.snack.open('Only DRAFT entries can be edited', 'OK', { duration: 2000 });
+      this.showNotification('Only DRAFT entries can be edited', 'OK', { duration: 2000 });
       return;
     }
     const hours = Number(g.get('hours')!.value);
     if (hours > 0 && !(g.get('description')!.value || '').trim()) {
-      this.snack.open('Description required when hours > 0', 'OK', { duration: 2000 });
+      this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
     const id = g.get('entryId')!.value as string;
@@ -278,9 +277,9 @@ export class TimesheetEditorComponent implements OnInit {
             : row
         ));
         
-        this.snack.open('Saved', 'OK', { duration: 1200 });
+        this.showNotification('Saved', 'OK', { duration: 1200 });
       },
-      error: err => this.snack.open(err?.error ?? 'Save failed', 'OK', { duration: 2500 })
+      error: err => this.showNotification(err?.error ?? 'Save failed', 'OK', { duration: 2500 })
     });
   }
 
@@ -288,7 +287,7 @@ export class TimesheetEditorComponent implements OnInit {
     const g = this.items.at(ix);
     if (!g) return;
     if (!this.isDraft(g.get('status')!.value)) {
-      this.snack.open('Only DRAFT entries can be submitted', 'OK', { duration: 2000 });
+      this.showNotification('Only DRAFT entries can be submitted', 'OK', { duration: 2000 });
       return;
     }
     const id = g.get('entryId')!.value as string;
@@ -303,9 +302,9 @@ export class TimesheetEditorComponent implements OnInit {
             : row
         ));
         
-        this.snack.open('Submitted for approval', 'OK', { duration: 1500 });
+        this.showNotification('Submitted for approval', 'OK', { duration: 1500 });
       },
-      error: err => this.snack.open(err?.error ?? 'Submit failed', 'OK', { duration: 2500 })
+      error: err => this.showNotification(err?.error ?? 'Submit failed', 'OK', { duration: 2500 })
     });
   }
 
@@ -314,7 +313,7 @@ export class TimesheetEditorComponent implements OnInit {
     const g = this.items.at(ix);
     if (!g) return;
     if (!this.isDraft(g.get('status')!.value)) {
-      this.snack.open('Only DRAFT entries can be deleted', 'OK', { duration: 2000 });
+      this.showNotification('Only DRAFT entries can be deleted', 'OK', { duration: 2000 });
       return;
     }
     const id = g.get('entryId')!.value as string;
@@ -326,9 +325,9 @@ export class TimesheetEditorComponent implements OnInit {
         // Update the rows signal to remove the deleted entry
         this.rows.update(rows => rows.filter(row => row.entryId !== id));
         
-        this.snack.open('Deleted', 'OK', { duration: 1200 });
+        this.showNotification('Deleted', 'OK', { duration: 1200 });
       },
-      error: err => this.snack.open(err?.error ?? 'Delete failed', 'OK', { duration: 2500 })
+      error: err => this.showNotification(err?.error ?? 'Delete failed', 'OK', { duration: 2500 })
     });
   }
 
@@ -416,11 +415,11 @@ export class TimesheetEditorComponent implements OnInit {
   statusClass(status: any) {
     const statusText = this.statusLabel(status);
     return {
-      'chip-draft': statusText === 'DRAFT',
-      'chip-submitted': statusText === 'SUBMITTED',
-      'chip-approved': statusText === 'APPROVED',
-      'chip-locked': statusText === 'LOCKED',
-      'chip-rejected': statusText === 'REJECTED'
+      'bg-secondary': statusText === 'DRAFT',
+      'bg-warning': statusText === 'SUBMITTED',
+      'bg-success': statusText === 'APPROVED',
+      'bg-info': statusText === 'LOCKED',
+      'bg-danger': statusText === 'REJECTED'
     };
   }
 

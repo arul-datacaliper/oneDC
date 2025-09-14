@@ -1,166 +1,167 @@
 
-<mat-card class="header-card">
-  <div class="header-row">
-    <div class="left">
-      <button type="button" class="btn btn-outline-primary" (click)="prevDay()">
-        <i class="bi bi-chevron-left"></i> Prev
-      </button>
-      <div class="range">
-        <div class="label">Date</div>
-        <div class="value">{{ selectedDate() }}</div>
+<div class="card">
+  <div class="card-body">
+    <div class="header-row">
+      <div class="left">
+        <button type="button" class="btn btn-outline-primary" (click)="prevDay()">
+          <i class="bi bi-chevron-left"></i> Prev
+        </button>
+        <div class="range">
+          <div class="label">Date</div>
+          <div class="value">{{ selectedDate() }}</div>
+        </div>
+        <button type="button" class="btn btn-outline-primary" (click)="nextDay()">
+          Next <i class="bi bi-chevron-right"></i>
+        </button>
       </div>
-      <button type="button" class="btn btn-outline-primary" (click)="nextDay()">
-        Next <i class="bi bi-chevron-right"></i>
-      </button>
+
+      <div class="right">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="load()" 
+                title="Refresh timesheet entries" [disabled]="loading()">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <div class="total">
+          <i class="bi bi-calculator"></i>
+          <span>Total: {{ dailyTotal() | number:'1.0-2' }} h</span>
+        </div>
+      </div>
     </div>
 
-    <div class="right">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="load()" 
-              title="Refresh timesheet entries" [disabled]="loading()">
-        <i class="bi bi-arrow-clockwise"></i>
-      </button>
-      <div class="total">
-        <i class="bi bi-calculator"></i>
-        <span>Total: {{ dailyTotal() | number:'1.0-2' }} h</span>
+    <hr>
+
+    <div class="new-row">
+      <div class="title">
+        <i class="bi bi-plus-circle-fill"></i> New entry
+      </div>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" [formControl]="newRow.controls.workDate" 
+                 (change)="onDateChange($event)" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Project *</label>
+          <select class="form-select" [formControl]="newRow.controls.projectId">
+            <option value="">Select project</option>
+            <option *ngFor="let p of projects()" [value]="p.projectId">
+              {{ p.code }} — {{ p.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Hours</label>
+          <input type="number" class="form-control" min="0" max="24" step="0.25" 
+                 [formControl]="newRow.controls.hours" />
+          <div *ngIf="dailyTotal() + (newRow.get('hours')?.value || 0) > 12" class="text-danger small mt-1">
+            Daily limit exceeded! ({{ dailyTotal() + (newRow.get('hours')?.value || 0) | number:'1.1-2' }}h > 12h)
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Description</label>
+          <input type="text" class="form-control" [formControl]="newRow.controls.description" />
+        </div>
+
+        <div class="col-md-1">
+          <label class="form-label">Ticket</label>
+          <input type="text" class="form-control" [formControl]="newRow.controls.ticketRef" />
+        </div>
+
+        <div class="col-md-1">
+          <button type="button" class="btn btn-primary w-100" (click)="addRow()">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <mat-divider></mat-divider>
-
-  <div class="new-row">
-    <div class="title">
-      <i class="bi bi-plus-circle-fill"></i> New entry
+<div class="card mt-3">
+  <div class="card-body">
+    <div class="table-header">
+      <h5 class="card-title">Timesheet Entries</h5>
+      <div class="loading-indicator" *ngIf="loading()">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <span>Loading entries...</span>
+      </div>
     </div>
-    <div class="fields">
-      <mat-form-field appearance="outline">
-        <mat-label>Date</mat-label>
-        <input matInput [matDatepicker]="dp" [formControl]="newRow.controls.workDate" />
-        <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
-        <mat-datepicker #dp></mat-datepicker>
-      </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Project</mat-label>
-        <mat-select [formControl]="newRow.controls.projectId">
-          <mat-option *ngFor="let p of projects()" [value]="p.projectId">
-            {{ p.code }} — {{ p.name }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
+    <div *ngIf="!loading() && items.controls.length === 0" class="empty-state text-center py-5">
+      <i class="bi bi-clock-history display-1 text-muted"></i>
+      <p class="text-muted mt-3">No timesheet entries for this date yet.</p>
+      <p class="text-muted">Use the form above to add your first entry.</p>
+    </div>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Hours</mat-label>
-        <input matInput type="number" min="0" max="24" step="0.25" [formControl]="newRow.controls.hours" />
-        <mat-error *ngIf="dailyTotal() + (newRow.get('hours')?.value || 0) > 12">
-          Daily limit exceeded! ({{ dailyTotal() + (newRow.get('hours')?.value || 0) | number:'1.1-2' }}h > 12h)
-        </mat-error>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="grow">
-        <mat-label>Description</mat-label>
-        <input matInput [formControl]="newRow.controls.description" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Ticket</mat-label>
-        <input matInput [formControl]="newRow.controls.ticketRef" />
-      </mat-form-field>
-
-      <button type="button" class="btn btn-primary" (click)="addRow()">
-        <i class="bi bi-plus-circle"></i>&nbsp;Add
-      </button>
+    <div class="table-responsive" *ngIf="!loading() && items.controls.length > 0">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Project</th>
+            <th>Hours</th>
+            <th>Description</th>
+            <th>Ticket</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of items.controls; let i = index">
+            <td>{{ g.get('workDate')!.value }}</td>
+            <td>
+              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
+            </td>
+            <td>
+              <input [readonly]="!isDraft(g.get('status')!.value)"
+                     class="form-control form-control-sm"
+                     type="number" min="0" max="24" step="0.25"
+                     [value]="g.get('hours')!.value"
+                     (input)="g.get('hours')!.setValue($event.target.value)" />
+            </td>
+            <td>
+              <input [readonly]="!isDraft(g.get('status')!.value)"
+                     class="form-control form-control-sm" 
+                     [value]="g.get('description')!.value"
+                     (input)="g.get('description')!.setValue($event.target.value)" />
+            </td>
+            <td>
+              <input [readonly]="!isDraft(g.get('status')!.value)"
+                     class="form-control form-control-sm" 
+                     [value]="g.get('ticketRef')!.value"
+                     (input)="g.get('ticketRef')!.setValue($event.target.value)" />
+            </td>
+            <td>
+              <span class="badge" [ngClass]="statusClass(g.get('status')!.value)">
+                {{ statusLabel(g.get('status')!.value) }}
+              </span>
+            </td>
+            <td class="text-center">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
+                        [disabled]="!isDraft(g.get('status')!.value) || !g.get('dirty')!.value"
+                        title="Save changes">
+                  <i class="bi bi-save"></i>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
+                        [disabled]="!isDraft(g.get('status')!.value)"
+                        title="Submit for approval">
+                  <i class="bi bi-send"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
+                        [disabled]="!isDraft(g.get('status')!.value)" 
+                        title="Delete entry">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
-</mat-card>
-
-<mat-card class="table-card mt">
-  <div class="table-header">
-    <h3>Timesheet Entries</h3>
-    <div class="loading-indicator" *ngIf="loading()">
-      <mat-spinner diameter="20"></mat-spinner>
-      <span>Loading entries...</span>
-    </div>
-  </div>
-
-  <div *ngIf="!loading() && items.controls.length === 0" class="empty-state">
-    <i class="bi bi-clock-history display-1 text-muted"></i>
-    <p>No timesheet entries for this date yet.</p>
-    <p>Use the form above to add your first entry.</p>
-  </div>
-
-  <table mat-table [dataSource]="items.controls" class="ts-table" *ngIf="!loading() && items.controls.length > 0">
-
-    <ng-container matColumnDef="date">
-      <th mat-header-cell *matHeaderCellDef> Date </th>
-      <td mat-cell *matCellDef="let g">
-        {{ g.get('workDate')!.value }}
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="project">
-      <th mat-header-cell *matHeaderCellDef> Project </th>
-      <td mat-cell *matCellDef="let g">
-        <div class="mono">{{ projectLabel(g.get('projectId')!.value) }}</div>
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="hours">
-      <th mat-header-cell *matHeaderCellDef> Hours </th>
-      <td mat-cell *matCellDef="let g; let i = index">
-        <input [readonly]="!isDraft(g.get('status')!.value)"
-               class="hours-input"
-               type="number" min="0" max="24" step="0.25"
-               [formControl]="g.get('hours')" />
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="description">
-      <th mat-header-cell *matHeaderCellDef> Description </th>
-      <td mat-cell *matCellDef="let g">
-        <input [readonly]="!isDraft(g.get('status')!.value)"
-               class="desc-input" [formControl]="g.get('description')" />
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="ticket">
-      <th mat-header-cell *matHeaderCellDef> Ticket </th>
-      <td mat-cell *matCellDef="let g">
-        <input [readonly]="!isDraft(g.get('status')!.value)"
-               class="ticket-input" [formControl]="g.get('ticketRef')" />
-      </td>
-    </ng-container>
-
-    <ng-container matColumnDef="status">
-  <th mat-header-cell *matHeaderCellDef> Status </th>
-  <td mat-cell *matCellDef="let g">
-    <span class="status-badge" [ngClass]="statusClass(g.get('status')!.value)">
-      {{ statusLabel(g.get('status')!.value) }}
-    </span>
-  </td>
-</ng-container>
-
-
-    <ng-container matColumnDef="actions">
-      <th mat-header-cell *matHeaderCellDef> Actions </th>
-      <td mat-cell *matCellDef="let g; let i = index" class="actions">
-        <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
-                [disabled]="!isDraft(g.get('status')!.value) || !g.get('dirty')!.value"
-                matTooltip="Save changes">
-          <i class="bi bi-save"></i>
-        </button>
-        <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
-                [disabled]="!isDraft(g.get('status')!.value)"
-                matTooltip="Submit for approval">
-          <i class="bi bi-send"></i>
-        </button>
-        <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
-                [disabled]="!isDraft(g.get('status')!.value)" 
-                matTooltip="Delete entry">
-          <i class="bi bi-trash"></i>
-        </button>
-      </td>
-    </ng-container>    <tr mat-header-row *matHeaderRowDef="displayed"></tr>
-    <tr mat-row *matRowDef="let r; columns: displayed;"></tr>
-  </table>
-</mat-card>
+</div>

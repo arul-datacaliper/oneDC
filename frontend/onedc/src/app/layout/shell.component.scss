@@ -1,15 +1,233 @@
-.w-64 { width: 260px; }
-.p-4  { padding: 16px; }
-.ml-1 { margin-left: 4px; }
-.ml-2 { margin-left: 8px; }
-
-mat-sidenav {
-  border-right: 1px solid rgba(0,0,0,0.06);
-}
-:root[data-theme='dark'] mat-sidenav {
-  border-right-color: rgba(255,255,255,0.08);
+// Bootstrap Sidebar Styling
+:host {
+  --custom-primary: #2d3f9f; // Custom primary color (lighter tone)
+  --custom-primary-rgb: 45, 63, 159; // RGB values for transparency
 }
 
-mat-nav-list a.mat-list-item mat-icon {
-  opacity: 0.85;
+.sidebar {
+  width: 260px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-right: 1px solid var(--bs-border-color);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+  
+  // Sidebar Header
+  .sidebar-header {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    
+    .sidebar-brand {
+      font-size: 1.375rem;
+      font-weight: 600;
+      color: var(--custom-primary);
+      margin-bottom: 0.25rem;
+    }
+    
+    .sidebar-subtitle {
+      font-size: 0.75rem;
+      color: var(--bs-secondary);
+      opacity: 0.8;
+    }
+  }
+  
+  // Sidebar Divider
+  .sidebar-divider {
+    margin: 0;
+    border-color: var(--bs-border-color);
+    opacity: 0.3;
+  }
+  
+  // Navigation Pills
+  .nav-pills {
+    padding: 1rem 0.75rem;
+    
+    .nav-item {
+      margin-bottom: 0.25rem;
+      
+      .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        color: var(--bs-gray-700);
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        
+        i {
+          font-size: 1.125rem;
+          margin-right: 0.75rem;
+          width: 1.25rem;
+          color: var(--bs-gray-600);
+        }
+        
+        .nav-text {
+          font-size: 0.875rem;
+        }
+        
+        &:hover {
+          background-color: rgba(var(--custom-primary-rgb), 0.1);
+          color: var(--custom-primary);
+          transform: translateX(2px);
+          
+          i {
+            color: var(--custom-primary);
+          }
+        }
+        
+        &.active {
+          background-color: var(--custom-primary);
+          color: white;
+          box-shadow: 0 2px 8px rgba(var(--custom-primary-rgb), 0.3);
+          
+          i {
+            color: white;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Mobile Responsive Sidebar
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1050;
+    
+    &.sidebar-collapsed {
+      transform: translateX(-100%);
+    }
+    
+    &.sidebar-overlay {
+      transform: translateX(0);
+    }
+  }
+  
+  .sidebar-overlay-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1040;
+  }
+  
+  .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+// Desktop Layout
+@media (min-width: 769px) {
+  .main-content {
+    margin-left: 0; // Bootstrap handles this with flex
+  }
+  
+  .sidebar-overlay-backdrop {
+    display: none;
+  }
+}
+
+// Main Content Styling
+.main-content {
+  min-height: 100vh;
+  
+  .navbar {
+    background-color: var(--custom-primary) !important; // Override Bootstrap primary
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    
+    .navbar-brand {
+      font-weight: 600;
+      color: white !important;
+    }
+    
+    .btn-outline-light {
+      border-color: rgba(255, 255, 255, 0.3);
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+    }
+    
+    // Notification Badge
+    .badge {
+      font-size: 0.6rem;
+      padding: 0.25em 0.4em;
+    }
+    
+    // Dropdown Menu
+    .dropdown-menu {
+      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      
+      .dropdown-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        
+        i {
+          font-size: 0.875rem;
+          width: 1rem;
+        }
+      }
+    }
+  }
+  
+  .page {
+    background-color: var(--bs-body-bg);
+  }
+}
+
+// Dark Theme Support
+:root[data-theme='dark'] {
+  .sidebar {
+    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    border-right-color: rgba(255, 255, 255, 0.1);
+    
+    .sidebar-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1);
+      
+      .sidebar-brand {
+        color: #90cdf4;
+      }
+      
+      .sidebar-subtitle {
+        color: #a0aec0;
+      }
+    }
+    
+    .sidebar-divider {
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .nav-pills .nav-item .nav-link {
+      color: #e2e8f0;
+      
+      i {
+        color: #a0aec0;
+      }
+      
+      &:hover {
+        background-color: rgba(45, 63, 159, 0.2);
+        color: #b3c7ff;
+        
+        i {
+          color: #b3c7ff;
+        }
+      }
+      
+      &.active {
+        background-color: var(--custom-primary);
+        color: white;
+      }
+    }
+  }
 }
