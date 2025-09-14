@@ -4,7 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
-import { debugUserInterceptor } from './core/interceptors/debug-user-interceptor';
+import { debugUserInterceptor } from './core/interceptors/debug-user.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [

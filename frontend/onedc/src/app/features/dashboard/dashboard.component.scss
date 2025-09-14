@@ -1,4 +1,4 @@
-// Color Theme Variables
+/* ========= Color Theme Variables ========= */
 :host {
   --primary-blue: #1976d2;
   --light-blue: #e3f2fd;
@@ -13,42 +13,43 @@
   --card-hover-shadow: 0 4px 16px rgba(25, 118, 210, 0.2);
 }
 
+/* Dark theme overrides (hooked to <html data-theme="dark">) */
+:root[data-theme='dark'] {
+  --background-light: #111827;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --light-blue: #0b213f;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* ========= Layout ========= */
 .grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--gap, 16px);
   margin-bottom: var(--gap, 16px);
-  flex-wrap: wrap;
-  justify-content: flex-start;
 }
 
-@media (max-width: 1200px) {
-  .grid { 
-    justify-content: space-between;
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 768px) {
-  .grid { 
-    flex-direction: column;
-    gap: 12px;
-  }
-}
-
+/* ========= Stat Cards ========= */
 .stat {
   min-height: 100px;
-  width: 220px;
-  max-width: 250px;
   background: linear-gradient(135deg, var(--light-blue) 0%, #ffffff 100%);
   border-left: 4px solid var(--primary-blue);
   box-shadow: var(--card-shadow);
   transition: all 0.3s ease;
-  flex-shrink: 0;
-  
+
   &:hover {
     box-shadow: var(--card-hover-shadow);
     transform: translateY(-2px);
   }
-  
+
   mat-card-title {
     display: flex;
     align-items: center;
@@ -57,16 +58,16 @@
     font-weight: 500;
     color: var(--text-primary);
     margin-bottom: 8px;
-    
+
     mat-icon {
       color: var(--primary-blue);
       font-size: 16px;
     }
   }
-  
+
   mat-card-content {
     padding: 0;
-    
+
     &.big {
       font-size: 22px;
       font-weight: 600;
@@ -75,7 +76,7 @@
       line-height: 1.1;
     }
   }
-  
+
   mat-card-subtitle {
     color: var(--text-secondary);
     font-size: 11px;
@@ -84,81 +85,112 @@
   }
 }
 
-// Date Range Controls (outside card design)
-.date-range-controls {
+@media (max-width: 768px) {
+  .stat {
+    min-height: 90px;
+
+    mat-card-content.big { font-size: 20px; }
+    mat-card-title {
+      font-size: 12px;
+      mat-icon { font-size: 14px; }
+    }
+    mat-card-subtitle { font-size: 10px; }
+  }
+}
+
+.mt { margin-top: var(--gap, 16px); }
+
+/* ========= Utilization Card ========= */
+mat-card.mt {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s ease;
+
+  &:hover { box-shadow: var(--card-hover-shadow); }
+
+  /* Hide the default built-in title area (we use a custom header) */
+  > mat-card-title { display: none; }
+}
+
+:root[data-theme='dark'] mat-card.mt { background: #0f172a; }
+
+/* ========= Card Header + Date Range Controls ========= */
+.card-header-with-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
-  
-  .date-controls {
-    display: flex;
-    gap: 16px;
-    flex-direction: row;
-    
-    .date-field {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      // Clean minimal design - no background/border when in header
-      
-      > div {
-        .date-label {
-          font-size: 12px;
-          color: var(--text-secondary);
-          font-weight: 500;
-          margin: 0 0 4px 0;
-          display: block;
-        }
-        
-        .date-input {
-          border: none;
-          background: transparent;
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--text-primary);
-          cursor: pointer;
-          outline: none;
-          width: 100%;
-          padding: 0;
-        }
-      }
-      
-      .date-toggle {
-        ::ng-deep button {
-          width: 24px;
-          height: 24px;
-          line-height: 24px;
-          
-          .mat-icon {
-            font-size: 20px;
-            color: var(--text-secondary);
-          }
-        }
-      }
-    }
+  justify-content: space-between;
+  padding: 12px 12px 10px 12px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--light-blue);
+
+  mat-card-title {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+    padding: 0;
+    display: block !important;
   }
-  
-  .refresh-btn {
-    width: 40px;
-    height: 40px;
-    line-height: 40px;
-    border-radius: 50%;
-    background: var(--light-blue);
+
+  .date-range-controls {
     display: flex;
     align-items: center;
-    justify-content: center;
-    
-    mat-icon {
-      font-size: 20px;
-      color: var(--primary-blue);
+    gap: 8px;
+    margin-left: auto;
+
+    .date-controls {
+      display: flex;
+      gap: 12px;
+
+      .date-field {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        > div {
+          .date-label {
+            font-size: 11px;
+            margin-bottom: 2px;
+            color: var(--text-secondary);
+            font-weight: 500;
+          }
+
+          .date-input {
+            font-size: 14px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            outline: none;
+            font-weight: 500;
+            width: 90px;
+          }
+        }
+
+        /* Angular Material datepicker toggle (no ::ng-deep) */
+        .date-toggle {
+          .mdc-icon-button { width: 24px; height: 24px; padding: 0; }
+          .mat-datepicker-toggle-default-icon { width: 20px; height: 20px; opacity: .7; }
+          .mat-icon { font-size: 18px; color: var(--text-secondary); }
+        }
+      }
     }
-    
-    &:hover {
-      background-color: var(--primary-blue);
-      
-      mat-icon {
-        color: white;
+
+    .refresh-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--light-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s ease;
+
+      mat-icon { font-size: 18px; color: var(--primary-blue); }
+      &:hover {
+        background-color: var(--primary-blue);
+        mat-icon { color: #fff; }
       }
     }
   }
@@ -169,192 +201,100 @@
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
-    
-    mat-card-title {
-      font-size: 14px;
-    }
-    
+
+    mat-card-title { font-size: 14px; }
+
     .date-range-controls {
       width: 100%;
       justify-content: center;
-      
+
       .date-controls {
         gap: 8px;
-        
-        .date-field {
-          flex: 1;
-          min-width: 80px;
-          padding: 6px 8px;
-          
-          > div {
-            .date-label {
-              font-size: 9px;
-            }
-            
-            .date-input {
-              font-size: 12px;
-            }
-          }
+
+        .date-field > div {
+          .date-label { font-size: 9px; }
+          .date-input { font-size: 12px; width: 80px; }
         }
       }
-      
+
       .refresh-btn {
-        width: 28px;
-        height: 28px;
-        
-        mat-icon {
-          font-size: 14px;
-        }
+        width: 28px; height: 28px;
+        mat-icon { font-size: 14px; }
       }
     }
   }
-  
-  .stat {
-    width: 100%;
-    max-width: none;
-  }
 }
 
-.mt { 
-  margin-top: var(--gap, 16px); 
-}
-
-// Project Utilization Table Card
-mat-card.mt {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: var(--card-hover-shadow);
-  }
-  
-  // Hide only the default mat-card-title, not our custom one
-  > mat-card-title {
-    display: none;
-  }
-}
-
-.table-wrap { 
+/* ========= Table ========= */
+.table-wrap {
   overflow-x: auto;
   margin: 16px 0;
   background: var(--background-light);
   border-radius: 8px;
-  
+
   table {
     min-width: 600px;
     background: #ffffff;
-    
+
     th {
       background: var(--light-blue);
       color: var(--text-primary);
       font-weight: 500;
       font-size: 13px;
-      padding: 14px;
       border-bottom: 2px solid var(--primary-blue);
     }
-    
+
     td {
-      padding: 14px;
       border-bottom: 1px solid #e0e0e0;
       font-size: 14px;
-      
-      &:first-child {
-        border-left: 3px solid var(--accent-blue);
-      }
+
+      &:first-child { border-left: 3px solid var(--accent-blue); }
     }
-    
+
     tr:hover {
       background: var(--light-blue);
       transition: background 0.2s ease;
     }
   }
-}
 
-// Improve table responsiveness
-@media (max-width: 768px) {
-  .table-wrap table {
-    font-size: 13px;
-    
-    th, td {
-      padding: 10px 8px;
-    }
-    
-    th {
-      font-size: 12px;
-    }
-  }
-  
-  mat-card-actions {
-    flex-direction: column;
-    gap: 10px;
-    padding: 16px;
-    background: var(--background-light);
-    border-radius: 0 0 12px 12px;
-    
-    a {
-      width: 100%;
-      justify-content: center;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: 500;
-      font-size: 14px;
-      
-      &.mat-stroked-button[color="primary"] {
-        background: var(--light-blue);
-        border-color: var(--primary-blue);
-        color: var(--primary-blue);
-        
-        &:hover {
-          background: var(--primary-blue);
-          color: white;
-        }
-      }
-      
-      &.mat-stroked-button[color="accent"] {
-        background: #fff3e0;
-        border-color: var(--warning-orange);
-        color: var(--warning-orange);
-        
-        &:hover {
-          background: var(--warning-orange);
-          color: white;
-        }
-      }
-    }
+  /* Compact MDC table cells */
+  .mdc-data-table__header-cell,
+  .mdc-data-table__cell {
+    padding: 12px 14px;
   }
 }
 
-// Add some visual improvements
+:root[data-theme='dark'] .table-wrap table {
+  background: #0f172a;
+}
+:root[data-theme='dark'] .table-wrap table th {
+  background: var(--light-blue);
+  border-bottom-color: var(--accent-blue);
+}
+:root[data-theme='dark'] .table-wrap table td {
+  border-bottom-color: rgba(255,255,255,.08);
+}
+
+/* ========= Misc ========= */
 mat-card {
   border-radius: 10px;
   transition: all 0.3s ease;
   overflow: hidden;
-  
-  mat-card-content {
-    padding: 12px;
-  }
-  
-  mat-card-title {
-    padding: 12px 12px 0 12px;
-  }
-  
-  mat-card-subtitle {
-    padding: 0 12px;
-  }
-  
+
+  mat-card-content { padding: 12px; }
+  mat-card-title { padding: 12px 12px 0 12px; }
+  mat-card-subtitle { padding: 0 12px; }
   mat-card-actions {
     padding: 12px;
     background: rgba(25, 118, 210, 0.04);
-    
+
     a {
       border-radius: 6px;
       font-weight: 500;
       font-size: 13px;
       transition: all 0.2s ease;
       padding: 8px 16px;
-      
+
       mat-icon {
         margin-right: 4px;
         font-size: 16px;
@@ -373,129 +313,44 @@ mat-card {
   font-size: 11px;
 }
 
-// Additional mobile improvements
+/* Mobile-friendly table actions */
 @media (max-width: 768px) {
-  mat-card {
-    mat-card-content,
-    mat-card-title,
-    mat-card-subtitle {
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-    
-    mat-card-actions {
-      padding: 10px;
-    }
-  }
-  
-  .stat {
-    min-height: 90px;
-    width: 100%;
-    max-width: none;
-    
-    mat-card-content.big {
-      font-size: 20px;
-    }
-    
-    mat-card-title {
-      font-size: 12px;
-      
-      mat-icon {
-        font-size: 14px;
-      }
-    }
-    
-    mat-card-subtitle {
-      font-size: 10px;
-    }
-  }
-}
+  .table-wrap table {
+    font-size: 13px;
 
-// Card header with controls
-.card-header-with-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 12px 10px 12px;
-  margin-bottom: 14px;
-  border-bottom: 2px solid var(--light-blue);
-  
-  mat-card-title {
-    color: var(--text-primary);
-    font-size: 16px;
-    font-weight: 500;
-    margin: 0;
-    padding: 0;
-    display: block !important; // Override any hiding rules
+    th, td { padding: 10px 8px; }
+    th { font-size: 12px; }
   }
-  
-  .date-range-controls {
-    gap: 8px;
-    margin-left: auto; // Ensure right alignment
-    
-    .date-controls {
-      gap: 12px;
-      
-      .date-field {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        // Remove boxy design - no background, border, padding, shadow
-        
-        > div {
-          .date-label {
-            font-size: 11px;
-            margin-bottom: 2px;
-            color: var(--text-secondary);
-            font-weight: 500;
-          }
-          
-          .date-input {
-            font-size: 14px;
-            border: none;
-            background: transparent;
-            color: var(--text-primary);
-            cursor: pointer;
-            outline: none;
-            font-weight: 500;
-            width: 80px;
-          }
-        }
-        
-        .date-toggle {
-          ::ng-deep button {
-            width: 24px;
-            height: 24px;
-            
-            .mat-icon {
-              font-size: 18px;
-              color: var(--text-secondary);
-            }
-          }
-        }
-      }
-    }
-    
-    .refresh-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--light-blue);
-      display: flex;
-      align-items: center;
+
+  mat-card-actions {
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: var(--background-light);
+    border-radius: 0 0 12px 12px;
+
+    a {
+      width: 100%;
       justify-content: center;
-      
-      mat-icon {
-        font-size: 18px;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 14px;
+
+      &.mat-stroked-button[color="primary"] {
+        background: var(--light-blue);
+        border-color: var(--primary-blue);
         color: var(--primary-blue);
+
+        &:hover { background: var(--primary-blue); color: #fff; }
       }
-      
-      &:hover {
-        background-color: var(--primary-blue);
-        
-        mat-icon {
-          color: white;
-        }
+
+      &.mat-stroked-button[color="accent"] {
+        background: #fff3e0;
+        border-color: var(--warning-orange);
+        color: var(--warning-orange);
+
+        &:hover { background: var(--warning-orange); color: #fff; }
       }
     }
   }
