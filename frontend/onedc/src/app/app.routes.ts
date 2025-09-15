@@ -9,6 +9,7 @@ export const routes: Routes = [
      
       {path: 'dashboard', loadChildren: () => import('./features/dashboard/routes').then(m => m.DASHBOARD_ROUTES) },
       { path: 'projects',  loadChildren: () => import('./features/projects/routes').then(m => m.PROJECTS_ROUTES) },
+      { path: 'clients',   loadChildren: () => import('./features/clients/routes').then(m => m.CLIENTS_ROUTES) },
       { path: 'timesheets',loadChildren: () => import('./features/timesheets/routes').then(m => m.TIMESHEETS_ROUTES) },
       { path: 'approvals', loadChildren: () => import('./features/approvals/routes').then(m => m.APPROVALS_ROUTES) },
       { path: 'reports',   loadChildren: () => import('./features/reports/routes').then(m => m.REPORTS_ROUTES) },
