@@ -1,1 +1,309 @@
-<p>projects works!</p>
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-1">Projects Management</h2>
+    <p class="text-muted mb-0">Manage project details, budgets, and assignments</p>
+  </div>
+  <button class="btn btn-primary" (click)="openCreateModal()">
+    <i class="bi bi-plus-circle"></i> Add New Project
+  </button>
+</div>
+
+<!-- Filters and Search -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Search Projects</label>
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-search"></i>
+          </span>
+          <input type="text" class="form-control" placeholder="Search by name or code..." 
+                 [value]="searchTerm()" (input)="onSearchChange($event)">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Status Filter</label>
+        <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
+          <option value="">All Statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="ON_HOLD">On Hold</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Total Projects</label>
+        <div class="form-control-plaintext">
+          <span class="badge bg-primary fs-6">{{ filteredProjects().length }} projects</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Projects Table -->
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Code</th>
+            <th scope="col">Project Name</th>
+            <th scope="col">Client</th>
+            <th scope="col">Status</th>
+            <th scope="col">Billable</th>
+            <th scope="col">Budget</th>
+            <th scope="col">Start Date</th>
+            <th scope="col">End Date</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let project of paginatedProjects(); trackBy: trackByProjectId">
+            <td class="fw-bold">{{ project.code }}</td>
+            <td>{{ project.name }}</td>
+            <td>{{ getClientName(project.clientId, project) }}</td>
+            <td>
+              <span class="badge" [class]="getStatusBadgeClass(project.status)">
+                {{ project.status }}
+              </span>
+            </td>
+            <td>
+              <i class="bi" [class.bi-check-circle-fill]="project.billable" 
+                 [class.bi-x-circle]="!project.billable"
+                 [class.text-success]="project.billable" 
+                 [class.text-muted]="!project.billable"></i>
+              {{ project.billable ? 'Yes' : 'No' }}
+            </td>
+            <td>
+              <div *ngIf="project.budgetHours || project.budgetCost; else noBudget">
+                <small class="text-muted d-block" *ngIf="project.budgetHours">
+                  {{ project.budgetHours | number:'1.0-2' }} hours
+                </small>
+                <small class="text-muted d-block" *ngIf="project.budgetCost">
+                  ${{ project.budgetCost | number:'1.2-2' }}
+                </small>
+              </div>
+              <ng-template #noBudget>
+                <span class="text-muted">-</span>
+              </ng-template>
+            </td>
+            <td>
+              {{ project.startDate || '-' }}
+            </td>
+            <td>
+              {{ project.endDate || '-' }}
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-primary" 
+                        (click)="openEditModal(project)" 
+                        title="Edit project">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" 
+                        (click)="deleteProject(project)" 
+                        title="Delete project">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Loading State -->
+    <div class="text-center py-4" *ngIf="loading()">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <div class="mt-2 text-muted">Loading projects...</div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="text-center py-5" *ngIf="!loading() && filteredProjects().length === 0">
+      <i class="bi bi-folder2-open display-1 text-muted"></i>
+      <div class="mt-3">
+        <h5 class="text-muted">No projects found</h5>
+        <p class="text-muted mb-3">{{ searchTerm() || statusFilter() ? 'Try adjusting your filters' : 'Get started by adding your first project' }}</p>
+        <button class="btn btn-primary" (click)="openCreateModal()" *ngIf="!searchTerm() && !statusFilter()">
+          <i class="bi bi-plus-circle"></i> Add First Project
+        </button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center p-3 border-top" *ngIf="filteredProjects().length > 0">
+      <div class="text-muted">
+        Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), filteredProjects().length) }} of {{ filteredProjects().length }} projects
+      </div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="pageIndex() === 0">
+            <button class="page-link" (click)="previousPage()" [disabled]="pageIndex() === 0">
+              Previous
+            </button>
+          </li>
+          <li class="page-item" 
+              *ngFor="let page of getPageNumbers()" 
+              [class.active]="page === pageIndex()">
+            <button class="page-link" (click)="goToPage(page)">
+              {{ page + 1 }}
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="pageIndex() >= totalPages() - 1">
+            <button class="page-link" (click)="nextPage()" [disabled]="pageIndex() >= totalPages() - 1">
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- Project Form Modal -->
+<div class="modal-backdrop fade show" *ngIf="showModal()" (click)="closeModal()"></div>
+<div class="modal fade show" [style.display]="showModal() ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" *ngIf="showModal()">
+  <div class="modal-dialog modal-lg" role="document" (click)="$event.stopPropagation()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ editingProject() ? 'Edit Project' : 'Add New Project' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeModal()"></button>
+      </div>
+      <form [formGroup]="projectForm" (ngSubmit)="onSubmit()">
+        <div class="modal-body">
+          <div class="row g-3">
+            <!-- Basic Information -->
+            <div class="col-12">
+              <h6 class="text-muted border-bottom pb-2">Basic Information</h6>
+            </div>
+            
+            <div class="col-md-6">
+              <label class="form-label">Project Code <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" formControlName="code" 
+                     [class.is-invalid]="isFieldInvalid('code')" placeholder="e.g., PROJ001">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('code')">
+                {{ getFieldError('code') }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Status <span class="text-danger">*</span></label>
+              <select class="form-select" formControlName="status" 
+                      [class.is-invalid]="isFieldInvalid('status')">
+                <option value="ACTIVE">Active</option>
+                <option value="ON_HOLD">On Hold</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('status')">
+                {{ getFieldError('status') }}
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Project Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" formControlName="name" 
+                     [class.is-invalid]="isFieldInvalid('name')" placeholder="Enter project name">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('name')">
+                {{ getFieldError('name') }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Client <span class="text-danger">*</span></label>
+              <select class="form-select" formControlName="clientId" 
+                      [class.is-invalid]="isFieldInvalid('clientId')">
+                <option value="">Select a client</option>
+                <option *ngFor="let client of clients()" [value]="client.clientId">
+                  {{ client.name }}
+                </option>
+              </select>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('clientId')">
+                {{ getFieldError('clientId') }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Default Approver</label>
+              <select class="form-select" formControlName="defaultApprover">
+                <option value="">No default approver</option>
+                <option *ngFor="let user of users()" [value]="user.userId">
+                  {{ user.firstName }} {{ user.lastName }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Project Settings -->
+            <div class="col-12 mt-4">
+              <h6 class="text-muted border-bottom pb-2">Project Settings</h6>
+            </div>
+
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" formControlName="billable" id="billableCheck">
+                <label class="form-check-label" for="billableCheck">
+                  Billable Project
+                </label>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <!-- Placeholder for alignment -->
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Start Date</label>
+              <input type="date" class="form-control" formControlName="startDate">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">End Date</label>
+              <input type="date" class="form-control" formControlName="endDate">
+            </div>
+
+            <!-- Budget Information -->
+            <div class="col-12 mt-4">
+              <h6 class="text-muted border-bottom pb-2">Budget Information</h6>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Budget Hours</label>
+              <input type="number" class="form-control" formControlName="budgetHours" 
+                     [class.is-invalid]="isFieldInvalid('budgetHours')" 
+                     placeholder="0.00" step="0.01" min="0">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('budgetHours')">
+                {{ getFieldError('budgetHours') }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Budget Cost ($)</label>
+              <input type="number" class="form-control" formControlName="budgetCost" 
+                     [class.is-invalid]="isFieldInvalid('budgetCost')" 
+                     placeholder="0.00" step="0.01" min="0">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('budgetCost')">
+                {{ getFieldError('budgetCost') }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="projectForm.invalid">
+            <i class="bi bi-check-circle"></i>
+            {{ editingProject() ? 'Update Project' : 'Create Project' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

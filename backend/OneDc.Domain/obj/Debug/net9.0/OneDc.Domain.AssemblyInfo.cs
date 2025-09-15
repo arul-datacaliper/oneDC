@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OneDc.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6c3d74ca2f447b5f9d1935f63dc7b09174310625")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+856ce0527ccc4679e36464289cd38412c861175a")]
 [assembly: System.Reflection.AssemblyProductAttribute("OneDc.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OneDc.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

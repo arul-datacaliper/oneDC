@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-import { ApprovalsService, ApprovalRow } from '../../core/services/approvals.service';
+import { ApprovalsService, ApprovalRow, TimesheetStatus } from '../../core/services/approvals.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
 import { ToastrService } from 'ngx-toastr';
@@ -42,6 +42,9 @@ export class ApprovalsComponent implements OnInit {
   pageSize = signal<number>(10);
   pageIndex = signal<number>(0);
   total = computed(() => this.allRows().reduce((s, r) => s + (r.hours || 0), 0));
+  pendingCount = computed(() => this.allRows().filter(r => r.status === 'SUBMITTED').length);
+  rejectedCount = computed(() => this.allRows().filter(r => r.status === 'REJECTED').length);
+  pendingHours = computed(() => this.allRows().filter(r => r.status === 'SUBMITTED').reduce((s, r) => s + (r.hours || 0), 0));
 
   selection = new SelectionModel<ApprovalRow>(true, []);
   processing = signal<boolean>(false);
@@ -121,15 +124,17 @@ export class ApprovalsComponent implements OnInit {
 
   // bulk actions
   isAllSelected() {
+    const submittedRows = this.pageRows().filter(r => r.status === 'SUBMITTED');
     const numSelected = this.selection.selected.length;
-    const numRows = this.pageRows().length;
-    return numSelected === numRows && numRows > 0;
+    const numSubmitted = submittedRows.length;
+    return numSelected === numSubmitted && numSubmitted > 0;
   }
   toggleAll() {
+    const submittedRows = this.pageRows().filter(r => r.status === 'SUBMITTED');
     if (this.isAllSelected()) {
       this.selection.clear();
     } else {
-      this.pageRows().forEach(r => this.selection.select(r));
+      submittedRows.forEach(r => this.selection.select(r));
     }
   }
   bulkApprove() {
@@ -277,6 +282,28 @@ export class ApprovalsComponent implements OnInit {
     return u ? `${u.firstName} ${u.lastName}` : uid;
   }
   iso(d: Date) { return d.toISOString().slice(0,10); }
+
+  getStatusLabel(status: TimesheetStatus): string {
+    return status;
+  }
+
+  getStatusClass(status: TimesheetStatus): string {
+    switch (status) {
+      case 'DRAFT': return 'badge bg-secondary';
+      case 'SUBMITTED': return 'badge bg-warning';
+      case 'APPROVED': return 'badge bg-success';
+      case 'REJECTED': return 'badge bg-danger';
+      case 'LOCKED': return 'badge bg-info';
+      default: return 'badge bg-secondary';
+    }
+  }
+
+  getStatusTooltip(row: ApprovalRow): string {
+    if (row.status === 'REJECTED' && row.approverComment) {
+      return `Rejected: ${row.approverComment}`;
+    }
+    return row.status;
+  }
 }
 
 function startOfWeek(d: Date) {

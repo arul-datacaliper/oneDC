@@ -31,4 +31,19 @@ public class ProjectsController : ControllerBase
         var created = await _svc.CreateAsync(project);
         return CreatedAtAction(nameof(GetById), new { id = created.ProjectId }, created);
     }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] Project project)
+    {
+        project.ProjectId = id; // Ensure the ID matches the route
+        var updated = await _svc.UpdateAsync(project);
+        return updated is null ? NotFound() : Ok(updated);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var success = await _svc.DeleteAsync(id);
+        return success ? NoContent() : NotFound();
+    }
 }

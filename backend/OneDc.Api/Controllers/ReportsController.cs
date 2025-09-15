@@ -33,20 +33,30 @@ public class ReportsController : ControllerBase
     return File(bytes, "text/csv", $"utilization_{from:yyyyMMdd}_{to:yyyyMMdd}.csv");
   }
     
-    // GET api/reports/missing-timesheets?from=YYYY-MM-DD&to=YYYY-MM-DD&skipWeekends=true&holidayRegion=IN
+    // GET api/reports/missing-timesheets?from=YYYY-MM-DD&to=YYYY-MM-DD&userId=Guid&skipWeekends=true
     [HttpGet("missing-timesheets")]
-    public async Task<IActionResult> Missing([FromQuery] DateOnly from, [FromQuery] DateOnly to,
-                                             [FromQuery] bool skipWeekends = true,
-                                             [FromQuery] string? holidayRegion = null)
-        => Ok(await _compSvc.MissingTimesheetsAsync(from, to, skipWeekends, holidayRegion));
+    public async Task<IActionResult> GetMissingTimesheets(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] Guid? userId = null,
+        [FromQuery] bool skipWeekends = true)
+    {
+        var report = await _utilSvc.GetMissingTimesheetsReportAsync(from, to, userId, skipWeekends);
+        return Ok(report);
+    }
 
-    // GET api/reports/missing-timesheets.csv?from=...&to=...
+    // GET api/reports/missing-timesheets.csv
     [HttpGet("missing-timesheets.csv")]
-    public async Task<IActionResult> MissingCsv([FromQuery] DateOnly from, [FromQuery] DateOnly to,
-                                                [FromQuery] bool skipWeekends = true,
-                                                [FromQuery] string? holidayRegion = null)
-        => File(await _compSvc.MissingTimesheetsCsvAsync(from, to, skipWeekends, holidayRegion),
-                "text/csv", $"missing_timesheets_{from:yyyyMMdd}_{to:yyyyMMdd}.csv");
+    public async Task<IActionResult> GetMissingTimesheetsCsv(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] Guid? userId = null,
+        [FromQuery] bool skipWeekends = true)
+    {
+        var csvData = await _utilSvc.GetMissingTimesheetsCsvAsync(from, to, userId, skipWeekends);
+        var fileName = $"missing-timesheets-{from:yyyy-MM-dd}-{to:yyyy-MM-dd}.csv";
+        return File(csvData, "text/csv", fileName);
+    }
 
     // GET api/reports/overtime?from=YYYY-MM-DD&to=YYYY-MM-DD&cap=12
     [HttpGet("overtime")]
@@ -60,5 +70,57 @@ public class ReportsController : ControllerBase
                                                  [FromQuery] decimal cap = 12)
         => File(await _compSvc.OvertimeCsvAsync(from, to, cap),
                 "text/csv", $"overtime_{from:yyyyMMdd}_{to:yyyyMMdd}.csv");
+
+    // GET api/reports/project-utilization
+    [HttpGet("project-utilization")]
+    public async Task<IActionResult> GetProjectUtilization(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] string groupBy = "project",
+        [FromQuery] Guid? projectId = null,
+        [FromQuery] Guid? userId = null)
+    {
+        var report = await _utilSvc.GetProjectUtilizationReportAsync(from, to, groupBy, projectId, userId);
+        return Ok(report);
+    }
+
+    // GET api/reports/project-utilization.csv
+    [HttpGet("project-utilization.csv")]
+    public async Task<IActionResult> GetProjectUtilizationCsv(
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] string groupBy = "project",
+        [FromQuery] Guid? projectId = null,
+        [FromQuery] Guid? userId = null)
+    {
+        var csvData = await _utilSvc.GetProjectUtilizationCsvAsync(from, to, groupBy, projectId, userId);
+        var fileName = $"project-utilization-{from:yyyy-MM-dd}-{to:yyyy-MM-dd}.csv";
+        return File(csvData, "text/csv", fileName);
+    }
+
+    // GET api/reports/project-burndown
+    [HttpGet("project-burndown")]
+    public async Task<IActionResult> GetProjectBurndown(
+        [FromQuery] Guid projectId,
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] string interval = "week")
+    {
+        var report = await _utilSvc.GetProjectBurndownReportAsync(projectId, from, to, interval);
+        return Ok(report);
+    }
+
+    // GET api/reports/project-burndown.csv
+    [HttpGet("project-burndown.csv")]
+    public async Task<IActionResult> GetProjectBurndownCsv(
+        [FromQuery] Guid projectId,
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] string interval = "week")
+    {
+        var csvData = await _utilSvc.GetProjectBurndownCsvAsync(projectId, from, to, interval);
+        var fileName = $"project-burndown-{projectId}-{from:yyyy-MM-dd}-{to:yyyy-MM-dd}.csv";
+        return File(csvData, "text/csv", fileName);
+    }
 }
 

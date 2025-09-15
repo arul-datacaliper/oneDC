@@ -12,9 +12,11 @@ public class ApprovalRepository : IApprovalRepository
 
     public async Task<IEnumerable<TimesheetEntry>> GetPendingForApproverAsync(Guid approverId, DateOnly from, DateOnly to)
     {
-        // Shows SUBMITTED entries where the Project.DefaultApprover is this approver
+        // Shows SUBMITTED and REJECTED entries where the Project.DefaultApprover is this approver
         return await _db.TimesheetEntries
-            .Where(t => t.Status == TimesheetStatus.SUBMITTED
+            .Include(t => t.User)
+            .Include(t => t.Project)
+            .Where(t => (t.Status == TimesheetStatus.SUBMITTED || t.Status == TimesheetStatus.REJECTED)
                      && t.WorkDate >= from && t.WorkDate <= to)
             .Join(_db.Projects,
                   t => t.ProjectId,

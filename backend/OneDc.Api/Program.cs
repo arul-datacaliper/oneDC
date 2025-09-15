@@ -34,6 +34,8 @@ builder.Services.AddScoped<ILockRepository, LockRepository>();
 builder.Services.AddScoped<ILockService, LockService>();
 builder.Services.AddScoped<IUnlockRepository, UnlockRepository>();
 builder.Services.AddScoped<IUnlockService, UnlockService>();
+builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
+builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
 
 

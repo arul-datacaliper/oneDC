@@ -59,7 +59,16 @@
           </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-2">
+          <label class="form-label">Task Type *</label>
+          <select class="form-select" [formControl]="newRow.controls.taskType">
+            <option *ngFor="let type of taskTypes" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
           <label class="form-label">Description</label>
           <input type="text" class="form-control" [formControl]="newRow.controls.description" />
         </div>
@@ -104,6 +113,7 @@
             <th>Date</th>
             <th>Project</th>
             <th>Hours</th>
+            <th>Task Type</th>
             <th>Description</th>
             <th>Ticket</th>
             <th>Status</th>
@@ -117,23 +127,33 @@
               <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
             </td>
             <td>
-              <input [readonly]="!isDraft(g.get('status')!.value)"
+              <input [readonly]="!isEditable(g.get('status')!.value)"
                      class="form-control form-control-sm"
                      type="number" min="0" max="24" step="0.25"
                      [value]="g.get('hours')!.value"
-                     (input)="g.get('hours')!.setValue($event.target.value)" />
+                     (input)="onFieldChange(g, 'hours', $any($event.target).value)" />
             </td>
             <td>
-              <input [readonly]="!isDraft(g.get('status')!.value)"
+              <select [disabled]="!isEditable(g.get('status')!.value)"
+                      class="form-select form-select-sm"
+                      [value]="g.get('taskType')!.value"
+                      (change)="onFieldChange(g, 'taskType', +$any($event.target).value)">
+                <option *ngFor="let type of taskTypes" [value]="type.value">
+                  {{ type.label }}
+                </option>
+              </select>
+            </td>
+            <td>
+              <input [readonly]="!isEditable(g.get('status')!.value)"
                      class="form-control form-control-sm" 
                      [value]="g.get('description')!.value"
-                     (input)="g.get('description')!.setValue($event.target.value)" />
+                     (input)="onFieldChange(g, 'description', $any($event.target).value)" />
             </td>
             <td>
-              <input [readonly]="!isDraft(g.get('status')!.value)"
+              <input [readonly]="!isEditable(g.get('status')!.value)"
                      class="form-control form-control-sm" 
                      [value]="g.get('ticketRef')!.value"
-                     (input)="g.get('ticketRef')!.setValue($event.target.value)" />
+                     (input)="onFieldChange(g, 'ticketRef', $any($event.target).value)" />
             </td>
             <td>
               <span class="badge" [ngClass]="statusClass(g.get('status')!.value)">
@@ -143,17 +163,17 @@
             <td class="text-center">
               <div class="btn-group" role="group">
                 <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
-                        [disabled]="!isDraft(g.get('status')!.value) || !g.get('dirty')!.value"
+                        [disabled]="!isEditable(g.get('status')!.value) || !g.get('dirty')!.value"
                         title="Save changes">
                   <i class="bi bi-save"></i>
                 </button>
                 <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
-                        [disabled]="!isDraft(g.get('status')!.value)"
-                        title="Submit for approval">
+                        [disabled]="!isEditable(g.get('status')!.value) || g.get('dirty')!.value"
+                        title="Submit for approval (save changes first)">
                   <i class="bi bi-send"></i>
                 </button>
                 <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
-                        [disabled]="!isDraft(g.get('status')!.value)" 
+                        [disabled]="!isEditable(g.get('status')!.value)" 
                         title="Delete entry">
                   <i class="bi bi-trash"></i>
                 </button>

@@ -18,6 +18,7 @@ export interface ApprovalRow {
   ticketRef?: string;
   status: TimesheetStatus;
   submittedAt?: string;
+  approverComment?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -37,8 +38,8 @@ export class ApprovalsService {
     return this.http.post(`${this.base}/approvals/${entryId}/approve`, {});
   }
 
-  reject(entryId: string, reason: string) {
-    return this.http.post(`${this.base}/approvals/${entryId}/reject`, { reason });
+  reject(entryId: string, reason: string): Observable<any> {
+    return this.http.post(`${this.base}/approvals/${entryId}/reject`, { Comment: reason });
   }
    bulkApprove(ids: string[]): Observable<unknown> {
     return forkJoin(ids.map(id => this.approve(id)));

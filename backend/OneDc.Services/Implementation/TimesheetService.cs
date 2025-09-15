@@ -49,7 +49,8 @@ public class TimesheetService : ITimesheetService
     {
         var entry = await _repo.GetByIdAsync(entryId) ?? throw new InvalidOperationException("Entry not found.");
         if (entry.UserId != userId) throw new UnauthorizedAccessException("Cannot edit another user's timesheet.");
-        if (entry.Status != TimesheetStatus.DRAFT) throw new InvalidOperationException("Only DRAFT entries can be edited.");
+        if (entry.Status != TimesheetStatus.DRAFT && entry.Status != TimesheetStatus.REJECTED) 
+            throw new InvalidOperationException("Only DRAFT and REJECTED entries can be edited.");
 
         ValidateHours(dto.Hours);
         RequireDescriptionIfHours(dto.Hours, dto.Description);
@@ -68,7 +69,8 @@ public class TimesheetService : ITimesheetService
     {
         var entry = await _repo.GetByIdAsync(entryId) ?? throw new InvalidOperationException("Entry not found.");
         if (entry.UserId != userId) throw new UnauthorizedAccessException("Cannot submit another user's timesheet.");
-        if (entry.Status != TimesheetStatus.DRAFT) throw new InvalidOperationException("Only DRAFT entries can be submitted.");
+        if (entry.Status != TimesheetStatus.DRAFT && entry.Status != TimesheetStatus.REJECTED) 
+            throw new InvalidOperationException("Only DRAFT and REJECTED entries can be submitted.");
         RequireDescriptionIfHours(entry.Hours, entry.Description);
 
         entry.Status = TimesheetStatus.SUBMITTED;

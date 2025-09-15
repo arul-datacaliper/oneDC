@@ -51,8 +51,11 @@
     </div>
 
     <div class="totals mb-3">
-      <span class="badge bg-primary-subtle text-primary fs-6">
-        <i class="bi bi-clock-history"></i> Pending: {{ allRows().length }} entries · {{ total() | number:'1.0-2' }} h
+      <span class="badge bg-primary-subtle text-primary fs-6 me-2">
+        <i class="bi bi-clock-history"></i> Pending: {{ pendingCount() }} entries · {{ pendingHours() | number:'1.0-2' }} h
+      </span>
+      <span class="badge bg-danger-subtle text-danger fs-6" *ngIf="rejectedCount() > 0">
+        <i class="bi bi-x-circle"></i> Rejected: {{ rejectedCount() }} entries
       </span>
     </div>
 
@@ -94,7 +97,7 @@
         <tbody>
           <tr *ngFor="let r of pageRows()">
             <td class="text-center">
-              <div class="form-check">
+              <div class="form-check" *ngIf="r.status === 'SUBMITTED'">
                 <input class="form-check-input" type="checkbox"
                        (click)="$event.stopPropagation()"
                        (change)="$event ? selection.toggle(r) : null"
@@ -107,15 +110,22 @@
             <td>{{ r.hours | number:'1.0-2' }}</td>
             <td>{{ r.description }}</td>
             <td>{{ r.ticketRef }}</td>
-            <td><span class="badge bg-warning">SUBMITTED</span></td>
+            <td>
+              <span [class]="getStatusClass(r.status)" [title]="getStatusTooltip(r)">
+                {{ getStatusLabel(r.status) }}
+              </span>
+            </td>
             <td class="actions">
-              <div class="btn-group" role="group">
+              <div class="btn-group" role="group" *ngIf="r.status === 'SUBMITTED'">
                 <button class="btn btn-sm btn-outline-primary" (click)="approve(r)" [disabled]="processing()">
                   <i class="bi bi-check-circle"></i> Approve
                 </button>
                 <button class="btn btn-sm btn-danger" (click)="reject(r)" [disabled]="processing()">
                   <i class="bi bi-x-circle"></i> Reject
                 </button>
+              </div>
+              <div *ngIf="r.status === 'REJECTED'" class="text-muted small">
+                <i class="bi bi-info-circle"></i> Already processed
               </div>
             </td>
           </tr>

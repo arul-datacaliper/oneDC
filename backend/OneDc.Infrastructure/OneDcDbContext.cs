@@ -15,6 +15,8 @@ public class OneDcDbContext : DbContext
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<UserSkill> UserSkills => Set<UserSkill>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -98,6 +100,7 @@ public class OneDcDbContext : DbContext
 
             e.Property(x => x.Hours).HasPrecision(4, 2);
             e.Property(x => x.Status).IsRequired();
+            e.Property(x => x.TaskType).IsRequired();
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -130,6 +133,52 @@ public class OneDcDbContext : DbContext
             e.ToTable("audit_log");
             e.HasKey(x => x.AuditLogId);
             e.HasIndex(x => new { x.Entity, x.EntityId, x.At });
+        });
+
+        // ===== UserProfile =====
+        b.Entity<UserProfile>(e =>
+        {
+            e.ToTable("user_profile");
+            e.HasKey(x => x.UserProfileId);
+            e.Property(x => x.Bio).HasMaxLength(1000);
+            e.Property(x => x.Department).HasMaxLength(100);
+            e.Property(x => x.JobTitle).HasMaxLength(100);
+            e.Property(x => x.PhoneNumber).HasMaxLength(20);
+            e.Property(x => x.Location).HasMaxLength(100);
+            e.Property(x => x.EmployeeId).HasMaxLength(50);
+            e.Property(x => x.ReportingManager).HasMaxLength(150);
+            e.Property(x => x.EducationBackground).HasMaxLength(500);
+            e.Property(x => x.Certifications).HasMaxLength(1000);
+            e.Property(x => x.LinkedInProfile).HasMaxLength(200);
+            e.Property(x => x.GitHubProfile).HasMaxLength(200);
+            e.Property(x => x.ProfilePhotoUrl).HasMaxLength(500);
+            
+            // One-to-one relationship with AppUser
+            e.HasOne(p => p.User)
+             .WithOne()
+             .HasForeignKey<UserProfile>(p => p.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+             
+            e.HasIndex(x => x.UserId).IsUnique();
+        });
+
+        // ===== UserSkill =====
+        b.Entity<UserSkill>(e =>
+        {
+            e.ToTable("user_skill");
+            e.HasKey(x => x.UserSkillId);
+            e.Property(x => x.SkillName).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Level).IsRequired();
+            e.Property(x => x.YearsOfExperience).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(500);
+            
+            // Many-to-one relationship with AppUser
+            e.HasOne(s => s.User)
+             .WithMany()
+             .HasForeignKey(s => s.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+             
+            e.HasIndex(x => new { x.UserId, x.SkillName }).IsUnique();
         });
     }
 }

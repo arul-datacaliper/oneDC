@@ -1,0 +1,318 @@
+<div class="user-management-container">
+  <!-- Header -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h4 class="card-title mb-2">
+            <i class="bi bi-people-fill"></i> User Management
+          </h4>
+          <p class="text-muted mb-0">
+            Manage system users, roles, and access permissions
+          </p>
+        </div>
+        <div class="col-md-4 text-end">
+          <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+            <i class="bi bi-person-plus"></i> Add New User
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title">Total Users</h6>
+              <h3 class="mb-0">{{ users().length }}</h3>
+            </div>
+            <i class="bi bi-people display-4 opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title">Active Users</h6>
+              <h3 class="mb-0">{{ activeUsers().length }}</h3>
+            </div>
+            <i class="bi bi-person-check display-4 opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title">Inactive Users</h6>
+              <h3 class="mb-0">{{ inactiveUsers().length }}</h3>
+            </div>
+            <i class="bi bi-person-x display-4 opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="card" *ngIf="loading()">
+    <div class="card-body text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-3 text-muted">Loading users...</p>
+    </div>
+  </div>
+
+  <!-- Users Table -->
+  <div class="card" *ngIf="!loading()">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="bi bi-list"></i> All Users
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive" *ngIf="users().length > 0">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users()">
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="user-avatar me-3">
+                    <i class="bi bi-person-circle fs-2 text-muted"></i>
+                  </div>
+                  <div>
+                    <div class="fw-medium">{{ user.firstName }} {{ user.lastName }}</div>
+                    <small class="text-muted">ID: {{ user.userId.substring(0, 8) }}...</small>
+                  </div>
+                </div>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>
+                <span class="badge" [ngClass]="getRoleBadgeClass(user.role)">
+                  {{ getRoleDisplayName(user.role) }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="user.isActive ? 'bg-success' : 'bg-danger'">
+                  {{ user.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td>
+                <small>{{ user.createdAt | date:'short' }}</small>
+              </td>
+              <td>
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-sm btn-outline-primary" 
+                          (click)="openEditModal(user)" title="Edit User">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm" 
+                          [ngClass]="user.isActive ? 'btn-outline-warning' : 'btn-outline-success'"
+                          (click)="toggleUserStatus(user)" 
+                          [title]="user.isActive ? 'Deactivate User' : 'Activate User'">
+                    <i class="bi" [ngClass]="user.isActive ? 'bi-pause' : 'bi-play'"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" 
+                          (click)="deleteUser(user)" title="Delete User">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="text-center py-5" *ngIf="users().length === 0">
+        <i class="bi bi-people display-1 text-muted"></i>
+        <h6 class="text-muted mt-3">No users found</h6>
+        <p class="text-muted">Start by creating your first user.</p>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+          <i class="bi bi-person-plus"></i> Create First User
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" [class.show]="showCreateModal()" [style.display]="showCreateModal() ? 'block' : 'none'"
+     *ngIf="showCreateModal()">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-person-plus"></i> Create New User
+        </h5>
+        <button type="button" class="btn-close" (click)="closeCreateModal()"></button>
+      </div>
+      
+      <form [formGroup]="createUserForm" (ngSubmit)="createUser()">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Email <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" formControlName="email"
+                   [class.is-invalid]="isFieldInvalid(createUserForm, 'email')"
+                   placeholder="user@company.com">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(createUserForm, 'email')">
+              {{ getFieldError(createUserForm, 'email') }}
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">First Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="firstName"
+                       [class.is-invalid]="isFieldInvalid(createUserForm, 'firstName')"
+                       placeholder="John">
+                <div class="invalid-feedback" *ngIf="isFieldInvalid(createUserForm, 'firstName')">
+                  {{ getFieldError(createUserForm, 'firstName') }}
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="lastName"
+                       [class.is-invalid]="isFieldInvalid(createUserForm, 'lastName')"
+                       placeholder="Doe">
+                <div class="invalid-feedback" *ngIf="isFieldInvalid(createUserForm, 'lastName')">
+                  {{ getFieldError(createUserForm, 'lastName') }}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Role <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="role"
+                    [class.is-invalid]="isFieldInvalid(createUserForm, 'role')">
+              <option *ngFor="let role of userRoles()" [value]="role.value">
+                {{ role.label }}
+              </option>
+            </select>
+            <div class="form-text">
+              Employees can manage timesheets, Approvers can approve timesheets, Admins have full access.
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeCreateModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="createUserForm.invalid || loading()">
+            <span *ngIf="!loading()">Create User</span>
+            <span *ngIf="loading()">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Creating...
+            </span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" [class.show]="showEditModal()" [style.display]="showEditModal() ? 'block' : 'none'"
+     *ngIf="showEditModal()">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-pencil"></i> Edit User
+        </h5>
+        <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+      </div>
+      
+      <form [formGroup]="editUserForm" (ngSubmit)="updateUser()">
+        <div class="modal-body">
+          <div class="mb-3" *ngIf="editingUser()">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" [value]="editingUser()?.email" readonly>
+            <div class="form-text">Email cannot be changed after user creation.</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">First Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="firstName"
+                       [class.is-invalid]="isFieldInvalid(editUserForm, 'firstName')">
+                <div class="invalid-feedback" *ngIf="isFieldInvalid(editUserForm, 'firstName')">
+                  {{ getFieldError(editUserForm, 'firstName') }}
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="lastName"
+                       [class.is-invalid]="isFieldInvalid(editUserForm, 'lastName')">
+                <div class="invalid-feedback" *ngIf="isFieldInvalid(editUserForm, 'lastName')">
+                  {{ getFieldError(editUserForm, 'lastName') }}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Role <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="role">
+              <option *ngFor="let role of userRoles()" [value]="role.value">
+                {{ role.label }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive">
+            <label class="form-check-label" for="isActive">
+              User is active
+            </label>
+            <div class="form-text">Inactive users cannot access the system.</div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeEditModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="editUserForm.invalid || loading()">
+            <span *ngIf="!loading()">Update User</span>
+            <span *ngIf="loading()">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Updating...
+            </span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal backdrop -->
+<div class="modal-backdrop fade show" *ngIf="showCreateModal() || showEditModal()" 
+     (click)="showCreateModal() ? closeCreateModal() : closeEditModal()"></div>

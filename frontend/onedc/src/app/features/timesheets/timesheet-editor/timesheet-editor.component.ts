@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
 import { ProjectsService } from '../../../core/services/projects.service';
-import { Project, TimesheetEntry } from '../../../shared/models';
+import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 
 
 type Entry = {
@@ -16,6 +16,7 @@ type Entry = {
   hours: number;
   description?: string;
   ticketRef?: string;
+  taskType?: TaskType;
   status: 'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED'|'LOCKED';
 };
 
@@ -53,7 +54,11 @@ export class TimesheetEditorComponent implements OnInit {
   projects = signal<Project[]>([]);
   rows = signal<TimesheetEntry[]>([]);
   loading = signal(false);
-  displayed = ['date','project','hours','description','ticket','status','actions'];
+  displayed = ['date','project','hours','description','ticket','taskType','status','actions'];
+
+  // Task types for dropdown
+  taskTypes = getTaskTypes();
+  getTaskTypeDisplayName = getTaskTypeDisplayName;
 
   // forms
   form = this.fb.group({ items: this.fb.array<FormGroup>([]) });
@@ -65,7 +70,8 @@ export class TimesheetEditorComponent implements OnInit {
     projectId: ['', Validators.required],
     hours: [0, [Validators.min(0), Validators.max(24)]],
     description: [''],
-    ticketRef: ['']
+    ticketRef: [''],
+    taskType: [TaskType.DEV, Validators.required]
   });
 
   onDateChange(event: any) {
@@ -173,6 +179,7 @@ export class TimesheetEditorComponent implements OnInit {
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
       description: [r.description ?? ''],
       ticketRef: [r.ticketRef ?? ''],
+      taskType: [r.taskType ?? TaskType.DEV, Validators.required],
       status: [r.status],
       dirty: [false]
     });
@@ -209,7 +216,8 @@ export class TimesheetEditorComponent implements OnInit {
       workDate: val.workDate as string, // Already in YYYY-MM-DD format
       hours,
       description: val.description?.trim() || undefined,
-      ticketRef: val.ticketRef?.trim() || undefined
+      ticketRef: val.ticketRef?.trim() || undefined,
+      taskType: val.taskType ?? TaskType.DEV
     };
 
     console.log('addRow: DTO to send:', dto); // Debug log
@@ -223,7 +231,8 @@ export class TimesheetEditorComponent implements OnInit {
           projectId: '',
           hours: 0,
           description: '',
-          ticketRef: ''
+          ticketRef: '',
+          taskType: TaskType.DEV
         });
         
         // Instead of manually adding to rows/items, reload the data to ensure consistency
@@ -251,8 +260,8 @@ export class TimesheetEditorComponent implements OnInit {
   saveRow(ix: number) {
     const g = this.items.at(ix);
     if (!g) return;
-    if (!this.isDraft(g.get('status')!.value)) {
-      this.showNotification('Only DRAFT entries can be edited', 'OK', { duration: 2000 });
+    if (!this.isEditable(g.get('status')!.value)) {
+      this.showNotification('Only DRAFT and REJECTED entries can be edited', 'OK', { duration: 2000 });
       return;
     }
     const hours = Number(g.get('hours')!.value);
@@ -264,16 +273,29 @@ export class TimesheetEditorComponent implements OnInit {
     const body = {
       hours,
       description: (g.get('description')!.value || '').trim(),
-      ticketRef: (g.get('ticketRef')!.value || '').trim()
+      ticketRef: (g.get('ticketRef')!.value || '').trim(),
+      taskType: g.get('taskType')!.value ?? TaskType.DEV
     };
     this.tsSvc.update(id, body).subscribe({
       next: (updated: any) => {
-        g.patchValue({ dirty: false, hours: updated.hours, description: updated.description ?? '', ticketRef: updated.ticketRef ?? '' }, { emitEvent: false });
+        g.patchValue({ 
+          dirty: false, 
+          hours: updated.hours, 
+          description: updated.description ?? '', 
+          ticketRef: updated.ticketRef ?? '',
+          taskType: updated.taskType ?? TaskType.DEV
+        }, { emitEvent: false });
         
         // Update the rows signal to reflect the saved changes
         this.rows.update(rows => rows.map(row => 
           row.entryId === id 
-            ? { ...row, hours: updated.hours, description: updated.description ?? '', ticketRef: updated.ticketRef ?? '' }
+            ? { 
+                ...row, 
+                hours: updated.hours, 
+                description: updated.description ?? '', 
+                ticketRef: updated.ticketRef ?? '',
+                taskType: updated.taskType ?? TaskType.DEV
+              }
             : row
         ));
         
@@ -286,8 +308,8 @@ export class TimesheetEditorComponent implements OnInit {
   submitRow(ix: number) {
     const g = this.items.at(ix);
     if (!g) return;
-    if (!this.isDraft(g.get('status')!.value)) {
-      this.showNotification('Only DRAFT entries can be submitted', 'OK', { duration: 2000 });
+    if (!this.isEditable(g.get('status')!.value)) {
+      this.showNotification('Only DRAFT and REJECTED entries can be submitted', 'OK', { duration: 2000 });
       return;
     }
     const id = g.get('entryId')!.value as string;
@@ -308,12 +330,12 @@ export class TimesheetEditorComponent implements OnInit {
     });
   }
 
-  // (optional) delete a DRAFT row
+  // (optional) delete a DRAFT or REJECTED row
   deleteRow(ix: number) {
     const g = this.items.at(ix);
     if (!g) return;
-    if (!this.isDraft(g.get('status')!.value)) {
-      this.showNotification('Only DRAFT entries can be deleted', 'OK', { duration: 2000 });
+    if (!this.isEditable(g.get('status')!.value)) {
+      this.showNotification('Only DRAFT and REJECTED entries can be deleted', 'OK', { duration: 2000 });
       return;
     }
     const id = g.get('entryId')!.value as string;
@@ -425,5 +447,16 @@ export class TimesheetEditorComponent implements OnInit {
 
   isDraft(status: any) {
     return this.statusLabel(status) === 'DRAFT';
+  }
+
+  // Allow editing for both DRAFT and REJECTED entries
+  isEditable(status: any) {
+    const statusText = this.statusLabel(status);
+    return statusText === 'DRAFT' || statusText === 'REJECTED';
+  }
+
+  onFieldChange(formGroup: FormGroup, fieldName: string, value: any) {
+    formGroup.get(fieldName)!.setValue(value);
+    formGroup.get('dirty')!.setValue(true, { emitEvent: false });
   }
 }
