@@ -3,6 +3,14 @@
   margin: 0 auto;
   padding: 1rem;
 
+  // Bootstrap dashboard styling (matching dashboard component)
+  --bs-primary-rgb: 45, 63, 159;
+  --bs-success-rgb: 25, 135, 84;
+  --bs-warning-rgb: 255, 193, 7;
+  --bs-info-rgb: 13, 202, 240;
+  --bs-secondary-rgb: 108, 117, 125;
+  --custom-primary: #2d3f9f;
+
   .card {
     border: 1px solid #e3e6f0;
     border-radius: 0.5rem;
@@ -31,25 +39,50 @@
   }
 }
 
-// Statistics Cards
-.card.bg-primary,
-.card.bg-success,
-.card.bg-warning {
-  border: none;
+// Stat cards styling (matching dashboard)
+.stat-card {
+  transition: all 0.3s ease;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+  border: none !important; // Remove default border to show only the colored left border
+  width: 200px; // Fixed width for consistency
+  
+  &:hover {
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+  }
+  
+  // Override any inherited border styles
+  &.border-start {
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+  }
   
   .card-body {
-    padding: 1.5rem;
+    padding: 1rem;
   }
   
   .card-title {
-    font-weight: 600;
+    font-size: 0.8125rem;
+    font-weight: 500;
     margin-bottom: 0.5rem;
-    opacity: 0.9;
+    
+    i {
+      font-size: 1rem;
+    }
   }
   
-  h3 {
+  .stat-value {
+    font-size: 1.75rem;
     font-weight: 700;
-    font-size: 2rem;
+    line-height: 1.2;
+    margin: 0.25rem 0 0.5rem 0;
+  }
+  
+  .card-subtitle {
+    font-size: 0.6875rem;
+    margin: 0;
+    opacity: 0.8;
   }
 }
 
