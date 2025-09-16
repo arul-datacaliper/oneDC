@@ -64,7 +64,7 @@
               <td>{{ t.estimatedHours || '-' }}</td>
               <td>{{ t.startDate || '-' }}</td>
               <td>{{ t.endDate || '-' }}</td>
-              <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ t.status }}</span></td>
+              <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">
                   <button class="btn btn-outline-primary" (click)="openEdit(t)"><i class="bi bi-pencil"></i></button>

@@ -66,4 +66,15 @@ export class TasksService {
       default: return 'badge bg-secondary';
     }
   }
+
+  statusLabel(s: TaskStatus) {
+    switch (s) {
+      case 'NEW': return 'New';
+      case 'IN_PROGRESS': return 'In Progress';
+      case 'BLOCKED': return 'Blocked';
+      case 'COMPLETED': return 'Completed';
+      case 'CANCELLED': return 'Cancelled';
+      default: return 'Unknown';
+    }
+  }
 }

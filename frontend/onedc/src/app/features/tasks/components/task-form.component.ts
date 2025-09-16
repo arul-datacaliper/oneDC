@@ -94,15 +94,13 @@ export class TaskFormComponent {
         endDate: this.task.endDate || '',
         status: this.task.status
       });
-      if (this.mode === 'edit') {
-        this.form.get('status')?.enable();
-      }
+    }
+    
+    // Enable/disable status field based on mode
+    if (this.mode === 'edit') {
+      this.form.get('status')?.enable();
     } else {
-      if (this.mode === 'edit') {
-        this.form.get('status')?.enable();
-      } else {
-        this.form.get('status')?.disable();
-      }
+      this.form.get('status')?.disable();
     }
   }
 
