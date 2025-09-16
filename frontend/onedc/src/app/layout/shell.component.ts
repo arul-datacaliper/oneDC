@@ -3,17 +3,11 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BreakpointObserver, Breakpoints, LayoutModule } from '@angular/cdk/layout';
 
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatListModule } from '@angular/material/list';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+// Keep only essential Material modules for dialog functionality
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+
+// Bootstrap Toast Integration
+import { ToastrService } from 'ngx-toastr';
 
 import { environment } from '../../environments/environment';
 import { DevUserDialogComponent } from './widgets/dev-user-dialog/dev-user-dialog.component';
@@ -22,17 +16,17 @@ import { DevUserDialogComponent } from './widgets/dev-user-dialog/dev-user-dialo
   selector: 'app-shell',
   standalone: true,
   imports: [
- CommonModule, RouterModule, LayoutModule,
-    MatToolbarModule, MatSidenavModule, MatListModule, MatIconModule,
-    MatButtonModule, MatMenuModule, MatTooltipModule, MatBadgeModule, MatDividerModule,
-    MatSnackBarModule, MatDialogModule
+    CommonModule, 
+    RouterModule, 
+    LayoutModule,
+    MatDialogModule
   ],
   templateUrl: './shell.component.html',
   styleUrls: ['./shell.component.scss']
 })
 export class ShellComponent implements OnInit {
   private bp = inject(BreakpointObserver);
-  private snack = inject(MatSnackBar);
+  private toastr = inject(ToastrService);
   private dialog = inject(MatDialog);
 
   isHandset = signal(false);
@@ -59,7 +53,7 @@ export class ShellComponent implements OnInit {
   ngOnInit(): void {
     const devId = localStorage.getItem('debugUserId');
     if (!devId) {
-      this.snack.open('Set Dev User (GUID) from the header menu to call APIs', 'OK', { duration: 4000 });
+      this.toastr.info('Set Dev User (GUID) from the header menu to call APIs', 'Info', { timeOut: 4000 });
     }
   }
 
@@ -72,5 +66,10 @@ export class ShellComponent implements OnInit {
       .afterClosed().subscribe(ok => {
         if (ok) location.reload();
       });
+  }
+
+  logout() {
+    localStorage.removeItem('auth_token');
+    window.location.href = '/login';
   }
 }

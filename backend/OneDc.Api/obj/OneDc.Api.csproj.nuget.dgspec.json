@@ -54,6 +54,10 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[9.0.9, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[9.0.9, )"
@@ -323,6 +327,9 @@
               "/Users/arul/oneDC/oneDC/backend/OneDc.Domain/OneDc.Domain.csproj": {
                 "projectPath": "/Users/arul/oneDC/oneDC/backend/OneDc.Domain/OneDc.Domain.csproj"
               },
+              "/Users/arul/oneDC/oneDC/backend/OneDc.Infrastructure/OneDc.Infrastructure.csproj": {
+                "projectPath": "/Users/arul/oneDC/oneDC/backend/OneDc.Infrastructure/OneDc.Infrastructure.csproj"
+              },
               "/Users/arul/oneDC/oneDC/backend/OneDc.Repository/OneDc.Repository.csproj": {
                 "projectPath": "/Users/arul/oneDC/oneDC/backend/OneDc.Repository/OneDc.Repository.csproj"
               }
@@ -344,6 +351,16 @@
       "frameworks": {
         "net9.0": {
           "targetAlias": "net9.0",
+          "dependencies": {
+            "Microsoft.Extensions.Configuration.Abstractions": {
+              "target": "Package",
+              "version": "[9.0.9, )"
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[8.2.1, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",

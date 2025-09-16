@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Repository.Interfaces;
+using OneDc.Domain.Entities;
 
 namespace OneDc.Repository.Implementation;
 
@@ -25,13 +26,13 @@ public class ReportsRepository : IReportsRepository
         return rows.Select(x => (x.UserId, x.ProjectId, x.Billable, x.Hours));
     }
 
-    public async Task<Dictionary<Guid,(string code,string name,bool billable)>> GetProjectsMetaAsync(IEnumerable<Guid> projectIds)
+    public async Task<Dictionary<Guid,(string code,string name,bool billable,decimal? budgetHours)>> GetProjectsMetaAsync(IEnumerable<Guid> projectIds)
     {
         var ids = projectIds.Distinct().ToList();
         var rows = await _db.Projects.Where(p => ids.Contains(p.ProjectId))
-            .Select(p => new { p.ProjectId, p.Code, p.Name, p.Billable })
+            .Select(p => new { p.ProjectId, p.Code, p.Name, p.Billable, p.BudgetHours })
             .ToListAsync();
-        return rows.ToDictionary(x => x.ProjectId, x => (x.Code, x.Name, x.Billable));
+        return rows.ToDictionary(x => x.ProjectId, x => (x.Code, x.Name, x.Billable, x.BudgetHours));
     }
 
     public async Task<Dictionary<Guid,(string email,string first,string last)>> GetUsersMetaAsync(IEnumerable<Guid> userIds)
@@ -41,5 +42,57 @@ public class ReportsRepository : IReportsRepository
             .Select(u => new { u.UserId, u.Email, u.FirstName, u.LastName })
             .ToListAsync();
         return rows.ToDictionary(x => x.UserId, x => (x.Email, x.FirstName, x.LastName));
+    }
+
+    public async Task<IEnumerable<(DateOnly date, decimal hours)>> GetProjectHoursByDateAsync(Guid projectId, DateOnly from, DateOnly to)
+    {
+        // Get APPROVED + LOCKED entries only for the specific project, grouped by date
+        var rows = await _db.TimesheetEntries
+            .Where(t => t.ProjectId == projectId 
+                     && (t.Status == Domain.Entities.TimesheetStatus.APPROVED
+                      || t.Status == Domain.Entities.TimesheetStatus.LOCKED)
+                     && t.WorkDate >= from && t.WorkDate <= to)
+            .GroupBy(t => t.WorkDate)
+            .Select(g => new { WorkDate = g.Key, TotalHours = g.Sum(t => t.Hours) })
+            .OrderBy(x => x.WorkDate)
+            .ToListAsync();
+
+        return rows.Select(x => (x.WorkDate, x.TotalHours));
+    }
+
+    public async Task<(string code, string name, decimal? budgetHours, DateOnly? startDate, DateOnly? endDate)> GetProjectDetailsAsync(Guid projectId)
+    {
+        var project = await _db.Projects
+            .Where(p => p.ProjectId == projectId)
+            .Select(p => new { p.Code, p.Name, p.BudgetHours, p.StartDate, p.EndDate })
+            .FirstOrDefaultAsync();
+
+        if (project == null)
+            throw new ArgumentException($"Project with ID {projectId} not found");
+
+        return (project.Code, project.Name, project.BudgetHours, project.StartDate, project.EndDate);
+    }
+
+    public async Task<Dictionary<Guid,(string email,string first,string last)>> GetAllActiveUsersAsync()
+    {
+        var activeUsers = await _db.AppUsers
+            .Where(u => u.IsActive) // Assuming there's an IsActive field, adjust as needed
+            .Select(u => new { u.UserId, u.Email, u.FirstName, u.LastName })
+            .ToListAsync();
+        
+        return activeUsers.ToDictionary(x => x.UserId, x => (x.Email, x.FirstName, x.LastName));
+    }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetTimesheetEntriesAsync(DateOnly from, DateOnly to, Guid? userId = null)
+    {
+        var query = _db.TimesheetEntries
+            .Where(t => t.WorkDate >= from && t.WorkDate <= to);
+        
+        if (userId.HasValue)
+        {
+            query = query.Where(t => t.UserId == userId.Value);
+        }
+        
+        return await query.ToListAsync();
     }
 }

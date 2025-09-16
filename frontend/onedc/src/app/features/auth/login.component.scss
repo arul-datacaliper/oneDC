@@ -1,0 +1,5 @@
+.login-wrapper { min-height: 100vh; background: linear-gradient(135deg,#1d2b64,#f8cdda); }
+.login-card { width: 100%; max-width: 380px; border: none; border-radius: 0.75rem; }
+.login-card .card-title { font-weight: 600; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }

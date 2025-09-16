@@ -1,0 +1,255 @@
+// Bootstrap card customizations
+.header-card {
+  margin-bottom: 1rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+
+.header-row {
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  gap: 1rem; 
+  padding-bottom: 0.5rem;
+
+  .left {
+    display: flex; 
+    align-items: center; 
+    gap: 0.75rem;
+    
+    .range .label { 
+      font-size: 0.75rem; 
+      opacity: 0.7; 
+    }
+    .range .value { 
+      font-weight: 600; 
+    }
+  }
+  
+  .right { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem;
+    
+    .total { 
+      display: flex; 
+      align-items: center; 
+      gap: 0.5rem; 
+      font-weight: 600; 
+    }
+  }
+}
+
+.new-row {
+  padding-top: 0.75rem;
+
+  .title { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.375rem; 
+    font-weight: 600; 
+    margin-bottom: 0.5rem; 
+  }
+  
+  .fields {
+    display: grid;
+    grid-template-columns: 170px 1.6fr 120px 1fr 150px auto;
+    gap: 0.75rem; 
+    align-items: center;
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+  
+  .grow { 
+    width: 100%; 
+  }
+}
+
+// Bootstrap badge styles for status
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+// Status color variations using Bootstrap color variables
+.chip-draft { 
+  background-color: var(--bs-gray-100); 
+  color: var(--bs-gray-700); 
+}
+.chip-submitted { 
+  background-color: #fff3e0; 
+  color: #ef6c00; 
+}
+.chip-approved { 
+  background-color: var(--bs-primary-bg-subtle); 
+  color: var(--bs-primary-text-emphasis); 
+}
+.chip-locked { 
+  background-color: var(--bs-success-bg-subtle); 
+  color: var(--bs-success-text-emphasis); 
+}
+.chip-rejected { 
+  background-color: var(--bs-danger-bg-subtle); 
+  color: var(--bs-danger-text-emphasis); 
+}
+
+
+.table-card { 
+  margin-top: 1rem; 
+}
+
+.table-header {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 1rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+  }
+}
+
+// Empty state styling with Bootstrap icons
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  color: var(--bs-secondary);
+
+  i.bi {
+    font-size: 3rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  p {
+    margin: 0.5rem 0;
+    
+    &:first-of-type {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--bs-body-color);
+    }
+  }
+}
+
+// Bootstrap table styling
+.ts-table { 
+  width: 100%; 
+  
+  td {
+    vertical-align: middle;
+  }
+}
+
+// Form controls styling
+.hours-input, .desc-input, .ticket-input {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  font-size: 0.875rem;
+  
+  &:focus {
+    border-color: var(--bs-primary);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+  }
+}
+
+[readonly] {
+  background-color: var(--bs-secondary-bg);
+  opacity: 1;
+}
+
+// Bootstrap button customizations
+.btn {
+  --bs-btn-font-size: 0.875rem;
+  
+  &.btn-sm {
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-padding-x: 0.5rem;
+    --bs-btn-font-size: 0.8125rem;
+  }
+  
+  // Icon only buttons
+  &.btn-icon {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    i.bi {
+      font-size: 0.875rem;
+    }
+  }
+}
+
+// Icon styling for Bootstrap icons  
+i.bi {
+  line-height: 1;
+}
+
+// Action buttons styling
+.actions { 
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 3rem; // Ensure consistent height for table cells
+}
+
+.actions .btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bs-border-radius);
+  
+  i.bi {
+    font-size: 0.875rem;
+    line-height: 1;
+  }
+}
+
+// Utility classes
+.mono { 
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace; 
+  font-size: 0.75rem; 
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .new-row .fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    
+    .right {
+      align-self: flex-end;
+    }
+  }
+}

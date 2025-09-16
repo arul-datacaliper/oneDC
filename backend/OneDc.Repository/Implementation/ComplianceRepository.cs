@@ -10,8 +10,29 @@ public class ComplianceRepository : IComplianceRepository
     private readonly OneDcDbContext _db;
     public ComplianceRepository(OneDcDbContext db) => _db = db;
 
+    // User management methods
     public Task<List<AppUser>> GetActiveUsersAsync() =>
         _db.AppUsers.Where(u => u.IsActive).AsNoTracking().ToListAsync();
+
+    public Task<List<AppUser>> GetAllUsersAsync() =>
+        _db.AppUsers.AsNoTracking().ToListAsync();
+
+    public Task<AppUser?> GetUserByIdAsync(Guid userId) =>
+        _db.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId);
+
+    public async Task<AppUser> CreateUserAsync(AppUser user)
+    {
+        _db.AppUsers.Add(user);
+        await _db.SaveChangesAsync();
+        return user;
+    }
+
+    public async Task<AppUser> UpdateUserAsync(AppUser user)
+    {
+        _db.AppUsers.Update(user);
+        await _db.SaveChangesAsync();
+        return user;
+    }
 
     public Task<List<Holiday>> GetHolidaysAsync(DateOnly from, DateOnly to, string? region = null)
     {

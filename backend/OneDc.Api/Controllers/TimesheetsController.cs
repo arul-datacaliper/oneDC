@@ -31,8 +31,8 @@ public class TimesheetsController : ControllerBase
         return Ok(items);
     }
 
-    public record CreateReq(Guid ProjectId, DateOnly WorkDate, decimal Hours, string? Description, string? TicketRef);
-    public record UpdateReq(decimal Hours, string? Description, string? TicketRef);
+    public record CreateReq(Guid ProjectId, DateOnly WorkDate, decimal Hours, string? Description, string? TicketRef, Guid? TaskId);
+    public record UpdateReq(decimal Hours, string? Description, string? TicketRef, Guid? TaskId);
 
     // POST api/timesheets  (create DRAFT)
     [HttpPost]
@@ -40,7 +40,7 @@ public class TimesheetsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var created = await _svc.CreateDraftAsync(userId,
-            new TimesheetCreateDto(body.ProjectId, body.WorkDate, body.Hours, body.Description, body.TicketRef));
+            new TimesheetCreateDto(body.ProjectId, body.WorkDate, body.Hours, body.Description, body.TicketRef, body.TaskId));
         return CreatedAtAction(nameof(GetMine), new { from = created.WorkDate, to = created.WorkDate }, created);
     }
 
@@ -50,7 +50,7 @@ public class TimesheetsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var updated = await _svc.UpdateDraftAsync(userId, id,
-            new TimesheetUpdateDto(body.Hours, body.Description, body.TicketRef));
+            new TimesheetUpdateDto(body.Hours, body.Description, body.TicketRef, body.TaskId));
         return Ok(updated);
     }
 

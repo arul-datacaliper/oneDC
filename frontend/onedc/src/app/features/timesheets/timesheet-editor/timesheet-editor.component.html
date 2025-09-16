@@ -1,0 +1,206 @@
+<div class="card">
+  <div class="card-body">
+    <div class="header-row">
+      <div class="left">
+        <button type="button" class="btn btn-outline-primary" (click)="prevDay()">
+          <i class="bi bi-chevron-left"></i> Prev
+        </button>
+        <div class="range">
+          <div class="label">Date</div>
+          <div class="value">{{ selectedDate() }}</div>
+        </div>
+        <button type="button" class="btn btn-outline-primary" (click)="nextDay()">
+          Next <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="right">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="load()" 
+                title="Refresh timesheet entries" [disabled]="loading()">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <div class="total">
+          <i class="bi bi-calculator"></i>
+          <span>Total: {{ dailyTotal() | number:'1.0-2' }} h</span>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="new-row">
+      <div class="title">
+        <i class="bi bi-plus-circle-fill"></i> New entry
+      </div>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" [formControl]="newRow.controls.workDate" 
+                 (change)="onDateChange($event)" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Project *</label>
+          <select class="form-select" [formControl]="newRow.controls.projectId">
+            <option value="">Select project</option>
+            <option *ngFor="let p of projects()" [value]="p.projectId">
+              {{ p.code }} — {{ p.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-3" *ngIf="newRow.get('projectId')?.value">
+          <label class="form-label">Task</label>
+          <select class="form-select" [formControl]="newRow.controls.taskId">
+            <option value="">-- None --</option>
+            <option *ngFor="let t of getTasksForProject(newRow.get('projectId')?.value)" [value]="t.taskId">
+              {{ t.title }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Hours</label>
+          <input type="number" class="form-control" min="0" max="24" step="0.25" 
+                 [formControl]="newRow.controls.hours" />
+          <div *ngIf="dailyTotal() + (newRow.get('hours')?.value || 0) > 12" class="text-danger small mt-1">
+            Daily limit exceeded! ({{ dailyTotal() + (newRow.get('hours')?.value || 0) | number:'1.1-2' }}h > 12h)
+          </div>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Task Type *</label>
+          <select class="form-select" [formControl]="newRow.controls.taskType">
+            <option *ngFor="let type of taskTypes" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Description</label>
+          <input type="text" class="form-control" [formControl]="newRow.controls.description" />
+        </div>
+
+        <div class="col-md-1">
+          <label class="form-label">Ticket</label>
+          <input type="text" class="form-control" [formControl]="newRow.controls.ticketRef" />
+        </div>
+
+        <div class="col-md-1">
+          <button type="button" class="btn btn-primary w-100" (click)="addRow()">
+            <i class="bi bi-plus-circle"></i> Add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <div class="table-header">
+      <h5 class="card-title">Timesheet Entries</h5>
+      <div class="loading-indicator" *ngIf="loading()">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <span>Loading entries...</span>
+      </div>
+    </div>
+
+    <div *ngIf="!loading() && items.controls.length === 0" class="empty-state text-center py-5">
+      <i class="bi bi-clock-history display-1 text-muted"></i>
+      <p class="text-muted mt-3">No timesheet entries for this date yet.</p>
+      <p class="text-muted">Use the form above to add your first entry.</p>
+    </div>
+
+    <div class="table-responsive" *ngIf="!loading() && items.controls.length > 0">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Project</th>
+            <th>Task</th>
+            <th>Hours</th>
+            <th>Task Type</th>
+            <th>Description</th>
+            <th>Ticket</th>
+            <th>Status</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let g of items.controls; let i = index">
+            <td>{{ g.get('workDate')!.value }}</td>
+            <td>
+              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
+            </td>
+            <td>
+              <select [disabled]="!isEditable(g.get('status')!.value)"
+                      class="form-select form-select-sm"
+                      [value]="g.get('taskId')!.value"
+                      (change)="onFieldChange(g, 'taskId', $any($event.target).value)">
+                <option value="">-- None --</option>
+                <option *ngFor="let t of getTasksForProject(g.get('projectId')!.value)" [value]="t.taskId">{{ t.title }}</option>
+              </select>
+            </td>
+            <td>
+              <input [readonly]="!isEditable(g.get('status')!.value)"
+                     class="form-control form-control-sm"
+                     type="number" min="0" max="24" step="0.25"
+                     [value]="g.get('hours')!.value"
+                     (input)="onFieldChange(g, 'hours', $any($event.target).value)" />
+            </td>
+            <td>
+              <select [disabled]="!isEditable(g.get('status')!.value)"
+                      class="form-select form-select-sm"
+                      [value]="g.get('taskType')!.value"
+                      (change)="onFieldChange(g, 'taskType', +$any($event.target).value)">
+                <option *ngFor="let type of taskTypes" [value]="type.value">
+                  {{ type.label }}
+                </option>
+              </select>
+            </td>
+            <td>
+              <input [readonly]="!isEditable(g.get('status')!.value)"
+                     class="form-control form-control-sm" 
+                     [value]="g.get('description')!.value"
+                     (input)="onFieldChange(g, 'description', $any($event.target).value)" />
+            </td>
+            <td>
+              <input [readonly]="!isEditable(g.get('status')!.value)"
+                     class="form-control form-control-sm" 
+                     [value]="g.get('ticketRef')!.value"
+                     (input)="onFieldChange(g, 'ticketRef', $any($event.target).value)" />
+            </td>
+            <td>
+              <span class="badge" [ngClass]="statusClass(g.get('status')!.value)">
+                {{ statusLabel(g.get('status')!.value) }}
+              </span>
+            </td>
+            <td class="text-center">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
+                        [disabled]="!isEditable(g.get('status')!.value) || !g.get('dirty')!.value"
+                        title="Save changes">
+                  <i class="bi bi-save"></i>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
+                        [disabled]="!isEditable(g.get('status')!.value) || g.get('dirty')!.value"
+                        title="Submit for approval (save changes first)">
+                  <i class="bi bi-send"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
+                        [disabled]="!isEditable(g.get('status')!.value)" 
+                        title="Delete entry">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
