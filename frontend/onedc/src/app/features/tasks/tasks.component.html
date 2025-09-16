@@ -3,10 +3,13 @@
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
         <label class="form-label small">Project *</label>
-        <select class="form-select form-select-sm" [(ngModel)]="projectId" (ngModelChange)="loadTasks()">
-          <option value="">-- Select Project --</option>
-          <option *ngFor="let p of projects()" [value]="p.projectId">{{ p.code }} — {{ p.name }}</option>
-        </select>
+        <app-searchable-dropdown
+          [options]="projectOptions()"
+          placeholder="Search or select project..."
+          emptyLabel="-- Select Project --"
+          [searchFields]="['label']"
+          (selectionChange)="onProjectChange($event)">
+        </app-searchable-dropdown>
       </div>
       <div class="col-md-2">
         <label class="form-label small">Status</label>
@@ -21,10 +24,13 @@
       </div>
       <div class="col-md-2">
         <label class="form-label small">Assignee</label>
-        <select class="form-select form-select-sm" [(ngModel)]="assigneeFilter">
-          <option value="">All</option>
-          <option *ngFor="let u of users()" [value]="u.userId">{{ u.firstName }} {{ u.lastName }}</option>
-        </select>
+        <app-searchable-dropdown
+          [options]="assigneeOptions()"
+          placeholder="Search assignee..."
+          emptyLabel="All"
+          [searchFields]="['label']"
+          (selectionChange)="onAssigneeFilterChange($event)">
+        </app-searchable-dropdown>
       </div>
       <div class="col-md-3">
         <label class="form-label small">Search</label>
