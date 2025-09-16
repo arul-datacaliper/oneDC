@@ -1,21 +1,33 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OneDc.Services.Interfaces;
+using System.Security.Claims;
 
 namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class LocksController : ControllerBase
 {
     private readonly ILockService _svc;
     public LocksController(ILockService svc) => _svc = svc;
 
-    // Temporary admin identity via header (replace with AAD later)
+    // Get actor ID from JWT token
     private Guid GetActorId()
     {
-        if (Request.Headers.TryGetValue("X-Debug-UserId", out var raw) && Guid.TryParse(raw, out var id))
-            return id;
-        throw new UnauthorizedAccessException("X-Debug-UserId header missing or invalid.");
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                         ?? User.FindFirst("sub")?.Value 
+                         ?? User.FindFirst("userId")?.Value;
+        
+        if (userIdClaim != null && Guid.TryParse(userIdClaim, out var userId))
+            return userId;
+            
+        // Fallback to debug header for development
+        if (Request.Headers.TryGetValue("X-Debug-UserId", out var raw) && Guid.TryParse(raw, out var debugId))
+            return debugId;
+            
+        throw new UnauthorizedAccessException("Unable to determine user ID from token or debug header.");
     }
 
     public record LockReq(DateOnly from, DateOnly to, Guid? projectId, Guid? userId, bool preview = false);
