@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OneDc.Repository")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7316933aa8fae46515e5f02d8f072c07f3aa58c7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+601798a5eb0441e47c2ea8877559d9f082a77ef6")]
 [assembly: System.Reflection.AssemblyProductAttribute("OneDc.Repository")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OneDc.Repository")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
