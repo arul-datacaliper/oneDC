@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OneDc.Services.Interfaces;
 
 namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ReportsController : ControllerBase
 {
   private readonly IReportsService _utilSvc;

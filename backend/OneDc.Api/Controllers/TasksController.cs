@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
@@ -6,7 +7,8 @@ using OneDc.Domain.Entities;
 namespace OneDc.Api.Controllers;
 
 [ApiController]
-[Route("api")] 
+[Route("api")]
+[Authorize]
 public class TasksController : ControllerBase
 {
     private readonly OneDcDbContext _db;

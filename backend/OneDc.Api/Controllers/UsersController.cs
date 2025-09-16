@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OneDc.Repository.Interfaces;
 using OneDc.Domain.Entities;
 using System.ComponentModel.DataAnnotations;
@@ -41,6 +42,7 @@ public class UpdateUserRequest
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IComplianceRepository _repo;

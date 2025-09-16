@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
@@ -7,6 +8,7 @@ namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ClientsController : ControllerBase
 {
     private readonly OneDcDbContext _context;

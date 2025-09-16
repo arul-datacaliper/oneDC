@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
 
@@ -6,6 +7,7 @@ namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class OnboardingController : ControllerBase
 {
     private readonly IOnboardingService _onboardingService;
