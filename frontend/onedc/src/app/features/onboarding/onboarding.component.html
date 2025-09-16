@@ -1,0 +1,470 @@
+<div class="onboarding-container">
+  <!-- Header -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h4 class="card-title mb-2">
+            <i class="bi bi-person-plus-fill"></i> Welcome to OneDC! 
+          </h4>
+          <p class="text-muted mb-0">
+            Complete your profile to get started with the platform
+          </p>
+        </div>
+        <div class="col-md-4 text-end">
+          <div class="progress" style="height: 12px;">
+            <div class="progress-bar" [style.width.%]="completionPercentage()" 
+                 [ngClass]="{
+                   'bg-danger': completionPercentage() < 30,
+                   'bg-warning': completionPercentage() >= 30 && completionPercentage() < 70,
+                   'bg-success': completionPercentage() >= 70
+                 }">
+            </div>
+          </div>
+          <small class="text-muted">{{ completionPercentage() }}% Complete</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step Navigation -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="stepper">
+        <div class="step" 
+             [ngClass]="{
+               'active': currentStep() === 1,
+               'completed': isStepComplete()[0],
+               'disabled': !canProceedToStep()[0]
+             }"
+             (click)="goToStep(1)">
+          <div class="step-circle">
+            <i class="bi bi-person-fill" *ngIf="!isStepComplete()[0]"></i>
+            <i class="bi bi-check-lg" *ngIf="isStepComplete()[0]"></i>
+          </div>
+          <div class="step-label">Profile</div>
+        </div>
+        
+        <div class="step-line"></div>
+        
+        <div class="step"
+             [ngClass]="{
+               'active': currentStep() === 2,
+               'completed': isStepComplete()[1],
+               'disabled': !canProceedToStep()[1]
+             }"
+             (click)="goToStep(2)">
+          <div class="step-circle">
+            <i class="bi bi-tools" *ngIf="!isStepComplete()[1]"></i>
+            <i class="bi bi-check-lg" *ngIf="isStepComplete()[1]"></i>
+          </div>
+          <div class="step-label">Skills</div>
+        </div>
+        
+        <div class="step-line"></div>
+        
+        <div class="step"
+             [ngClass]="{
+               'active': currentStep() === 3,
+               'completed': isStepComplete()[2],
+               'disabled': !canProceedToStep()[2]
+             }"
+             (click)="goToStep(3)">
+          <div class="step-circle">
+            <i class="bi bi-camera-fill" *ngIf="!isStepComplete()[2]"></i>
+            <i class="bi bi-check-lg" *ngIf="isStepComplete()[2]"></i>
+          </div>
+          <div class="step-label">Photo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="card" *ngIf="loading()">
+    <div class="card-body text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-3 text-muted">Loading your onboarding information...</p>
+    </div>
+  </div>
+
+  <!-- Step 1: Profile -->
+  <div class="card" *ngIf="currentStep() === 1 && !loading()">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="bi bi-person-fill"></i> Step 1: Profile Information
+      </h5>
+    </div>
+    <div class="card-body">
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <div class="row g-3">
+          <!-- Basic Information -->
+          <div class="col-12">
+            <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Job Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="jobTitle"
+                   [class.is-invalid]="isFieldInvalid(profileForm, 'jobTitle')"
+                   placeholder="e.g., Software Engineer">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'jobTitle')">
+              {{ getFieldError(profileForm, 'jobTitle') }}
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Department</label>
+            <input type="text" class="form-control" formControlName="department"
+                   placeholder="e.g., Engineering">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Employee ID</label>
+            <input type="text" class="form-control" formControlName="employeeId"
+                   placeholder="e.g., EMP001">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Reporting Manager</label>
+            <input type="text" class="form-control" formControlName="reportingManager"
+                   placeholder="Manager name">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Date of Joining</label>
+            <input type="date" class="form-control" formControlName="dateOfJoining">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Total Experience (Years)</label>
+            <input type="number" class="form-control" formControlName="totalExperienceYears"
+                   [class.is-invalid]="isFieldInvalid(profileForm, 'totalExperienceYears')"
+                   min="0" max="50" placeholder="0">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'totalExperienceYears')">
+              {{ getFieldError(profileForm, 'totalExperienceYears') }}
+            </div>
+          </div>
+
+          <!-- Contact Information -->
+          <div class="col-12 mt-4">
+            <h6 class="border-bottom pb-2 mb-3">Contact Information</h6>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-control" formControlName="phoneNumber"
+                   placeholder="+1 (555) 123-4567">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Location</label>
+            <input type="text" class="form-control" formControlName="location"
+                   placeholder="City, Country">
+          </div>
+
+          <!-- Professional Information -->
+          <div class="col-12 mt-4">
+            <h6 class="border-bottom pb-2 mb-3">Professional Information</h6>
+          </div>
+          
+          <div class="col-12">
+            <label class="form-label">Bio</label>
+            <textarea class="form-control" formControlName="bio" rows="3"
+                      placeholder="Tell us about yourself..."></textarea>
+          </div>
+          
+          <div class="col-12">
+            <label class="form-label">Education Background</label>
+            <textarea class="form-control" formControlName="educationBackground" rows="2"
+                      placeholder="Your educational qualifications..."></textarea>
+          </div>
+          
+          <div class="col-12">
+            <label class="form-label">Certifications</label>
+            <textarea class="form-control" formControlName="certifications" rows="2"
+                      placeholder="Professional certifications..."></textarea>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">LinkedIn Profile</label>
+            <input type="url" class="form-control" formControlName="linkedInProfile"
+                   placeholder="https://linkedin.com/in/yourprofile">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">GitHub Profile</label>
+            <input type="url" class="form-control" formControlName="gitHubProfile"
+                   placeholder="https://github.com/yourusername">
+          </div>
+        </div>
+        
+        <div class="d-flex justify-content-between mt-4">
+          <button type="button" class="btn btn-secondary" disabled>
+            <i class="bi bi-chevron-left"></i> Previous
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="loading()">
+            <span *ngIf="!loading()">Next Step</span>
+            <span *ngIf="loading()">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Saving...
+            </span>
+            <i class="bi bi-chevron-right ms-1" *ngIf="!loading()"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Step 2: Skills -->
+  <div class="card" *ngIf="currentStep() === 2 && !loading()">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-tools"></i> Step 2: Skills & Experience
+      </h5>
+      <button type="button" class="btn btn-primary btn-sm" (click)="openSkillModal()">
+        <i class="bi bi-plus-lg"></i> Add Skill
+      </button>
+    </div>
+    <div class="card-body">
+      <!-- Skills List -->
+      <div *ngIf="userSkills().length === 0" class="text-center py-5">
+        <i class="bi bi-tools display-1 text-muted"></i>
+        <h6 class="text-muted mt-3">No skills added yet</h6>
+        <p class="text-muted">Add your technical skills and experience to complete this step.</p>
+        <button type="button" class="btn btn-primary" (click)="openSkillModal()">
+          <i class="bi bi-plus-lg"></i> Add Your First Skill
+        </button>
+      </div>
+
+      <div class="row g-3" *ngIf="userSkills().length > 0">
+        <div class="col-md-6 col-lg-4" *ngFor="let skill of userSkills()">
+          <div class="card h-100" [ngClass]="{'border-primary': skill.isPrimary}">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6 class="card-title mb-0">{{ skill.skillName }}</h6>
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-outline-secondary" type="button" 
+                          data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" (click)="openSkillModal(skill)">
+                      <i class="bi bi-pencil"></i> Edit
+                    </a></li>
+                    <li><a class="dropdown-item text-danger" (click)="deleteSkill(skill)">
+                      <i class="bi bi-trash"></i> Delete
+                    </a></li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div class="skill-level mb-2">
+                <span class="badge" 
+                      [ngClass]="{
+                        'bg-info': skill.level === 1,
+                        'bg-warning': skill.level === 2,
+                        'bg-success': skill.level === 3,
+                        'bg-primary': skill.level === 4
+                      }">
+                  {{ getSkillLevelDisplayName(skill.level) }}
+                </span>
+                <span class="badge bg-secondary ms-1" *ngIf="skill.isPrimary">Primary</span>
+              </div>
+              
+              <p class="text-muted small mb-2">
+                <i class="bi bi-calendar"></i> {{ skill.yearsOfExperience }} 
+                {{ skill.yearsOfExperience === 1 ? 'year' : 'years' }} experience
+              </p>
+              
+              <p class="card-text small" *ngIf="skill.description">
+                {{ skill.description }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-secondary" (click)="previousStep()">
+          <i class="bi bi-chevron-left"></i> Previous
+        </button>
+        <button type="button" class="btn btn-primary" (click)="nextStep()" 
+                [disabled]="userSkills().length === 0">
+          Next Step
+          <i class="bi bi-chevron-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Photo -->
+  <div class="card" *ngIf="currentStep() === 3 && !loading()">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="bi bi-camera-fill"></i> Step 3: Profile Photo
+      </h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <h6 class="mb-3">Current Photo</h6>
+          <div class="profile-photo-container">
+            <div class="profile-photo" *ngIf="userProfile()?.profilePhotoUrl">
+              <img [src]="userProfile()?.profilePhotoUrl" alt="Profile Photo" class="img-fluid rounded">
+              <button type="button" class="btn btn-danger btn-sm delete-photo-btn" 
+                      (click)="deletePhoto()" title="Delete Photo">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            <div class="no-photo" *ngIf="!userProfile()?.profilePhotoUrl">
+              <i class="bi bi-person-circle display-1 text-muted"></i>
+              <p class="text-muted mt-2">No photo uploaded</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <h6 class="mb-3">Upload New Photo</h6>
+          
+          <div class="upload-area" *ngIf="!selectedPhoto()">
+            <input type="file" #fileInput class="d-none" 
+                   accept="image/*" (change)="onPhotoSelected($event)">
+            <div class="upload-placeholder" (click)="fileInput.click()">
+              <i class="bi bi-cloud-upload display-1 text-muted"></i>
+              <p class="text-muted mt-2">Click to select a photo</p>
+              <small class="text-muted">Supported: JPEG, PNG, GIF (max 5MB)</small>
+            </div>
+          </div>
+          
+          <div class="photo-preview" *ngIf="selectedPhoto()">
+            <img [src]="photoPreview()" alt="Preview" class="img-fluid rounded mb-3">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary" 
+                      (click)="uploadPhoto()" [disabled]="uploadingPhoto()">
+                <span *ngIf="!uploadingPhoto()">
+                  <i class="bi bi-upload"></i> Upload Photo
+                </span>
+                <span *ngIf="uploadingPhoto()">
+                  <span class="spinner-border spinner-border-sm me-2"></span>
+                  Uploading...
+                </span>
+              </button>
+              <button type="button" class="btn btn-secondary" 
+                      (click)="selectedPhoto.set(null); photoPreview.set(null)">
+                <i class="bi bi-x-lg"></i> Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-secondary" (click)="previousStep()">
+          <i class="bi bi-chevron-left"></i> Previous
+        </button>
+        <button type="button" class="btn btn-success" 
+                (click)="completeOnboarding()"
+                *ngIf="onboardingStatus()?.isComplete">
+          <i class="bi bi-check-circle"></i> Complete Onboarding
+        </button>
+        <button type="button" class="btn btn-outline-primary" 
+                *ngIf="!onboardingStatus()?.isComplete"
+                disabled>
+          Complete Profile First
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Status -->
+  <div class="card mt-4" *ngIf="onboardingStatus()?.isComplete">
+    <div class="card-body text-center">
+      <i class="bi bi-check-circle-fill text-success display-1"></i>
+      <h4 class="text-success mt-3">Onboarding Complete! 🎉</h4>
+      <p class="text-muted">
+        Welcome to OneDC! Your profile is now complete and you can start using all platform features.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Skill Modal -->
+<div class="modal fade" [class.show]="showSkillModal()" [style.display]="showSkillModal() ? 'block' : 'none'"
+     *ngIf="showSkillModal()">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          {{ editingSkill() ? 'Edit Skill' : 'Add New Skill' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeSkillModal()"></button>
+      </div>
+      
+      <form [formGroup]="skillForm" (ngSubmit)="saveSkill()">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Skill Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="skillName"
+                   [class.is-invalid]="isFieldInvalid(skillForm, 'skillName')"
+                   placeholder="e.g., JavaScript, Project Management">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(skillForm, 'skillName')">
+              {{ getFieldError(skillForm, 'skillName') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Skill Level <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="level"
+                    [class.is-invalid]="isFieldInvalid(skillForm, 'level')">
+              <option *ngFor="let level of skillLevels()" [value]="level.value">
+                {{ level.displayName }}
+              </option>
+            </select>
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(skillForm, 'level')">
+              {{ getFieldError(skillForm, 'level') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Years of Experience <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" formControlName="yearsOfExperience"
+                   [class.is-invalid]="isFieldInvalid(skillForm, 'yearsOfExperience')"
+                   min="0" max="50" placeholder="1">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(skillForm, 'yearsOfExperience')">
+              {{ getFieldError(skillForm, 'yearsOfExperience') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" formControlName="description" rows="3"
+                      placeholder="Describe your experience with this skill..."></textarea>
+          </div>
+          
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" formControlName="isPrimary" id="isPrimary">
+            <label class="form-check-label" for="isPrimary">
+              Mark as primary skill
+            </label>
+            <div class="form-text">Primary skills will be highlighted in your profile</div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeSkillModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="skillForm.invalid">
+            {{ editingSkill() ? 'Update' : 'Add' }} Skill
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal backdrop -->
+<div class="modal-backdrop fade show" *ngIf="showSkillModal()" (click)="closeSkillModal()"></div>

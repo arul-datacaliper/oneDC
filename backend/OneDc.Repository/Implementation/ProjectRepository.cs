@@ -18,5 +18,17 @@ public class ProjectRepository : IProjectRepository
 
     public async Task AddAsync(Project project) => await _db.Projects.AddAsync(project);
 
+    public Task UpdateAsync(Project project)
+    {
+        _db.Projects.Update(project);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Project project)
+    {
+        _db.Projects.Remove(project);
+        return Task.CompletedTask;
+    }
+
     public Task SaveChangesAsync() => _db.SaveChangesAsync();
 }

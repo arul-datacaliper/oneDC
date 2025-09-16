@@ -141,3 +141,11 @@
 /Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/OneDc.Services.dll
 /Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/OneDc.Services.pdb
 /Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/OneDc.Repository.pdb
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Abstractions.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.JsonWebTokens.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Logging.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Protocols.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/Microsoft.IdentityModel.Tokens.dll
+/Users/arul/oneDC/oneDC/backend/OneDc.Api/bin/Debug/net9.0/System.IdentityModel.Tokens.Jwt.dll

@@ -1,0 +1,327 @@
+using Microsoft.Extensions.Configuration;
+using OneDc.Domain.Entities;
+using OneDc.Repository.Interfaces;
+using OneDc.Services.Interfaces;
+
+namespace OneDc.Services.Implementation;
+
+public class OnboardingService : IOnboardingService
+{
+    private readonly IOnboardingRepository _repository;
+    private readonly string _photoUploadPath;
+
+    public OnboardingService(IOnboardingRepository repository, IConfiguration configuration)
+    {
+        _repository = repository;
+        _photoUploadPath = configuration["FileStorage:ProfilePhotosPath"] ?? "uploads/profile-photos";
+    }
+
+    public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
+    {
+        var profile = await _repository.GetUserProfileAsync(userId);
+        return profile?.ToDto();
+    }
+
+    public async Task<UserProfileDto> CreateUserProfileAsync(Guid userId, CreateUserProfileRequest request)
+    {
+        if (!await _repository.UserExistsAsync(userId))
+            throw new ArgumentException("User not found");
+
+        var existingProfile = await _repository.GetUserProfileAsync(userId);
+        if (existingProfile != null)
+            throw new InvalidOperationException("User profile already exists");
+
+        var profile = new UserProfile
+        {
+            UserProfileId = Guid.NewGuid(),
+            UserId = userId,
+            Bio = request.Bio,
+            Department = request.Department,
+            JobTitle = request.JobTitle,
+            PhoneNumber = request.PhoneNumber,
+            Location = request.Location,
+            DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null,
+            EmployeeId = request.EmployeeId,
+            ReportingManager = request.ReportingManager,
+            TotalExperienceYears = request.TotalExperienceYears,
+            EducationBackground = request.EducationBackground,
+            Certifications = request.Certifications,
+            LinkedInProfile = request.LinkedInProfile,
+            GitHubProfile = request.GitHubProfile
+        };
+
+        var createdProfile = await _repository.CreateUserProfileAsync(profile);
+        return createdProfile.ToDto();
+    }
+
+    public async Task<UserProfileDto> UpdateUserProfileAsync(Guid userId, UpdateUserProfileRequest request)
+    {
+        var profile = await _repository.GetUserProfileAsync(userId);
+        if (profile == null)
+            throw new ArgumentException("User profile not found");
+
+        profile.Bio = request.Bio;
+        profile.Department = request.Department;
+        profile.JobTitle = request.JobTitle;
+        profile.PhoneNumber = request.PhoneNumber;
+        profile.Location = request.Location;
+        profile.DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null;
+        profile.EmployeeId = request.EmployeeId;
+        profile.ReportingManager = request.ReportingManager;
+        profile.TotalExperienceYears = request.TotalExperienceYears;
+        profile.EducationBackground = request.EducationBackground;
+        profile.Certifications = request.Certifications;
+        profile.LinkedInProfile = request.LinkedInProfile;
+        profile.GitHubProfile = request.GitHubProfile;
+
+        var updatedProfile = await _repository.UpdateUserProfileAsync(profile);
+        return updatedProfile.ToDto();
+    }
+
+    public async Task DeleteUserProfileAsync(Guid userId)
+    {
+        await _repository.DeleteUserProfileAsync(userId);
+    }
+
+    public async Task<string> UploadProfilePhotoAsync(Guid userId, Stream photoStream, string fileName, string contentType)
+    {
+        var profile = await _repository.GetUserProfileAsync(userId);
+        if (profile == null)
+            throw new ArgumentException("User profile not found");
+
+        // Validate file type
+        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
+        if (!allowedTypes.Contains(contentType.ToLower()))
+            throw new ArgumentException("Invalid file type. Only JPEG, PNG, and GIF are allowed.");
+
+        // Create uploads directory if it doesn't exist
+        Directory.CreateDirectory(_photoUploadPath);
+
+        // Generate unique filename
+        var extension = Path.GetExtension(fileName);
+        var uniqueFileName = $"{userId}_{Guid.NewGuid()}{extension}";
+        var filePath = Path.Combine(_photoUploadPath, uniqueFileName);
+
+        // Save file
+        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            await photoStream.CopyToAsync(fileStream);
+        }
+
+        // Delete old photo if exists
+        if (!string.IsNullOrEmpty(profile.ProfilePhotoUrl))
+        {
+            var oldFilePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
+            if (File.Exists(oldFilePath))
+            {
+                File.Delete(oldFilePath);
+            }
+        }
+
+        // Update profile with new photo URL
+        profile.ProfilePhotoUrl = $"/uploads/profile-photos/{uniqueFileName}";
+        await _repository.UpdateUserProfileAsync(profile);
+
+        return profile.ProfilePhotoUrl;
+    }
+
+    public async Task DeleteProfilePhotoAsync(Guid userId)
+    {
+        var profile = await _repository.GetUserProfileAsync(userId);
+        if (profile?.ProfilePhotoUrl != null)
+        {
+            var filePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+
+            profile.ProfilePhotoUrl = null;
+            await _repository.UpdateUserProfileAsync(profile);
+        }
+    }
+
+    public async Task<IEnumerable<UserSkillDto>> GetUserSkillsAsync(Guid userId)
+    {
+        var skills = await _repository.GetUserSkillsAsync(userId);
+        return skills.Select(s => s.ToDto());
+    }
+
+    public async Task<UserSkillDto> CreateUserSkillAsync(Guid userId, CreateUserSkillRequest request)
+    {
+        if (!await _repository.UserExistsAsync(userId))
+            throw new ArgumentException("User not found");
+
+        if (await _repository.SkillExistsForUserAsync(userId, request.SkillName))
+            throw new InvalidOperationException("Skill already exists for this user");
+
+        var skill = new UserSkill
+        {
+            UserSkillId = Guid.NewGuid(),
+            UserId = userId,
+            SkillName = request.SkillName,
+            Level = request.Level,
+            YearsOfExperience = request.YearsOfExperience,
+            Description = request.Description,
+            IsPrimary = request.IsPrimary
+        };
+
+        var createdSkill = await _repository.CreateUserSkillAsync(skill);
+        return createdSkill.ToDto();
+    }
+
+    public async Task<UserSkillDto> UpdateUserSkillAsync(Guid userId, Guid skillId, UpdateUserSkillRequest request)
+    {
+        var skill = await _repository.GetUserSkillAsync(userId, skillId);
+        if (skill == null)
+            throw new ArgumentException("Skill not found");
+
+        // Check if skill name already exists for another skill of the same user
+        if (skill.SkillName != request.SkillName && 
+            await _repository.SkillExistsForUserAsync(userId, request.SkillName))
+        {
+            throw new InvalidOperationException("Skill with this name already exists for this user");
+        }
+
+        skill.SkillName = request.SkillName;
+        skill.Level = request.Level;
+        skill.YearsOfExperience = request.YearsOfExperience;
+        skill.Description = request.Description;
+        skill.IsPrimary = request.IsPrimary;
+
+        var updatedSkill = await _repository.UpdateUserSkillAsync(skill);
+        return updatedSkill.ToDto();
+    }
+
+    public async Task DeleteUserSkillAsync(Guid userId, Guid skillId)
+    {
+        var skill = await _repository.GetUserSkillAsync(userId, skillId);
+        if (skill == null)
+            throw new ArgumentException("Skill not found");
+
+        await _repository.DeleteUserSkillAsync(skillId);
+    }
+
+    public async Task<OnboardingStatusDto> GetOnboardingStatusAsync(Guid userId)
+    {
+        var profile = await _repository.GetUserProfileAsync(userId);
+        var skills = await _repository.GetUserSkillsAsync(userId);
+
+        var hasProfile = profile != null;
+        var hasSkills = skills.Any();
+        var hasPhoto = !string.IsNullOrEmpty(profile?.ProfilePhotoUrl);
+
+        var missingSteps = new List<string>();
+        if (!hasProfile) missingSteps.Add("Create profile");
+        if (!hasSkills) missingSteps.Add("Add skills");
+        if (!hasPhoto) missingSteps.Add("Upload photo");
+
+        var completionPercentage = ((hasProfile ? 40 : 0) + (hasSkills ? 40 : 0) + (hasPhoto ? 20 : 0));
+        var isComplete = completionPercentage == 100;
+
+        // Update completion status if complete and not already marked
+        if (isComplete && profile != null && !profile.IsOnboardingComplete)
+        {
+            profile.IsOnboardingComplete = true;
+            profile.OnboardingCompletedAt = DateTimeOffset.UtcNow;
+            await _repository.UpdateUserProfileAsync(profile);
+        }
+
+        return new OnboardingStatusDto(
+            UserId: userId,
+            HasProfile: hasProfile,
+            HasSkills: hasSkills,
+            HasPhoto: hasPhoto,
+            IsComplete: isComplete,
+            CompletionPercentage: completionPercentage,
+            MissingSteps: missingSteps.ToArray()
+        );
+    }
+
+    public async Task<bool> CompleteOnboardingAsync(Guid userId)
+    {
+        var status = await GetOnboardingStatusAsync(userId);
+        if (!status.IsComplete)
+            return false;
+
+        var profile = await _repository.GetUserProfileAsync(userId);
+        if (profile != null && !profile.IsOnboardingComplete)
+        {
+            profile.IsOnboardingComplete = true;
+            profile.OnboardingCompletedAt = DateTimeOffset.UtcNow;
+            await _repository.UpdateUserProfileAsync(profile);
+        }
+
+        return true;
+    }
+
+    public async Task<IEnumerable<OnboardingStatusDto>> GetAllUsersOnboardingStatusAsync()
+    {
+        var usersData = await _repository.GetAllUsersOnboardingDataAsync();
+        var statusList = new List<OnboardingStatusDto>();
+
+        foreach (var userData in usersData)
+        {
+            var missingSteps = new List<string>();
+            if (!userData.HasProfile) missingSteps.Add("Create profile");
+            if (!userData.HasSkills) missingSteps.Add("Add skills");
+
+            // We can't check for photo without loading the profile, so we'll do a simple calculation
+            var completionPercentage = ((userData.HasProfile ? 60 : 0) + (userData.HasSkills ? 40 : 0));
+            var isComplete = completionPercentage >= 100;
+
+            statusList.Add(new OnboardingStatusDto(
+                UserId: userData.UserId,
+                HasProfile: userData.HasProfile,
+                HasSkills: userData.HasSkills,
+                HasPhoto: false, // We'd need to check this separately for performance
+                IsComplete: isComplete,
+                CompletionPercentage: completionPercentage,
+                MissingSteps: missingSteps.ToArray()
+            ));
+        }
+
+        return statusList;
+    }
+}
+
+// Extension methods for mapping
+public static class OnboardingExtensions
+{
+    public static UserProfileDto ToDto(this UserProfile profile)
+    {
+        return new UserProfileDto(
+            UserProfileId: profile.UserProfileId,
+            UserId: profile.UserId,
+            ProfilePhotoUrl: profile.ProfilePhotoUrl,
+            Bio: profile.Bio,
+            Department: profile.Department,
+            JobTitle: profile.JobTitle,
+            PhoneNumber: profile.PhoneNumber,
+            Location: profile.Location,
+            DateOfJoining: profile.DateOfJoining?.ToString("yyyy-MM-dd"),
+            EmployeeId: profile.EmployeeId,
+            ReportingManager: profile.ReportingManager,
+            TotalExperienceYears: profile.TotalExperienceYears,
+            EducationBackground: profile.EducationBackground,
+            Certifications: profile.Certifications,
+            LinkedInProfile: profile.LinkedInProfile,
+            GitHubProfile: profile.GitHubProfile,
+            IsOnboardingComplete: profile.IsOnboardingComplete,
+            OnboardingCompletedAt: profile.OnboardingCompletedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        );
+    }
+
+    public static UserSkillDto ToDto(this UserSkill skill)
+    {
+        return new UserSkillDto(
+            UserSkillId: skill.UserSkillId,
+            UserId: skill.UserId,
+            SkillName: skill.SkillName,
+            Level: skill.Level,
+            YearsOfExperience: skill.YearsOfExperience,
+            Description: skill.Description,
+            IsPrimary: skill.IsPrimary
+        );
+    }
+}

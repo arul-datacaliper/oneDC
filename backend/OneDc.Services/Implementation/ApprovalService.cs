@@ -15,8 +15,8 @@ public class ApprovalService : IApprovalService
         _projects = projects;
     }
 
-    public Task<IEnumerable<TimesheetEntry>> GetPendingAsync(Guid approverId, DateOnly from, DateOnly to)
-        => _repo.GetPendingForApproverAsync(approverId, from, to);
+    public Task<IEnumerable<TimesheetEntry>> GetPendingAsync(Guid approverId, DateOnly from, DateOnly to, Guid? projectId = null, Guid? userId = null)
+        => _repo.GetPendingForApproverAsync(approverId, from, to, projectId, userId);
 
     public async Task<TimesheetEntry> ApproveAsync(Guid approverId, Guid entryId)
     {

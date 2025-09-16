@@ -50,11 +50,20 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login_at");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("last_name");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)")
+                        .HasColumnName("password_hash");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer")
@@ -293,6 +302,72 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("project_allocation", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
+                {
+                    b.Property<Guid>("TaskId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<decimal?>("EstimatedHours")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("estimated_hours");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("TaskId")
+                        .HasName("pk_task");
+
+                    b.HasIndex("AssignedUserId")
+                        .HasDatabaseName("ix_task_assigned_user_id");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("ix_task_project_id");
+
+                    b.HasIndex("ProjectId", "Status")
+                        .HasDatabaseName("ix_task_project_id_status");
+
+                    b.ToTable("task", "ts");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.TimesheetEntry", b =>
                 {
                     b.Property<Guid>("EntryId")
@@ -337,6 +412,14 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("submitted_at");
 
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
+
+                    b.Property<int>("TaskType")
+                        .HasColumnType("integer")
+                        .HasColumnName("task_type");
+
                     b.Property<string>("TicketRef")
                         .HasColumnType("text")
                         .HasColumnName("ticket_ref");
@@ -356,6 +439,9 @@ namespace OneDc.Infrastructure.Migrations
                     b.HasKey("EntryId")
                         .HasName("pk_timesheet_entry");
 
+                    b.HasIndex("TaskId")
+                        .HasDatabaseName("ix_timesheet_entry_task_id");
+
                     b.HasIndex("ProjectId", "WorkDate")
                         .HasDatabaseName("ix_timesheet_entry_project_id_work_date");
 
@@ -363,6 +449,159 @@ namespace OneDc.Infrastructure.Migrations
                         .HasDatabaseName("ix_timesheet_entry_user_id_work_date");
 
                     b.ToTable("timesheet_entry", "ts");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.UserProfile", b =>
+                {
+                    b.Property<Guid>("UserProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_profile_id");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("bio");
+
+                    b.Property<string>("Certifications")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("certifications");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("DateOfJoining")
+                        .HasColumnType("date")
+                        .HasColumnName("date_of_joining");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("department");
+
+                    b.Property<string>("EducationBackground")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("education_background");
+
+                    b.Property<string>("EmployeeId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("employee_id");
+
+                    b.Property<string>("GitHubProfile")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("git_hub_profile");
+
+                    b.Property<bool>("IsOnboardingComplete")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_onboarding_complete");
+
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("job_title");
+
+                    b.Property<string>("LinkedInProfile")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("linked_in_profile");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("location");
+
+                    b.Property<DateTimeOffset?>("OnboardingCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("onboarding_completed_at");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phone_number");
+
+                    b.Property<string>("ProfilePhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("profile_photo_url");
+
+                    b.Property<string>("ReportingManager")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("reporting_manager");
+
+                    b.Property<int?>("TotalExperienceYears")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_experience_years");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("UserProfileId")
+                        .HasName("pk_user_profile");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_profile_user_id");
+
+                    b.ToTable("user_profile", "ts");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.UserSkill", b =>
+                {
+                    b.Property<Guid>("UserSkillId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_skill_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_primary");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer")
+                        .HasColumnName("level");
+
+                    b.Property<string>("SkillName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("skill_name");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("YearsOfExperience")
+                        .HasColumnType("integer")
+                        .HasColumnName("years_of_experience");
+
+                    b.HasKey("UserSkillId")
+                        .HasName("pk_user_skill");
+
+                    b.HasIndex("UserId", "SkillName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_skill_user_id_skill_name");
+
+                    b.ToTable("user_skill", "ts");
                 });
 
             modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
@@ -398,6 +637,26 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_task_app_user_assigned_user_id");
+
+                    b.HasOne("OneDc.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_task_project_project_id");
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.TimesheetEntry", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.Project", "Project")
@@ -407,6 +666,11 @@ namespace OneDc.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_timesheet_entry_project_project_id");
 
+                    b.HasOne("OneDc.Domain.Entities.ProjectTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .HasConstraintName("fk_timesheet_entry_task_task_id");
+
                     b.HasOne("OneDc.Domain.Entities.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -415,6 +679,32 @@ namespace OneDc.Infrastructure.Migrations
                         .HasConstraintName("fk_timesheet_entry_app_user_user_id");
 
                     b.Navigation("Project");
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.UserProfile", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
+                        .WithOne()
+                        .HasForeignKey("OneDc.Domain.Entities.UserProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_profile_app_user_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.UserSkill", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_skill_app_user_user_id");
 
                     b.Navigation("User");
                 });
