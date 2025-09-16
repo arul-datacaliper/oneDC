@@ -26,19 +26,23 @@ import { UsersService, AppUser } from '../../../core/services/users.service';
         <label class="form-label">Description</label>
         <textarea rows="3" class="form-control" formControlName="description"></textarea>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
+        <label class="form-label">Label</label>
+        <input type="text" class="form-control" formControlName="label" placeholder="e.g., Bug, Feature, Enhancement">
+      </div>
+      <div class="col-md-6">
         <label class="form-label">Estimated Hours</label>
         <input type="number" step="0.25" class="form-control" formControlName="estimatedHours">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
         <label class="form-label">Start Date</label>
         <input type="date" class="form-control" formControlName="startDate">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-6">
         <label class="form-label">End Date</label>
         <input type="date" class="form-control" formControlName="endDate">
       </div>
-      <div class="col-md-3" *ngIf="mode==='edit'">
+      <div class="col-md-6" *ngIf="mode==='edit'">
         <label class="form-label">Status</label>
         <select class="form-select" formControlName="status">
           <option value="NEW">New</option>
@@ -75,6 +79,7 @@ export class TaskFormComponent {
   form = this.fb.group({
     title: ['', [Validators.required, Validators.maxLength(150)]],
     description: [''],
+    label: [''],
     assignedUserId: [''],
     estimatedHours: [null as number | null],
     startDate: [''],
@@ -88,6 +93,7 @@ export class TaskFormComponent {
       this.form.patchValue({
         title: this.task.title,
         description: this.task.description,
+        label: this.task.label,
         assignedUserId: this.task.assignedUserId || '',
         estimatedHours: this.task.estimatedHours ?? null,
         startDate: this.task.startDate || '',
@@ -110,6 +116,7 @@ export class TaskFormComponent {
     const payload: any = {
       title: (v.title || '').toString().trim(),
       description: v.description?.trim() || undefined,
+      label: v.label?.trim() || undefined,
       assignedUserId: v.assignedUserId || undefined,
       estimatedHours: v.estimatedHours ?? undefined,
       startDate: v.startDate || undefined,

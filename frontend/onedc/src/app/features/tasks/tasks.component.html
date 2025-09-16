@@ -28,7 +28,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label small">Search</label>
-        <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title or description">
+        <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
       <div class="col-md-2 text-end">
         <button class="btn btn-primary btn-sm w-100" (click)="openCreate()" [disabled]="!projectId()"> <i class="bi bi-plus-circle"></i> New Task</button>
@@ -46,6 +46,7 @@
           <thead class="table-light">
             <tr>
               <th>Title</th>
+              <th>Label</th>
               <th>Assignee</th>
               <th>Est (h)</th>
               <th>Start</th>
@@ -59,6 +60,10 @@
               <td>
                 <div class="fw-semibold">{{ t.title }}</div>
                 <div class="small text-muted" *ngIf="t.description">{{ t.description }}</div>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark" *ngIf="t.label; else noLabel">{{ t.label }}</span>
+                <ng-template #noLabel>-</ng-template>
               </td>
               <td>{{ t.assignedUserName || '-' }}</td>
               <td>{{ t.estimatedHours || '-' }}</td>

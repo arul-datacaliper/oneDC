@@ -43,7 +43,9 @@ export class TasksComponent implements OnInit {
     if (this.assigneeFilter()) list = list.filter(t => t.assignedUserId === this.assigneeFilter());
     if (this.search()) {
       const s = this.search().toLowerCase();
-      list = list.filter(t => t.title.toLowerCase().includes(s) || (t.description||'').toLowerCase().includes(s));
+      list = list.filter(t => t.title.toLowerCase().includes(s) || 
+                             (t.description||'').toLowerCase().includes(s) ||
+                             (t.label||'').toLowerCase().includes(s));
     }
     return list;
   });
