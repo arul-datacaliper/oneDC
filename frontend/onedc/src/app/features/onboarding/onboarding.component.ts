@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { ToastrService } from 'ngx-toastr';
 
 import { OnboardingService, UserProfile, UserSkill, SkillLevel, CreateUserProfileRequest, CreateUserSkillRequest, OnboardingStatus } from '../../core/services/onboarding.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-onboarding',
@@ -14,6 +15,7 @@ import { OnboardingService, UserProfile, UserSkill, SkillLevel, CreateUserProfil
 })
 export class OnboardingComponent implements OnInit {
   private onboardingService = inject(OnboardingService);
+  private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
 
@@ -369,7 +371,16 @@ export class OnboardingComponent implements OnInit {
       next: (response) => {
         if (response.completed) {
           this.toastr.success('Onboarding completed successfully!');
+          
+          // Mark onboarding as complete in AuthService
+          this.authService.markOnboardingComplete();
+          
           this.loadUserData();
+          
+          // Optionally redirect to profile page after a delay
+          setTimeout(() => {
+            window.location.href = '/profile';
+          }, 2000);
         } else {
           this.toastr.warning('Please complete all required steps first');
         }

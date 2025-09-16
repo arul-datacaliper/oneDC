@@ -23,19 +23,27 @@ export class AuthService {
   
   private _user = new BehaviorSubject<AuthResult | null>(null);
   public user$ = this._user.asObservable();
+  
+  // Track onboarding completion status
+  private _onboardingComplete = new BehaviorSubject<boolean>(false);
+  public onboardingComplete$ = this._onboardingComplete.asObservable();
 
   login(request: LoginRequest): Observable<AuthResult> {
     return this.http.post<AuthResult>(`${this.base}/login`, request).pipe(
       tap(result => {
         localStorage.setItem('auth_token', result.token);
         this._user.next(result);
+        // Check onboarding status after successful login
+        this.checkOnboardingStatus();
       })
     );
   }
 
   logout() {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('onboarding_complete');
     this._user.next(null);
+    this._onboardingComplete.next(false);
   }
 
   getToken(): string | null {
@@ -43,7 +51,28 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    const token = this.getToken();
+    if (!token) return false;
+    
+    // Basic validation - check if it looks like a JWT
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      this.logout(); // Clear invalid token
+      return false;
+    }
+    
+    try {
+      // Try to decode and check expiration
+      const payload = JSON.parse(atob(parts[1]));
+      if (payload.exp && payload.exp < Date.now() / 1000) {
+        this.logout(); // Clear expired token
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logout(); // Clear malformed token
+      return false;
+    }
   }
 
   getCurrentUser(): AuthResult | null {
@@ -51,27 +80,44 @@ export class AuthService {
     if (!token) return null;
 
     try {
-      // Decode JWT token to get user info
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      // Validate JWT token format (should have 3 parts separated by dots)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('Invalid JWT token format');
+        this.logout(); // Clear invalid token
+        return null;
+      }
+
+      // Decode JWT token payload (second part)
+      const payload = JSON.parse(atob(tokenParts[1]));
+      
+      // Check if token is expired
+      if (payload.exp && payload.exp < Date.now() / 1000) {
+        console.error('JWT token has expired');
+        this.logout(); // Clear expired token
+        return null;
+      }
+
       return {
         token: token,
-        userId: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.sub,
+        userId: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.sub || payload.userId,
         email: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || payload.email,
         name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name,
         role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role
       };
     } catch (error) {
       console.error('Error decoding token:', error);
+      // Clear invalid token and redirect to login
+      this.logout();
       return null;
     }
   }
 
   isAdmin(): boolean {
     const user = this.getCurrentUser();
-    console.log('Checking if user is admin:', user);
-    const isAdmin = user?.role === 'ADMIN';
-    console.log('User role:', user?.role, 'Is admin:', isAdmin);
-    return isAdmin;
+    if (!user) return false;
+    
+    return user.role === 'ADMIN';
   }
 
   isApprover(): boolean {
@@ -80,11 +126,84 @@ export class AuthService {
   }
 
   canApprove(): boolean {
-    return this.isAdmin() || this.isApprover();
+    const user = this.getCurrentUser();
+    return user?.role === 'ADMIN' || user?.role === 'APPROVER';
   }
 
   hasRole(role: string): boolean {
     const user = this.getCurrentUser();
     return user?.role === role;
+  }
+
+  // Onboarding status methods
+  async checkOnboardingStatus(): Promise<void> {
+    const user = this.getCurrentUser();
+    if (!user) {
+      this._onboardingComplete.next(false);
+      localStorage.setItem('onboarding_complete', 'false');
+      return;
+    }
+
+    try {
+      // Check onboarding status from the API
+      const response = await this.http.get<any>(`${environment.apiBaseUrl}/onboarding/profile/${user.userId}`).toPromise();
+      const isComplete = response?.isOnboardingComplete || false;
+      this._onboardingComplete.next(isComplete);
+      
+      // Store in localStorage for persistence
+      localStorage.setItem('onboarding_complete', isComplete.toString());
+    } catch (error) {
+      console.log('Profile not found or error checking onboarding status:', error);
+      // If profile doesn't exist or there's an error, onboarding is not complete
+      this._onboardingComplete.next(false);
+      localStorage.setItem('onboarding_complete', 'false');
+    }
+  }
+
+  isOnboardingComplete(): boolean {
+    // Check from BehaviorSubject first, fallback to localStorage
+    const currentValue = this._onboardingComplete.getValue();
+    if (currentValue !== null) return currentValue;
+    
+    const stored = localStorage.getItem('onboarding_complete');
+    return stored === 'true';
+  }
+
+  markOnboardingComplete(): void {
+    this._onboardingComplete.next(true);
+    localStorage.setItem('onboarding_complete', 'true');
+  }
+
+  // Initialize onboarding status on app start
+  initializeOnboardingStatus(): void {
+    if (this.isAuthenticated()) {
+      this.checkOnboardingStatus();
+    }
+  }
+
+  // Debug method to help troubleshoot token issues
+  debugToken(): void {
+    const token = this.getToken();
+    console.log('=== Token Debug Info ===');
+    console.log('Token exists:', !!token);
+    if (token) {
+      console.log('Token length:', token.length);
+      console.log('Token parts:', token.split('.').length);
+      console.log('Token starts with:', token.substring(0, 20) + '...');
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const header = JSON.parse(atob(parts[0]));
+          const payload = JSON.parse(atob(parts[1]));
+          console.log('Header:', header);
+          console.log('Payload:', payload);
+          console.log('Expires:', new Date(payload.exp * 1000));
+        }
+      } catch (e) {
+        console.log('Error decoding token for debug:', e);
+      }
+    }
+    console.log('Current user:', this.getCurrentUser());
+    console.log('========================');
   }
 }

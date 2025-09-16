@@ -38,6 +38,9 @@ export class ShellComponent implements OnInit {
   readonly initial = (document.documentElement.dataset['theme'] as 'light' | 'dark' | undefined) ?? 'light';
 
   theme = signal<'light' | 'dark'>(this.initial);
+  
+  // Track onboarding completion
+  isOnboardingComplete = signal<boolean>(false);
 
   constructor() {
     // responsive watcher
@@ -57,6 +60,23 @@ export class ShellComponent implements OnInit {
     if (!devId) {
       this.toastr.info('Set Dev User (GUID) from the header menu to call APIs', 'Info', { timeOut: 4000 });
     }
+
+    // Initialize onboarding status
+    this.authService.initializeOnboardingStatus();
+    
+    // Subscribe to onboarding status changes
+    this.authService.onboardingComplete$.subscribe(isComplete => {
+      this.isOnboardingComplete.set(isComplete);
+    });
+    
+    // Set initial value
+    this.isOnboardingComplete.set(this.authService.isOnboardingComplete());
+
+    // Debug helper (remove in production)
+    if (!environment.production) {
+      (window as any).debugAuth = () => this.authService.debugToken();
+      console.log('Debug: Type "debugAuth()" in console to inspect token');
+    }
   }
 
   toggleTheme() {
@@ -65,14 +85,22 @@ export class ShellComponent implements OnInit {
 
   // Check if current user is admin
   isAdmin(): boolean {
-    const isAdmin = this.authService.isAdmin();
-    console.log('Shell component - isAdmin():', isAdmin);
-    return isAdmin;
+    try {
+      return this.authService.isAdmin();
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
   }
 
   // Check if current user can approve (admin or approver role)
   canApprove(): boolean {
-    return this.authService.canApprove();
+    try {
+      return this.authService.canApprove();
+    } catch (error) {
+      console.error('Error checking approval permissions:', error);
+      return false;
+    }
   }
 
   openDevUserDialog() {

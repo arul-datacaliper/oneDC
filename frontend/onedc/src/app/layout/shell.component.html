@@ -20,10 +20,16 @@
           <span class="nav-text">Dashboard</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="!isOnboardingComplete()">
         <a class="nav-link" routerLink="/onboarding" routerLinkActive="active">
           <i class="bi bi-person-plus-fill"></i>
           <span class="nav-text">Onboarding</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isOnboardingComplete()">
+        <a class="nav-link" routerLink="/profile" routerLinkActive="active">
+          <i class="bi bi-person-circle"></i>
+          <span class="nav-text">My Profile</span>
         </a>
       </li>
       <li class="nav-item">
