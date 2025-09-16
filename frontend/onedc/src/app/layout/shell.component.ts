@@ -67,4 +67,9 @@ export class ShellComponent implements OnInit {
         if (ok) location.reload();
       });
   }
+
+  logout() {
+    localStorage.removeItem('auth_token');
+    window.location.href = '/login';
+  }
 }

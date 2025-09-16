@@ -248,4 +248,20 @@ export class ClientsComponent implements OnInit {
   trackByClientId(index: number, client: Client): string {
     return client.clientId;
   }
+
+  // Get page numbers for pagination
+  getPageNumbers(): number[] {
+    const totalPages = this.totalPages();
+    const currentPage = this.pageIndex();
+    const pages: number[] = [];
+    
+    const start = Math.max(0, currentPage - 2);
+    const end = Math.min(totalPages, start + 5);
+    
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  }
 }

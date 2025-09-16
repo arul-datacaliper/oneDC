@@ -62,6 +62,12 @@
           <span class="nav-text">Admin</span>
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/tasks" routerLinkActive="active">
+          <i class="bi bi-list-check"></i>
+          <span class="nav-text">Tasks</span>
+        </a>
+      </li>
     </ul>
   </nav>
   
@@ -124,9 +130,9 @@
               </li>
               <li><hr class="dropdown-divider"></li>
               <li>
-                <button class="dropdown-item" disabled>
+                <button class="dropdown-item" (click)="logout()">
                   <i class="bi bi-box-arrow-right"></i>
-                  <span class="ms-2">Sign out (later)</span>
+                  <span class="ms-2">Sign out</span>
                 </button>
               </li>
             </ul>

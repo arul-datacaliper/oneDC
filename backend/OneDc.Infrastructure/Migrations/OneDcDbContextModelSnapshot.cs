@@ -50,11 +50,20 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login_at");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("last_name");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)")
+                        .HasColumnName("password_hash");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer")
@@ -293,6 +302,72 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("project_allocation", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
+                {
+                    b.Property<Guid>("TaskId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<decimal?>("EstimatedHours")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("estimated_hours");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("TaskId")
+                        .HasName("pk_task");
+
+                    b.HasIndex("AssignedUserId")
+                        .HasDatabaseName("ix_task_assigned_user_id");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("ix_task_project_id");
+
+                    b.HasIndex("ProjectId", "Status")
+                        .HasDatabaseName("ix_task_project_id_status");
+
+                    b.ToTable("task", "ts");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.TimesheetEntry", b =>
                 {
                     b.Property<Guid>("EntryId")
@@ -337,6 +412,10 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("submitted_at");
 
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("task_id");
+
                     b.Property<int>("TaskType")
                         .HasColumnType("integer")
                         .HasColumnName("task_type");
@@ -359,6 +438,9 @@ namespace OneDc.Infrastructure.Migrations
 
                     b.HasKey("EntryId")
                         .HasName("pk_timesheet_entry");
+
+                    b.HasIndex("TaskId")
+                        .HasDatabaseName("ix_timesheet_entry_task_id");
 
                     b.HasIndex("ProjectId", "WorkDate")
                         .HasDatabaseName("ix_timesheet_entry_project_id_work_date");
@@ -555,6 +637,26 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_task_app_user_assigned_user_id");
+
+                    b.HasOne("OneDc.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_task_project_project_id");
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.TimesheetEntry", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.Project", "Project")
@@ -564,6 +666,11 @@ namespace OneDc.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_timesheet_entry_project_project_id");
 
+                    b.HasOne("OneDc.Domain.Entities.ProjectTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .HasConstraintName("fk_timesheet_entry_task_task_id");
+
                     b.HasOne("OneDc.Domain.Entities.AppUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -572,6 +679,8 @@ namespace OneDc.Infrastructure.Migrations
                         .HasConstraintName("fk_timesheet_entry_app_user_user_id");
 
                     b.Navigation("Project");
+
+                    b.Navigation("Task");
 
                     b.Navigation("User");
                 });

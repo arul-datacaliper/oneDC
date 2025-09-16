@@ -17,6 +17,7 @@ public class OneDcDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserSkill> UserSkills => Set<UserSkill>();
+    public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -34,6 +35,8 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Role).IsRequired();
             e.Property(x => x.IsActive).IsRequired();
             e.Property(x => x.CreatedAt).IsRequired();
+            e.Property(x => x.PasswordHash).HasMaxLength(600);
+            e.Property(x => x.LastLoginAt);
             e.HasIndex(x => x.Email).IsUnique();
         });
 
@@ -101,6 +104,7 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Hours).HasPrecision(4, 2);
             e.Property(x => x.Status).IsRequired();
             e.Property(x => x.TaskType).IsRequired();
+            e.Property<Guid?>("TaskId"); // shadow property if not added to entity yet
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -179,6 +183,30 @@ public class OneDcDbContext : DbContext
              .OnDelete(DeleteBehavior.Cascade);
              
             e.HasIndex(x => new { x.UserId, x.SkillName }).IsUnique();
+        });
+
+        // ===== ProjectTask =====
+        b.Entity<ProjectTask>(e =>
+        {
+            e.ToTable("task");
+            e.HasKey(x => x.TaskId);
+            e.Property(x => x.Title).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Description).HasMaxLength(2000);
+            e.Property(x => x.EstimatedHours).HasPrecision(8,2);
+            e.Property(x => x.Status).IsRequired();
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => new { x.ProjectId, x.Status });
+            e.HasIndex(x => x.AssignedUserId);
+
+            e.HasOne(x => x.Project)
+             .WithMany()
+             .HasForeignKey(x => x.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.AssignedUser)
+             .WithMany()
+             .HasForeignKey(x => x.AssignedUserId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

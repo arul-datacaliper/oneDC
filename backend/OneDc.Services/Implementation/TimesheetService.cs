@@ -35,6 +35,7 @@ public class TimesheetService : ITimesheetService
             Hours = dto.Hours,
             Description = dto.Description,
             TicketRef = dto.TicketRef,
+            TaskId = dto.TaskId,
             Status = TimesheetStatus.DRAFT,
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
@@ -59,6 +60,7 @@ public class TimesheetService : ITimesheetService
         entry.Hours = dto.Hours;
         entry.Description = dto.Description;
         entry.TicketRef = dto.TicketRef;
+        entry.TaskId = dto.TaskId;
         entry.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _repo.SaveChangesAsync();

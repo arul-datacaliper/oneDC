@@ -12,6 +12,8 @@ export interface ApprovalRow {
   projectId: string;
   projectCode?: string;
   projectName?: string;
+  taskId?: string; // added
+  taskTitle?: string; // added
   workDate: string;       // YYYY-MM-DD
   hours: number;
   description?: string;

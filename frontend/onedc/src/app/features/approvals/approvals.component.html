@@ -44,6 +44,14 @@
           </select>
         </div>
 
+        <div class="form-group" *ngIf="projectId()">
+          <label class="form-label small">Task</label>
+          <select class="form-select form-select-sm" [value]="taskId()" (change)="onTaskChange($any($event.target).value)">
+            <option value="">All Tasks</option>
+            <option *ngFor="let t of uniqueTasks()" [value]="t.taskId">{{ t.title }}</option>
+          </select>
+        </div>
+
         <button class="btn btn-link text-secondary p-1" (click)="load()" title="Refresh data">
           <i class="bi bi-arrow-clockwise fs-5"></i>
         </button>
@@ -87,6 +95,7 @@
             <th scope="col">Date</th>
             <th scope="col">User</th>
             <th scope="col">Project</th>
+            <th scope="col">Task</th>
             <th scope="col">Hours</th>
             <th scope="col">Description</th>
             <th scope="col">Ticket</th>
@@ -107,6 +116,7 @@
             <td>{{ r.workDate }}</td>
             <td>{{ r.userName || labelUser(r.userId) }}</td>
             <td><div>{{ labelProject(r) }}</div></td>
+            <td>{{ labelTask(r) }}</td>
             <td>{{ r.hours | number:'1.0-2' }}</td>
             <td>{{ r.description }}</td>
             <td>{{ r.ticketRef }}</td>
@@ -136,24 +146,24 @@
     <!-- Pagination -->
     <div class="d-flex justify-content-between align-items-center p-3 border-top" *ngIf="allRows().length > 0">
       <div class="text-muted">
-        Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), allRows().length) }} of {{ allRows().length }} entries
+        Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), filteredRows().length) }} of {{ filteredRows().length }} entries
       </div>
       <nav>
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item" [class.disabled]="pageIndex() === 0">
-            <button class="page-link" (click)="onPage({pageIndex: pageIndex() - 1, pageSize: pageSize(), length: allRows().length})" [disabled]="pageIndex() === 0">
+            <button class="page-link" (click)="onPage({pageIndex: pageIndex() - 1, pageSize: pageSize(), length: filteredRows().length})" [disabled]="pageIndex() === 0">
               Previous
             </button>
           </li>
           <li class="page-item" 
               *ngFor="let page of getPageNumbers()" 
               [class.active]="page === pageIndex()">
-            <button class="page-link" (click)="onPage({pageIndex: page, pageSize: pageSize(), length: allRows().length})">
+            <button class="page-link" (click)="onPage({pageIndex: page, pageSize: pageSize(), length: filteredRows().length})">
               {{ page + 1 }}
             </button>
           </li>
-          <li class="page-item" [class.disabled]="pageIndex() >= Math.ceil(allRows().length / pageSize()) - 1">
-            <button class="page-link" (click)="onPage({pageIndex: pageIndex() + 1, pageSize: pageSize(), length: allRows().length})" [disabled]="pageIndex() >= Math.ceil(allRows().length / pageSize()) - 1">
+          <li class="page-item" [class.disabled]="pageIndex() >= Math.ceil(filteredRows().length / pageSize()) - 1">
+            <button class="page-link" (click)="onPage({pageIndex: pageIndex() + 1, pageSize: pageSize(), length: filteredRows().length})" [disabled]="pageIndex() >= Math.ceil(filteredRows().length / pageSize()) - 1">
               Next
             </button>
           </li>
@@ -161,7 +171,7 @@
       </nav>
     </div>
 
-    <div class="empty text-center py-5" *ngIf="allRows().length === 0">
+    <div class="empty text-center py-5" *ngIf="filteredRows().length === 0">
       <i class="bi bi-inbox display-1 text-muted"></i>
       <div class="mt-3 text-muted">No submissions in this range.</div>
     </div>

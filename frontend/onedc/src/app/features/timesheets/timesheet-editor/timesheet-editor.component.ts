@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
 import { ProjectsService } from '../../../core/services/projects.service';
+import { TasksService, ProjectTask } from '../../../core/services/tasks.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 
 
@@ -17,6 +18,7 @@ type Entry = {
   description?: string;
   ticketRef?: string;
   taskType?: TaskType;
+  taskId?: string; // added
   status: 'DRAFT'|'SUBMITTED'|'APPROVED'|'REJECTED'|'LOCKED';
 };
 
@@ -34,6 +36,9 @@ export class TimesheetEditorComponent implements OnInit {
   private tsSvc = inject(TimesheetsService);
   private projSvc = inject(ProjectsService);
   private toastr = inject(ToastrService);
+  private tasksSvc = inject(TasksService);
+  tasks = signal<ProjectTask[]>([]);
+  private tasksByProject: Record<string, ProjectTask[]> = {};
 
   // Bootstrap-styled toast notification method
   private showNotification(message: string, action?: string, config?: any) {
@@ -68,6 +73,7 @@ export class TimesheetEditorComponent implements OnInit {
   newRow = this.fb.group({
     workDate: [new Date().toISOString().slice(0, 10)],
     projectId: ['', Validators.required],
+    taskId: [''],
     hours: [0, [Validators.min(0), Validators.max(24)]],
     description: [''],
     ticketRef: [''],
@@ -100,19 +106,15 @@ export class TimesheetEditorComponent implements OnInit {
     console.log('TimesheetEditorComponent: Initializing...'); // Debug log
     this.loadProjects();
     this.load();
-    
-    // Update the form's workDate when selectedDate changes
     this.updateNewRowDate();
-    
-    // Listen for date changes in the new entry form
     this.newRow.get('workDate')?.valueChanges.subscribe(newDate => {
-      if (newDate && typeof newDate === 'string') {
-        // Only update if it's different from current selected date
-        if (newDate !== this.selectedDate()) {
-          this.selectedDate.set(newDate);
-          this.load(); // Refresh entries for the new date
-        }
+      if (newDate && typeof newDate === 'string' && newDate !== this.selectedDate()) {
+        this.selectedDate.set(newDate);
+        this.load();
       }
+    });
+    this.newRow.get('projectId')?.valueChanges.subscribe(pid => {
+      if (pid) this.loadTasksForProject(pid);
     });
   }
 
@@ -162,6 +164,8 @@ export class TimesheetEditorComponent implements OnInit {
         } else {
           console.log(`Loaded ${data.length} timesheet entries for ${this.selectedDate()}`);
         }
+
+        this.loadTasksForCurrentProjects();
       },
       error: (err) => {
         console.error('Failed to load timesheets:', err);
@@ -171,11 +175,34 @@ export class TimesheetEditorComponent implements OnInit {
     });
   }
 
+  private loadTasksForCurrentProjects() {
+    const projectIds = Array.from(new Set(this.rows().map(r => r.projectId)));
+    projectIds.forEach(pid => this.loadTasksForProject(pid));
+  }
+
+  private loadTasksForProject(projectId: string) {
+    if (!projectId) return;
+    if (this.tasksByProject[projectId]) return; // cache
+    this.tasksSvc.list(projectId).subscribe(ts => {
+      this.tasksByProject[projectId] = ts;
+      if (projectId === this.newRow.get('projectId')?.value) {
+        // trigger change detection if needed
+        this.tasks.set(ts);
+      }
+    });
+  }
+
+  getTasksForProject(projectId: string | null | undefined): ProjectTask[] {
+    if (!projectId) return [];
+    return this.tasksByProject[projectId] || [];
+  }
+
   buildRow(r: TimesheetEntry) {
     const g = this.fb.group({
       entryId: [r.entryId],
       workDate: [r.workDate, Validators.required],
       projectId: [r.projectId, Validators.required],
+      taskId: [(r as any).taskId || ''],
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
       description: [r.description ?? ''],
       ticketRef: [r.ticketRef ?? ''],
@@ -217,7 +244,8 @@ export class TimesheetEditorComponent implements OnInit {
       hours,
       description: val.description?.trim() || undefined,
       ticketRef: val.ticketRef?.trim() || undefined,
-      taskType: val.taskType ?? TaskType.DEV
+      taskType: val.taskType ?? TaskType.DEV,
+      taskId: val.taskId || undefined
     };
 
     console.log('addRow: DTO to send:', dto); // Debug log
@@ -229,6 +257,7 @@ export class TimesheetEditorComponent implements OnInit {
         this.newRow.reset({
           workDate: this.selectedDate(), // Already in YYYY-MM-DD format
           projectId: '',
+          taskId: '',
           hours: 0,
           description: '',
           ticketRef: '',
@@ -274,7 +303,8 @@ export class TimesheetEditorComponent implements OnInit {
       hours,
       description: (g.get('description')!.value || '').trim(),
       ticketRef: (g.get('ticketRef')!.value || '').trim(),
-      taskType: g.get('taskType')!.value ?? TaskType.DEV
+      taskType: g.get('taskType')!.value ?? TaskType.DEV,
+      taskId: (g.get('taskId')!.value || undefined)
     };
     this.tsSvc.update(id, body).subscribe({
       next: (updated: any) => {
@@ -283,7 +313,8 @@ export class TimesheetEditorComponent implements OnInit {
           hours: updated.hours, 
           description: updated.description ?? '', 
           ticketRef: updated.ticketRef ?? '',
-          taskType: updated.taskType ?? TaskType.DEV
+          taskType: updated.taskType ?? TaskType.DEV,
+          taskId: updated.taskId || ''
         }, { emitEvent: false });
         
         // Update the rows signal to reflect the saved changes
@@ -294,7 +325,8 @@ export class TimesheetEditorComponent implements OnInit {
                 hours: updated.hours, 
                 description: updated.description ?? '', 
                 ticketRef: updated.ticketRef ?? '',
-                taskType: updated.taskType ?? TaskType.DEV
+                taskType: updated.taskType ?? TaskType.DEV,
+                taskId: updated.taskId || ''
               }
             : row
         ));

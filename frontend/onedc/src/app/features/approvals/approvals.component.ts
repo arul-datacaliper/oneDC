@@ -34,6 +34,7 @@ export class ApprovalsComponent implements OnInit {
   to   = signal(this.iso(endOfWeek(new Date())));
   projectId = signal<string>('');      // filter
   userId    = signal<string>('');      // filter
+  taskId    = signal<string>('');      // filter
 
   projects = signal<Project[]>([]);
   users    = signal<AppUser[]>([]);
@@ -42,12 +43,30 @@ export class ApprovalsComponent implements OnInit {
   pageSize = signal<number>(10);
   pageIndex = signal<number>(0);
   total = computed(() => this.allRows().reduce((s, r) => s + (r.hours || 0), 0));
-  pendingCount = computed(() => this.allRows().filter(r => r.status === 'SUBMITTED').length);
-  rejectedCount = computed(() => this.allRows().filter(r => r.status === 'REJECTED').length);
-  pendingHours = computed(() => this.allRows().filter(r => r.status === 'SUBMITTED').reduce((s, r) => s + (r.hours || 0), 0));
+  pendingCount = computed(() => this.filteredRows().filter(r => r.status === 'SUBMITTED').length);
+  rejectedCount = computed(() => this.filteredRows().filter(r => r.status === 'REJECTED').length);
+  pendingHours = computed(() => this.filteredRows().filter(r => r.status === 'SUBMITTED').reduce((s, r) => s + (r.hours || 0), 0));
 
   selection = new SelectionModel<ApprovalRow>(true, []);
   processing = signal<boolean>(false);
+
+  filteredRows = computed(() => {
+    const task = this.taskId();
+    if (!task) return this.allRows();
+    return this.allRows().filter(r => r.taskId === task);
+  });
+
+  uniqueTasks = computed(() => {
+    const set = new Map<string, string>();
+    const pid = this.projectId();
+    for (const r of this.allRows()) {
+      if (pid && r.projectId !== pid) continue;
+      if (r.taskId && !set.has(r.taskId)) {
+        set.set(r.taskId, r.taskTitle || r.taskId);
+      }
+    }
+    return Array.from(set, ([taskId, title]) => ({ taskId, title }));
+  });
 
   ngOnInit(): void {
     this.loadProjects();
@@ -56,14 +75,12 @@ export class ApprovalsComponent implements OnInit {
   }
 
   private paginate() {
+    const source = this.filteredRows();
     const start = this.pageIndex() * this.pageSize();
     const end = start + this.pageSize();
-    this.pageRows.set(this.allRows().slice(start, end));
-    // keep selection consistent: drop selections not in allRows
-    const ids = new Set(this.allRows().map(r => r.entryId));
+    this.pageRows.set(source.slice(start, end));
+    // reset selection
     this.selection.clear();
-    // (we could also preserve selection by intersecting)
-    // for simplicity, reset on each load
   }
 
   loadProjects() {
@@ -80,10 +97,23 @@ export class ApprovalsComponent implements OnInit {
     const pid = this.projectId() || undefined;
     const uid = this.userId() || undefined;
     this.svc.list(this.from(), this.to(), pid, uid).subscribe(data => {
-      this.allRows.set(data);
+      // Normalize status in case backend sends numeric enum values
+      const normalized = data.map(r => ({
+        ...r,
+        status: this.normalizeStatus((r as any).status)
+      }));
+      this.allRows.set(normalized);
       this.pageIndex.set(0);
       this.paginate();
     });
+  }
+  
+  private normalizeStatus(value: any): TimesheetStatus {
+    if (typeof value === 'number') {
+      const map = ['DRAFT','SUBMITTED','APPROVED','REJECTED','LOCKED'] as const;
+      return map[value] ?? 'DRAFT';
+    }
+    return value as TimesheetStatus;
   }
 
   // single actions
@@ -185,12 +215,19 @@ export class ApprovalsComponent implements OnInit {
 
   onProjectChange(value: string) {
     this.projectId.set(value);
+    this.taskId.set(''); // reset task filter when project changes
     this.load();
   }
 
   onUserChange(value: string) {
     this.userId.set(value);
     this.load();
+  }
+
+  onTaskChange(value: string) {
+    this.taskId.set(value);
+    this.pageIndex.set(0);
+    this.paginate();
   }
 
   goToPreviousWeek() {
@@ -241,7 +278,8 @@ export class ApprovalsComponent implements OnInit {
   }
 
   getPageNumbers(): number[] {
-    const totalPages = Math.ceil(this.allRows().length / this.pageSize());
+    const totalFiltered = this.filteredRows().length;
+    const totalPages = Math.ceil(totalFiltered / this.pageSize());
     const currentPage = this.pageIndex();
     const pages: number[] = [];
     
@@ -264,16 +302,9 @@ export class ApprovalsComponent implements OnInit {
   }
 
   labelProject(r: ApprovalRow) {
-    // First check if project name is already in the row data
     if (r.projectName) return r.projectName;
-    
-    // Look up project by projectId in the projects array
     const project = this.projects().find(p => p.projectId === r.projectId);
-    if (project) {
-      return project.name;
-    }
-    
-    // Fall back to project code or project ID
+    if (project) return project.name;
     return r.projectCode || r.projectId;
   }
   
@@ -281,6 +312,11 @@ export class ApprovalsComponent implements OnInit {
     const u = this.users().find(x => x.userId === uid);
     return u ? `${u.firstName} ${u.lastName}` : uid;
   }
+
+  labelTask(r: ApprovalRow) {
+    return r.taskTitle || (r.taskId ? r.taskId : '—');
+  }
+
   iso(d: Date) { return d.toISOString().slice(0,10); }
 
   getStatusLabel(status: TimesheetStatus): string {

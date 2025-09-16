@@ -20,6 +20,7 @@ public class TimesheetEntry
   public Guid EntryId { get; set; }
   public Guid UserId { get; set; }
   public Guid ProjectId { get; set; }
+  public Guid? TaskId { get; set; }
   public DateOnly WorkDate { get; set; }
   public decimal Hours { get; set; } // 0..24
   public string? Description { get; set; }
@@ -35,5 +36,6 @@ public class TimesheetEntry
     
     public Project? Project { get; set; }
     public AppUser? User { get; set; }
+    public ProjectTask? Task { get; set; }
 
 }

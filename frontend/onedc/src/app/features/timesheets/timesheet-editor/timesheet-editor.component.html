@@ -1,4 +1,3 @@
-
 <div class="card">
   <div class="card-body">
     <div class="header-row">
@@ -46,6 +45,16 @@
             <option value="">Select project</option>
             <option *ngFor="let p of projects()" [value]="p.projectId">
               {{ p.code }} — {{ p.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="col-md-3" *ngIf="newRow.get('projectId')?.value">
+          <label class="form-label">Task</label>
+          <select class="form-select" [formControl]="newRow.controls.taskId">
+            <option value="">-- None --</option>
+            <option *ngFor="let t of getTasksForProject(newRow.get('projectId')?.value)" [value]="t.taskId">
+              {{ t.title }}
             </option>
           </select>
         </div>
@@ -112,6 +121,7 @@
           <tr>
             <th>Date</th>
             <th>Project</th>
+            <th>Task</th>
             <th>Hours</th>
             <th>Task Type</th>
             <th>Description</th>
@@ -125,6 +135,15 @@
             <td>{{ g.get('workDate')!.value }}</td>
             <td>
               <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
+            </td>
+            <td>
+              <select [disabled]="!isEditable(g.get('status')!.value)"
+                      class="form-select form-select-sm"
+                      [value]="g.get('taskId')!.value"
+                      (change)="onFieldChange(g, 'taskId', $any($event.target).value)">
+                <option value="">-- None --</option>
+                <option *ngFor="let t of getTasksForProject(g.get('projectId')!.value)" [value]="t.taskId">{{ t.title }}</option>
+              </select>
             </td>
             <td>
               <input [readonly]="!isEditable(g.get('status')!.value)"
