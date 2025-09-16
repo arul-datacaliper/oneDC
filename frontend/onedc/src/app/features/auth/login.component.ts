@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   standalone: true,
@@ -14,9 +15,10 @@ import { ToastrService } from 'ngx-toastr';
 export class LoginComponent {
   private router = inject(Router);
   private toastr = inject(ToastrService);
+  private authService = inject(AuthService);
 
-  email = signal('');
-  password = signal('');
+  email = signal('admin@onedc.com');
+  password = signal('password123');
   loading = signal(false);
 
   submit() {
@@ -24,13 +26,18 @@ export class LoginComponent {
       this.toastr.warning('Email and password required');
       return;
     }
+    
     this.loading.set(true);
-    // Simulate login success; store dummy token
-    setTimeout(() => {
-      localStorage.setItem('auth_token', 'dev-token');
-      this.toastr.success('Logged in');
-      const returnUrl = new URLSearchParams(window.location.search).get('returnUrl') || '/dashboard';
-      this.router.navigateByUrl(returnUrl);
-    }, 600);
+    this.authService.login({ email: this.email(), password: this.password() }).subscribe({
+      next: (result) => {
+        this.toastr.success(`Welcome, ${result.name}!`);
+        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl') || '/dashboard';
+        this.router.navigateByUrl(returnUrl);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.toastr.error(err.error?.message || 'Invalid credentials');
+      }
+    });
   }
 }

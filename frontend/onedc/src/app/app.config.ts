@@ -6,13 +6,13 @@ import { provideToastr } from 'ngx-toastr';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
-import { debugUserInterceptor } from './core/interceptors/debug-user.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideHttpClient(withInterceptors([debugUserInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor])),
     provideRouter(routes),
     provideAnimations(),
     provideToastr({

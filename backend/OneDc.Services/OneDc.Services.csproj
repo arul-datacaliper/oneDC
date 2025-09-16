@@ -1,14 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\OneDc.Repository\OneDc.Repository.csproj" />
-    <ProjectReference Include="..\OneDc.Domain\OneDc.Domain.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OneDc.Domain\OneDc.Domain.csproj" />
+    <ProjectReference Include="..\OneDc.Infrastructure\OneDc.Infrastructure.csproj" />
+    <ProjectReference Include="..\OneDc.Repository\OneDc.Repository.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.9" />
+  </ItemGroup>
 
 </Project>
