@@ -126,6 +126,14 @@ export class SearchableDropdownComponent implements ControlValueAccessor {
 
   ngOnChanges() {
     this.filteredOptions = this.options;
+    // Re-apply the current value when options change
+    if (this.selectedOption) {
+      const newSelectedOption = this.options.find(opt => opt.value === this.selectedOption?.value);
+      if (newSelectedOption) {
+        this.selectedOption = newSelectedOption;
+        this.displayValue = newSelectedOption.label;
+      }
+    }
   }
 
   // ControlValueAccessor implementation

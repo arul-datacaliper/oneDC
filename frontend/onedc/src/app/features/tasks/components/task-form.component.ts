@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Observable, startWith, map, of } from 'rxjs';
@@ -69,7 +69,7 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
     .task-form .form-label { font-weight: 500; }
   `]
 })
-export class TaskFormComponent {
+export class TaskFormComponent implements OnChanges {
   private fb = inject(FormBuilder);
   private usersSvc = inject(UsersService);
   private tasksSvc = inject(TasksService);
@@ -106,16 +106,7 @@ export class TaskFormComponent {
       
       // Handle task editing after users are loaded
       if (this.task) {
-        this.form.patchValue({
-          title: this.task!.title,
-          description: this.task!.description,
-          label: this.task!.label,
-          assignedUserId: this.task!.assignedUserId || '',
-          estimatedHours: this.task!.estimatedHours ?? null,
-          startDate: this.task!.startDate || '',
-          endDate: this.task!.endDate || '',
-          status: this.task!.status
-        });
+        this.populateForm();
       }
     });
     
@@ -125,6 +116,35 @@ export class TaskFormComponent {
     } else {
       this.form.get('status')?.disable();
     }
+  }
+
+  ngOnChanges() {
+    // Handle task changes when component is reused
+    if (this.task && this.assigneeOptions.length > 0) {
+      this.populateForm();
+    }
+  }
+
+  private populateForm() {
+    if (!this.task) return;
+    
+    this.form.patchValue({
+      title: this.task.title,
+      description: this.task.description,
+      label: this.task.label,
+      assignedUserId: this.task.assignedUserId || '',
+      estimatedHours: this.task.estimatedHours ?? null,
+      startDate: this.task.startDate || '',
+      endDate: this.task.endDate || '',
+      status: this.task.status
+    });
+    
+    // Ensure the dropdown gets the correct value after a brief delay
+    setTimeout(() => {
+      if (this.task?.assignedUserId) {
+        this.form.get('assignedUserId')?.setValue(this.task.assignedUserId);
+      }
+    }, 100);
   }
 
   submit() {
