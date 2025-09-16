@@ -121,6 +121,10 @@
               </td>
               <td>
                 <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-sm btn-outline-info" 
+                          (click)="viewUserProfile(user)" title="View Profile">
+                    <i class="bi bi-person-circle"></i>
+                  </button>
                   <button type="button" class="btn btn-sm btn-outline-primary" 
                           (click)="openEditModal(user)" title="Edit User">
                     <i class="bi bi-pencil"></i>
@@ -308,6 +312,199 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- User Profile Modal -->
+<div class="modal fade" [class.show]="showProfileModal()" [style.display]="showProfileModal() ? 'block' : 'none'"
+     *ngIf="showProfileModal()">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-person-circle me-2"></i>
+          User Profile - {{ selectedUserProfile()?.firstName }} {{ selectedUserProfile()?.lastName }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeProfileModal()"></button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="loadingProfile()" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading profile...</span>
+          </div>
+          <p class="text-muted mt-2">Loading user profile...</p>
+        </div>
+
+        <div *ngIf="!loadingProfile() && selectedUserProfile()" class="profile-content">
+          <!-- Basic Information -->
+          <div class="row mb-4">
+            <div class="col-md-4 text-center">
+              <div class="profile-image-section">
+                <img *ngIf="selectedUserProfile()?.profileImage" 
+                     [src]="selectedUserProfile()?.profileImage" 
+                     alt="Profile Picture" 
+                     class="rounded-circle profile-image">
+                <div *ngIf="!selectedUserProfile()?.profileImage" 
+                     class="profile-placeholder rounded-circle d-flex align-items-center justify-content-center">
+                  <i class="bi bi-person-fill fs-1 text-muted"></i>
+                </div>
+                <h5 class="mt-3 mb-1">{{ selectedUserProfile()?.firstName }} {{ selectedUserProfile()?.lastName }}</h5>
+                <p class="text-muted">{{ selectedUserProfile()?.email }}</p>
+                <span class="badge bg-primary">{{ getRoleDisplayName(selectedUserProfile()?.role) }}</span>
+              </div>
+            </div>
+            <div class="col-md-8">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Phone Number</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.phoneNumber || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Date of Birth</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.dateOfBirth ? (selectedUserProfile()?.dateOfBirth | date:'mediumDate') : 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Department</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.department || 'Not assigned' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Job Title</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.jobTitle || 'Not specified' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Start Date</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.startDate ? (selectedUserProfile()?.startDate | date:'mediumDate') : 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Manager</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.managerName || 'Not assigned' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Address Information -->
+          <div class="card mb-4" *ngIf="selectedUserProfile()?.address">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Address Information</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Street Address</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.address?.street || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">City</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.address?.city || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">State/Province</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.address?.state || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Postal Code</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.address?.postalCode || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Country</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.address?.country || 'Not provided' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Emergency Contact -->
+          <div class="card mb-4" *ngIf="selectedUserProfile()?.emergencyContact">
+            <div class="card-header">
+              <h6 class="mb-0"><i class="bi bi-telephone me-2"></i>Emergency Contact</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Name</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.emergencyContact?.name || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Relationship</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.emergencyContact?.relationship || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Phone Number</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.emergencyContact?.phoneNumber || 'Not provided' }}</p>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Email</label>
+                  <p class="mb-0">{{ selectedUserProfile()?.emergencyContact?.email || 'Not provided' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills & Certifications -->
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h6 class="mb-0"><i class="bi bi-gear me-2"></i>Skills</h6>
+                </div>
+                <div class="card-body">
+                  <div *ngIf="selectedUserProfile()?.skills && selectedUserProfile()?.skills.length > 0; else noSkills">
+                    <div class="d-flex flex-wrap gap-2">
+                      <span *ngFor="let skill of selectedUserProfile()?.skills" 
+                            class="badge bg-secondary">{{ skill.skillName }}</span>
+                    </div>
+                  </div>
+                  <ng-template #noSkills>
+                    <p class="text-muted mb-0">No skills listed</p>
+                  </ng-template>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h6 class="mb-0"><i class="bi bi-award me-2"></i>Certifications</h6>
+                </div>
+                <div class="card-body">
+                  <div *ngIf="selectedUserProfile()?.certifications && selectedUserProfile()?.certifications.length > 0; else noCertifications">
+                    <div class="list-group list-group-flush">
+                      <div *ngFor="let cert of selectedUserProfile()?.certifications" 
+                           class="list-group-item px-0 py-2 border-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <h6 class="mb-1">{{ cert.name }}</h6>
+                            <p class="mb-1 text-muted">{{ cert.issuingOrganization }}</p>
+                            <small class="text-muted">
+                              Issued: {{ cert.issueDate | date:'mediumDate' }}
+                              <span *ngIf="cert.expirationDate">
+                                | Expires: {{ cert.expirationDate | date:'mediumDate' }}
+                              </span>
+                            </small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <ng-template #noCertifications>
+                    <p class="text-muted mb-0">No certifications listed</p>
+                  </ng-template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!loadingProfile() && !selectedUserProfile()" class="text-center py-5">
+          <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+          <h6 class="text-muted mt-3">Profile Not Found</h6>
+          <p class="text-muted">This user hasn't completed their onboarding profile yet.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeProfileModal()">Close</button>
+      </div>
     </div>
   </div>
 </div>

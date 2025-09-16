@@ -128,16 +128,40 @@ export class TaskFormComponent implements OnChanges {
   private populateForm() {
     if (!this.task) return;
     
+    console.log('Populating form with task:', this.task); // Debug log
+    
+    // Convert dates to proper format for date inputs
+    const formatDateForInput = (dateStr: string | undefined) => {
+      if (!dateStr) return '';
+      // Handle both Date objects and date strings
+      if (typeof dateStr === 'string') {
+        // If it's already in YYYY-MM-DD format, use it directly
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return dateStr;
+        }
+        // If it's an ISO string, extract the date part
+        if (dateStr.includes('T')) {
+          return dateStr.split('T')[0];
+        }
+      }
+      // Fallback: create date and format
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    };
+    
     this.form.patchValue({
       title: this.task.title,
       description: this.task.description,
       label: this.task.label,
       assignedUserId: this.task.assignedUserId || '',
       estimatedHours: this.task.estimatedHours ?? null,
-      startDate: this.task.startDate || '',
-      endDate: this.task.endDate || '',
+      startDate: formatDateForInput(this.task.startDate),
+      endDate: formatDateForInput(this.task.endDate),
       status: this.task.status
     });
+    
+    console.log('Form values after patch:', this.form.value); // Debug log
     
     // Ensure the dropdown gets the correct value after a brief delay
     setTimeout(() => {

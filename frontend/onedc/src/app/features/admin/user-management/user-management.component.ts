@@ -2,8 +2,11 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { UserManagementService, AppUser, CreateUserRequest, UpdateUserRequest, UserRole } from '../../../core/services/user-management.service';
+import { OnboardingService, UserProfile, UserSkill } from '../../../core/services/onboarding.service';
 
 @Component({
   selector: 'app-user-management',
@@ -14,6 +17,7 @@ import { UserManagementService, AppUser, CreateUserRequest, UpdateUserRequest, U
 })
 export class UserManagementComponent implements OnInit {
   private userService = inject(UserManagementService);
+  private onboardingService = inject(OnboardingService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
 
@@ -22,7 +26,10 @@ export class UserManagementComponent implements OnInit {
   loading = signal<boolean>(false);
   showCreateModal = signal<boolean>(false);
   showEditModal = signal<boolean>(false);
+  showProfileModal = signal<boolean>(false);
   editingUser = signal<AppUser | null>(null);
+  selectedUserProfile = signal<any>(null);
+  loadingProfile = signal<boolean>(false);
 
   // Forms
   createUserForm!: FormGroup;
@@ -243,5 +250,69 @@ export class UserManagementComponent implements OnInit {
       }
     }
     return '';
+  }
+
+  // Profile viewing methods
+  viewUserProfile(user: AppUser) {
+    this.selectedUserProfile.set(null);
+    this.loadingProfile.set(true);
+    this.showProfileModal.set(true);
+
+    // Fetch profile, skills, and certifications in parallel
+    const profile$ = this.onboardingService.getUserProfile(user.userId).pipe(
+      catchError(error => of(null))
+    );
+    
+    const skills$ = this.onboardingService.getUserSkills(user.userId).pipe(
+      catchError(error => of([]))
+    );
+    
+    // Note: Add certifications when the endpoint is available
+    // const certifications$ = this.onboardingService.getUserCertifications(user.userId).pipe(
+    //   catchError(error => of([]))
+    // );
+
+    forkJoin({
+      profile: profile$,
+      skills: skills$
+      // certifications: certifications$
+    }).subscribe({
+      next: (data) => {
+        // Merge user basic info with profile data
+        const fullProfile = {
+          ...data.profile,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          skills: data.skills || [],
+          certifications: [] // Add when certifications endpoint is available
+        };
+        this.selectedUserProfile.set(fullProfile);
+        this.loadingProfile.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading user profile:', error);
+        // Set basic user info even if profile doesn't exist
+        this.selectedUserProfile.set({
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          skills: [],
+          certifications: []
+        });
+        this.loadingProfile.set(false);
+        this.toastr.error('Failed to load user profile');
+      }
+    });
+  }
+
+  closeProfileModal() {
+    this.showProfileModal.set(false);
+    this.selectedUserProfile.set(null);
+    this.loadingProfile.set(false);
   }
 }

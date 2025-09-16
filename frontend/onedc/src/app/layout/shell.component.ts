@@ -11,6 +11,7 @@ import { ToastrService } from 'ngx-toastr';
 
 import { environment } from '../../environments/environment';
 import { DevUserDialogComponent } from './widgets/dev-user-dialog/dev-user-dialog.component';
+import { AuthService } from '../core/services/auth.service';
 
 @Component({
   selector: 'app-shell',
@@ -28,6 +29,7 @@ export class ShellComponent implements OnInit {
   private bp = inject(BreakpointObserver);
   private toastr = inject(ToastrService);
   private dialog = inject(MatDialog);
+  private authService = inject(AuthService);
 
   isHandset = signal(false);
   sidenavOpened = signal(true);
@@ -35,7 +37,7 @@ export class ShellComponent implements OnInit {
 
   readonly initial = (document.documentElement.dataset['theme'] as 'light' | 'dark' | undefined) ?? 'light';
 
- theme = signal<'light' | 'dark'>(this.initial);
+  theme = signal<'light' | 'dark'>(this.initial);
 
   constructor() {
     // responsive watcher
@@ -61,6 +63,18 @@ export class ShellComponent implements OnInit {
     this.theme.set(this.theme() === 'light' ? 'dark' : 'light');
   }
 
+  // Check if current user is admin
+  isAdmin(): boolean {
+    const isAdmin = this.authService.isAdmin();
+    console.log('Shell component - isAdmin():', isAdmin);
+    return isAdmin;
+  }
+
+  // Check if current user can approve (admin or approver role)
+  canApprove(): boolean {
+    return this.authService.canApprove();
+  }
+
   openDevUserDialog() {
     this.dialog.open(DevUserDialogComponent, { width: '420px' })
       .afterClosed().subscribe(ok => {
@@ -69,7 +83,7 @@ export class ShellComponent implements OnInit {
   }
 
   logout() {
-    localStorage.removeItem('auth_token');
+    this.authService.logout();
     window.location.href = '/login';
   }
 }

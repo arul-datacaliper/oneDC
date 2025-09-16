@@ -45,4 +45,46 @@ export class AuthService {
   isAuthenticated(): boolean {
     return !!this.getToken();
   }
+
+  getCurrentUser(): AuthResult | null {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      // Decode JWT token to get user info
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return {
+        token: token,
+        userId: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.sub,
+        email: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || payload.email,
+        name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name,
+        role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role
+      };
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
+  }
+
+  isAdmin(): boolean {
+    const user = this.getCurrentUser();
+    console.log('Checking if user is admin:', user);
+    const isAdmin = user?.role === 'ADMIN';
+    console.log('User role:', user?.role, 'Is admin:', isAdmin);
+    return isAdmin;
+  }
+
+  isApprover(): boolean {
+    const user = this.getCurrentUser();
+    return user?.role === 'APPROVER';
+  }
+
+  canApprove(): boolean {
+    return this.isAdmin() || this.isApprover();
+  }
+
+  hasRole(role: string): boolean {
+    const user = this.getCurrentUser();
+    return user?.role === role;
+  }
 }

@@ -96,6 +96,15 @@ export class TasksComponent implements OnInit {
     if (!this.projectId()) { this.tasks.set([]); return; }
     this.loading.set(true);
     this.tasksSvc.list(this.projectId()).subscribe(ts => {
+      console.log('Tasks received from API:', ts); // Debug log
+      if (ts.length > 0) {
+        console.log('First task dates:', {
+          startDate: ts[0].startDate,
+          endDate: ts[0].endDate,
+          startDateType: typeof ts[0].startDate,
+          endDateType: typeof ts[0].endDate
+        }); // Debug log
+      }
       this.tasks.set(ts);
       this.pageIndex.set(0);
       this.loading.set(false);

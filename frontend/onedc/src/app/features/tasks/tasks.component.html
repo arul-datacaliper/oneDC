@@ -73,8 +73,8 @@
               </td>
               <td>{{ t.assignedUserName || '-' }}</td>
               <td>{{ t.estimatedHours || '-' }}</td>
-              <td>{{ t.startDate || '-' }}</td>
-              <td>{{ t.endDate || '-' }}</td>
+              <td>{{ t.startDate ? (t.startDate | date:'mediumDate') : '-' }}</td>
+              <td>{{ t.endDate ? (t.endDate | date:'mediumDate') : '-' }}</td>
               <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">

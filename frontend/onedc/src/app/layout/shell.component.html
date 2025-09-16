@@ -32,19 +32,19 @@
           <span class="nav-text">My Timesheet</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="canApprove()">
         <a class="nav-link" routerLink="/approvals" routerLinkActive="active">
           <i class="bi bi-check-circle"></i>
           <span class="nav-text">Approvals</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/projects" routerLinkActive="active">
           <i class="bi bi-briefcase"></i>
           <span class="nav-text">Projects</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/clients" routerLinkActive="active">
           <i class="bi bi-building"></i>
           <span class="nav-text">Clients</span>
@@ -56,7 +56,7 @@
           <span class="nav-text">Reports</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/admin" routerLinkActive="active">
           <i class="bi bi-gear"></i>
           <span class="nav-text">Admin</span>
