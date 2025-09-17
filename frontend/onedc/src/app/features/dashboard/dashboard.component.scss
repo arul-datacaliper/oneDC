@@ -116,18 +116,46 @@
     overflow: hidden;
   }
 
+  // General table styling with reduced font sizes
   .table th {
     background-color: rgba(var(--bs-light-rgb), 0.5);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.75rem !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 1rem;
+    padding: 0.5rem 0.75rem !important;
   }
 
   .table td {
-    padding: 1rem;
+    padding: 0.5rem 0.75rem !important;
     vertical-align: middle;
+    font-size: 0.8rem !important;
+  }
+
+  // Specific styling for all tables
+  .table {
+    th {
+      font-size: 0.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+    }
+    
+    td {
+      font-size: 0.8rem !important;
+      padding: 0.5rem 0.75rem !important;
+      
+      .fw-medium {
+        font-size: 0.85rem !important;
+      }
+      
+      small {
+        font-size: 0.7rem !important;
+      }
+      
+      .badge {
+        font-size: 0.7rem !important;
+        padding: 0.25em 0.5em !important;
+      }
+    }
   }
 
   .table tbody tr {
