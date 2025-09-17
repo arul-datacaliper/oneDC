@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, of } from 'rxjs';
@@ -20,6 +21,7 @@ export class UserManagementComponent implements OnInit {
   private onboardingService = inject(OnboardingService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
+  private router = inject(Router);
 
   // Signals for reactive state
   users = signal<AppUser[]>([]);
@@ -36,6 +38,24 @@ export class UserManagementComponent implements OnInit {
   editUserForm!: FormGroup;
 
   // Computed properties
+  isEmployeeManagementMode = computed(() => {
+    return this.router.url.includes('/admin/employees');
+  });
+
+  pageTitle = computed(() => {
+    return this.isEmployeeManagementMode() ? 'Employee Management' : 'User Management';
+  });
+
+  pageDescription = computed(() => {
+    return this.isEmployeeManagementMode() 
+      ? 'Manage employees, their profiles, and access permissions'
+      : 'Manage system users, roles, and access permissions';
+  });
+
+  addButtonText = computed(() => {
+    return this.isEmployeeManagementMode() ? 'Add New Employee' : 'Add New User';
+  });
+
   activeUsers = computed(() => this.users().filter(u => u.isActive));
   inactiveUsers = computed(() => this.users().filter(u => !u.isActive));
   userRoles = computed(() => this.userService.getUserRoles());

@@ -1,5 +1,6 @@
 import { Component, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics } from '../../core/services/admin.service';
 
@@ -20,6 +21,7 @@ export interface TimesheetEntry {
 export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
   private adminService = inject(AdminService);
+  private router = inject(Router);
 
   // Admin dashboard data
   adminMetrics: AdminDashboardMetrics | null = null;
@@ -188,5 +190,30 @@ export class DashboardComponent implements OnInit {
   // Refresh data
   refresh(): void {
     this.ngOnInit();
+  }
+
+  // Navigation methods
+  navigateToEmployeeManagement(): void {
+    this.router.navigate(['/admin/employees']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToProjectManagement(): void {
+    this.router.navigate(['/projects']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToClientManagement(): void {
+    this.router.navigate(['/clients']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToApprovals(): void {
+    this.router.navigate(['/approvals']).catch(err => {
+      console.error('Navigation error:', err);
+    });
   }
 }
