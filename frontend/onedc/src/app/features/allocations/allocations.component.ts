@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
@@ -10,7 +11,7 @@ import { Project } from '../../shared/models';
 @Component({
   selector: 'app-allocations',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
   templateUrl: './allocations.component.html',
   styleUrl: './allocations.component.scss'
 })
@@ -58,6 +59,18 @@ export class AllocationsComponent implements OnInit {
     return allocations;
   });
 
+  // Computed property for selected week end date
+  selectedWeekEndDate = computed(() => {
+    const weekStartDate = this.allocationForm?.get('weekStartDate')?.value;
+    if (weekStartDate) {
+      const startDate = new Date(weekStartDate);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      return endDate.toISOString().split('T')[0];
+    }
+    return '';
+  });
+
   // Template helper methods
   weekEndDate(): string {
     if (this.currentWeekStart()) {
@@ -73,7 +86,8 @@ export class AllocationsComponent implements OnInit {
     this.allocationForm = this.fb.group({
       projectId: ['', Validators.required],
       userId: ['', Validators.required],
-      allocatedHours: [45, [Validators.required, Validators.min(1), Validators.max(67.5)]]
+      allocatedHours: [45, [Validators.required, Validators.min(1), Validators.max(67.5)]],
+      weekStartDate: ['', Validators.required]
     });
 
     // Initialize with current week
@@ -168,7 +182,8 @@ export class AllocationsComponent implements OnInit {
   openCreateModal() {
     this.allocationForm.reset();
     this.allocationForm.patchValue({
-      allocatedHours: 40
+      allocatedHours: 45,
+      weekStartDate: this.currentWeekStart()
     });
     this.editingAllocation.set(null);
     this.showCreateModal.set(true);
@@ -178,7 +193,8 @@ export class AllocationsComponent implements OnInit {
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
       userId: allocation.userId,
-      allocatedHours: allocation.allocatedHours
+      allocatedHours: allocation.allocatedHours,
+      weekStartDate: allocation.weekStartDate
     });
     this.editingAllocation.set(allocation);
     this.showCreateModal.set(true);
@@ -216,7 +232,7 @@ export class AllocationsComponent implements OnInit {
         const createRequest: CreateAllocationRequest = {
           projectId: formValue.projectId,
           userId: formValue.userId,
-          weekStartDate: this.currentWeekStart(),
+          weekStartDate: formValue.weekStartDate,
           allocatedHours: formValue.allocatedHours
         };
 

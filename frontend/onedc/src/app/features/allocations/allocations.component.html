@@ -77,30 +77,6 @@
 
   <!-- Overview Mode -->
   <div *ngIf="!isLoading() && viewMode() === 'overview'">
-    <!-- Summary Cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-6">
-        <div class="card border-start border-4 border-primary">
-          <div class="card-body">
-            <h6 class="card-title">Total Allocations</h6>
-            <h3 class="text-primary">{{ allocations().length }}</h3>
-            <small class="text-muted">This week</small>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card border-start border-4 border-success">
-          <div class="card-body">
-            <h6 class="card-title">Total Hours Allocated</h6>
-            <h3 class="text-success">
-              {{ getTotalAllocatedHours() }}
-            </h3>
-            <small class="text-muted">Hours this week</small>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Project Summary -->
     <div class="row">
       <div class="col-md-6">
@@ -341,13 +317,17 @@
             <div class="col-md-6">
               <div class="mb-3">
                 <label class="form-label">Project *</label>
-                <select class="form-select" formControlName="projectId" [disabled]="!!editingAllocation()">
-                  <option value="">Select a project...</option>
-                  <option *ngFor="let project of availableProjects()" [value]="project.projectId">
-                    {{ project.projectName }}
-                  </option>
-                </select>
-                <div class="invalid-feedback" 
+                <ng-select 
+                  formControlName="projectId"
+                  [disabled]="!!editingAllocation()"
+                  placeholder="Search and select a project..."
+                  [clearable]="false"
+                  [searchable]="true"
+                  bindLabel="projectName"
+                  bindValue="projectId"
+                  [items]="availableProjects()">
+                </ng-select>
+                <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('projectId')?.invalid && allocationForm.get('projectId')?.touched">
                   Project is required
                 </div>
@@ -357,13 +337,17 @@
             <div class="col-md-6">
               <div class="mb-3">
                 <label class="form-label">Employee *</label>
-                <select class="form-select" formControlName="userId" [disabled]="!!editingAllocation()">
-                  <option value="">Select an employee...</option>
-                  <option *ngFor="let employee of availableEmployees()" [value]="employee.userId">
-                    {{ employee.userName }}
-                  </option>
-                </select>
-                <div class="invalid-feedback" 
+                <ng-select 
+                  formControlName="userId"
+                  [disabled]="!!editingAllocation()"
+                  placeholder="Search and select an employee..."
+                  [clearable]="false"
+                  [searchable]="true"
+                  bindLabel="userName"
+                  bindValue="userId"
+                  [items]="availableEmployees()">
+                </ng-select>
+                <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('userId')?.invalid && allocationForm.get('userId')?.touched">
                   Employee is required
                 </div>
@@ -387,10 +371,25 @@
             
             <div class="col-md-6">
               <div class="mb-3">
-                <label class="form-label">Week Period</label>
-                <input type="text" class="form-control" readonly 
-                       [value]="currentWeekStart() + ' to ' + weekEndDate()">
-                <div class="form-text">Week period for this allocation</div>
+                <label class="form-label">Week Start Date *</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  formControlName="weekStartDate"
+                  [disabled]="!!editingAllocation()">
+                <div class="form-text">
+                  Select the Monday that starts the work week
+                  <div *ngIf="allocationForm.get('weekStartDate')?.value" class="mt-1">
+                    <small class="text-primary">
+                      Week: {{ allocationForm.get('weekStartDate')?.value | date:'mediumDate' }} - 
+                      {{ selectedWeekEndDate() | date:'mediumDate' }}
+                    </small>
+                  </div>
+                </div>
+                <div class="invalid-feedback d-block" 
+                     *ngIf="allocationForm.get('weekStartDate')?.invalid && allocationForm.get('weekStartDate')?.touched">
+                  Week start date is required
+                </div>
               </div>
             </div>
           </div>

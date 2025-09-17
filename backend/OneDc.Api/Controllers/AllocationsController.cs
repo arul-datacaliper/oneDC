@@ -42,7 +42,7 @@ public class AllocationsController : ControllerBase
                 WeekStartDate = wa.WeekStartDate.ToString("yyyy-MM-dd"),
                 WeekEndDate = wa.WeekEndDate.ToString("yyyy-MM-dd"),
                 AllocatedHours = wa.AllocatedHours,
-                UtilizationPercentage = Math.Round((decimal)wa.AllocatedHours / 45 * 100, 2), // Recalculate based on 45-hour week
+                UtilizationPercentage = wa.UtilizationPercentage,
                 Status = wa.Status,
                 CreatedAt = wa.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 UpdatedAt = wa.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -306,33 +306,6 @@ public class AllocationsController : ControllerBase
                            wa.WeekStartDate == weekStart);
 
         return Ok(exists);
-    }
-
-    // POST: api/allocations/recalculate-utilization
-    [HttpPost("recalculate-utilization")]
-    public async Task<IActionResult> RecalculateUtilizationPercentages()
-    {
-        try
-        {
-            var allocations = await _context.WeeklyAllocations.ToListAsync();
-            
-            foreach (var allocation in allocations)
-            {
-                allocation.UtilizationPercentage = Math.Round((decimal)allocation.AllocatedHours / 45 * 100, 2);
-                allocation.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-            
-            return Ok(new { 
-                message = "Utilization percentages recalculated successfully", 
-                updatedRecords = allocations.Count 
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Error recalculating utilization percentages: {ex.Message}");
-        }
     }
 }
 
