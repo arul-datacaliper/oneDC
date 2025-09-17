@@ -1,4 +1,15 @@
 <div class="onboarding-container">
+  <!-- Completion Alert at Top -->
+  <div class="alert alert-success alert-dismissible fade show mb-4" *ngIf="onboardingStatus()?.isComplete">
+    <div class="d-flex align-items-center">
+      <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+      <div class="flex-grow-1">
+        <h6 class="alert-heading mb-1">Onboarding Complete! 🎉</h6>
+        <p class="mb-0">Welcome to OneDC! Your profile is now complete and you can start using all platform features.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Header -->
   <div class="card mb-4">
     <div class="card-body">
@@ -376,17 +387,6 @@
           Complete Profile First
         </button>
       </div>
-    </div>
-  </div>
-
-  <!-- Completion Status -->
-  <div class="card mt-4" *ngIf="onboardingStatus()?.isComplete">
-    <div class="card-body text-center">
-      <i class="bi bi-check-circle-fill text-success display-1"></i>
-      <h4 class="text-success mt-3">Onboarding Complete! 🎉</h4>
-      <p class="text-muted">
-        Welcome to OneDC! Your profile is now complete and you can start using all platform features.
-      </p>
     </div>
   </div>
 </div>

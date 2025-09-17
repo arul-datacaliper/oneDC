@@ -5,12 +5,13 @@ import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
 import { TaskFormComponent } from './components/task-form.component';
+import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, FormsModule, TaskFormComponent],
+  imports: [CommonModule, FormsModule, TaskFormComponent, SearchableDropdownComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.scss']
 })
@@ -25,6 +26,10 @@ export class TasksComponent implements OnInit {
 
   projects = signal<any[]>([]);
   users = signal<AppUser[]>([]);
+  
+  // Dropdown options for searchable components
+  projectOptions = signal<DropdownOption[]>([]);
+  assigneeOptions = signal<DropdownOption[]>([]);
 
   projectId = signal<string>('');
   statusFilter = signal<TaskStatus|''>('');
@@ -43,7 +48,9 @@ export class TasksComponent implements OnInit {
     if (this.assigneeFilter()) list = list.filter(t => t.assignedUserId === this.assigneeFilter());
     if (this.search()) {
       const s = this.search().toLowerCase();
-      list = list.filter(t => t.title.toLowerCase().includes(s) || (t.description||'').toLowerCase().includes(s));
+      list = list.filter(t => t.title.toLowerCase().includes(s) || 
+                             (t.description||'').toLowerCase().includes(s) ||
+                             (t.label||'').toLowerCase().includes(s));
     }
     return list;
   });
@@ -63,13 +70,41 @@ export class TasksComponent implements OnInit {
     this.loadUsers();
   }
 
-  loadProjects() { this.projectsSvc.getAll().subscribe(ps => this.projects.set(ps)); }
-  loadUsers() { this.usersSvc.list(true).subscribe(us => this.users.set(us)); }
+  loadProjects() { 
+    this.projectsSvc.getAll().subscribe(ps => {
+      this.projects.set(ps);
+      this.projectOptions.set(ps.map(p => ({
+        value: p.projectId,
+        label: `${p.code} — ${p.name}`,
+        project: p
+      })));
+    });
+  }
+  
+  loadUsers() { 
+    this.usersSvc.list(true).subscribe(us => {
+      this.users.set(us);
+      this.assigneeOptions.set(us.map(u => ({
+        value: u.userId,
+        label: `${u.firstName} ${u.lastName}`,
+        user: u
+      })));
+    });
+  }
 
   loadTasks() {
     if (!this.projectId()) { this.tasks.set([]); return; }
     this.loading.set(true);
     this.tasksSvc.list(this.projectId()).subscribe(ts => {
+      console.log('Tasks received from API:', ts); // Debug log
+      if (ts.length > 0) {
+        console.log('First task dates:', {
+          startDate: ts[0].startDate,
+          endDate: ts[0].endDate,
+          startDateType: typeof ts[0].startDate,
+          endDateType: typeof ts[0].endDate
+        }); // Debug log
+      }
       this.tasks.set(ts);
       this.pageIndex.set(0);
       this.loading.set(false);
@@ -119,5 +154,14 @@ export class TasksComponent implements OnInit {
     const end = Math.min(total, start + 5);
     for (let i = start; i < end; i++) pages.push(i);
     return pages;
+  }
+
+  onProjectChange(option: DropdownOption | null) {
+    this.projectId.set(option?.value || '');
+    this.loadTasks();
+  }
+
+  onAssigneeFilterChange(option: DropdownOption | null) {
+    this.assigneeFilter.set(option?.value || '');
   }
 }

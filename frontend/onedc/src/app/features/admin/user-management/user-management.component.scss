@@ -39,6 +39,55 @@
   }
 }
 
+// Profile modal styles
+.profile-content {
+  .profile-image-section {
+    .profile-image {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border: 4px solid #e3e6f0;
+    }
+
+    .profile-placeholder {
+      width: 120px;
+      height: 120px;
+      background-color: #f8f9fc;
+      border: 4px solid #e3e6f0;
+      margin: 0 auto;
+    }
+  }
+
+  .card {
+    .card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-bottom: none;
+      border-radius: 0.35rem 0.35rem 0 0;
+
+      h6 {
+        margin: 0;
+        font-weight: 600;
+      }
+    }
+
+    .card-body {
+      background-color: #f8f9fc;
+    }
+  }
+
+  .badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .form-label {
+    color: #5a5c69;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+  }
+}
+
 // Stat cards styling (matching dashboard)
 .stat-card {
   transition: all 0.3s ease;

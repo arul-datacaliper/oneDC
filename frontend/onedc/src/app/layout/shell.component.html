@@ -20,10 +20,16 @@
           <span class="nav-text">Dashboard</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="!isOnboardingComplete()">
         <a class="nav-link" routerLink="/onboarding" routerLinkActive="active">
           <i class="bi bi-person-plus-fill"></i>
           <span class="nav-text">Onboarding</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isOnboardingComplete()">
+        <a class="nav-link" routerLink="/profile" routerLinkActive="active">
+          <i class="bi bi-person-circle"></i>
+          <span class="nav-text">My Profile</span>
         </a>
       </li>
       <li class="nav-item">
@@ -32,19 +38,19 @@
           <span class="nav-text">My Timesheet</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="canApprove()">
         <a class="nav-link" routerLink="/approvals" routerLinkActive="active">
           <i class="bi bi-check-circle"></i>
           <span class="nav-text">Approvals</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/projects" routerLinkActive="active">
           <i class="bi bi-briefcase"></i>
           <span class="nav-text">Projects</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/clients" routerLinkActive="active">
           <i class="bi bi-building"></i>
           <span class="nav-text">Clients</span>
@@ -56,7 +62,7 @@
           <span class="nav-text">Reports</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/admin" routerLinkActive="active">
           <i class="bi bi-gear"></i>
           <span class="nav-text">Admin</span>
@@ -117,18 +123,14 @@
             <button class="btn btn-outline-light btn-sm dropdown-toggle" 
                     type="button" 
                     data-bs-toggle="dropdown" 
-                    aria-expanded="false">
+                    aria-expanded="false"
+                    (click)="toggleUserDropdown()">
               <i class="bi bi-person-circle"></i>
-              <span class="ms-1">Dev</span>
+              <span class="ms-1">{{ currentUser()?.name || 'User' }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li>
-                <button class="dropdown-item" (click)="openDevUserDialog()">
-                  <i class="bi bi-fingerprint"></i>
-                  <span class="ms-2">Set Dev User (GUID)</span>
-                </button>
-              </li>
-              <li><hr class="dropdown-divider"></li>
+            <ul class="dropdown-menu dropdown-menu-end" 
+                [class.show]="userDropdownOpen()"
+                (click)="closeUserDropdown()">
               <li>
                 <button class="dropdown-item" (click)="logout()">
                   <i class="bi bi-box-arrow-right"></i>

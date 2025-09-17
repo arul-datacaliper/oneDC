@@ -3,10 +3,13 @@
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
         <label class="form-label small">Project *</label>
-        <select class="form-select form-select-sm" [(ngModel)]="projectId" (ngModelChange)="loadTasks()">
-          <option value="">-- Select Project --</option>
-          <option *ngFor="let p of projects()" [value]="p.projectId">{{ p.code }} — {{ p.name }}</option>
-        </select>
+        <app-searchable-dropdown
+          [options]="projectOptions()"
+          placeholder="Search or select project..."
+          emptyLabel="-- Select Project --"
+          [searchFields]="['label']"
+          (selectionChange)="onProjectChange($event)">
+        </app-searchable-dropdown>
       </div>
       <div class="col-md-2">
         <label class="form-label small">Status</label>
@@ -21,14 +24,17 @@
       </div>
       <div class="col-md-2">
         <label class="form-label small">Assignee</label>
-        <select class="form-select form-select-sm" [(ngModel)]="assigneeFilter">
-          <option value="">All</option>
-          <option *ngFor="let u of users()" [value]="u.userId">{{ u.firstName }} {{ u.lastName }}</option>
-        </select>
+        <app-searchable-dropdown
+          [options]="assigneeOptions()"
+          placeholder="Search assignee..."
+          emptyLabel="All"
+          [searchFields]="['label']"
+          (selectionChange)="onAssigneeFilterChange($event)">
+        </app-searchable-dropdown>
       </div>
       <div class="col-md-3">
         <label class="form-label small">Search</label>
-        <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title or description">
+        <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
       <div class="col-md-2 text-end">
         <button class="btn btn-primary btn-sm w-100" (click)="openCreate()" [disabled]="!projectId()"> <i class="bi bi-plus-circle"></i> New Task</button>
@@ -46,6 +52,7 @@
           <thead class="table-light">
             <tr>
               <th>Title</th>
+              <th>Label</th>
               <th>Assignee</th>
               <th>Est (h)</th>
               <th>Start</th>
@@ -60,10 +67,14 @@
                 <div class="fw-semibold">{{ t.title }}</div>
                 <div class="small text-muted" *ngIf="t.description">{{ t.description }}</div>
               </td>
+              <td>
+                <span class="badge bg-light text-dark" *ngIf="t.label; else noLabel">{{ t.label }}</span>
+                <ng-template #noLabel>-</ng-template>
+              </td>
               <td>{{ t.assignedUserName || '-' }}</td>
               <td>{{ t.estimatedHours || '-' }}</td>
-              <td>{{ t.startDate || '-' }}</td>
-              <td>{{ t.endDate || '-' }}</td>
+              <td>{{ t.startDate ? (t.startDate | date:'mediumDate') : '-' }}</td>
+              <td>{{ t.endDate ? (t.endDate | date:'mediumDate') : '-' }}</td>
               <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">

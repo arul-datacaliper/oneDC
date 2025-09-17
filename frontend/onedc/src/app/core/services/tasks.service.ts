@@ -12,6 +12,7 @@ export interface ProjectTask {
   assignedUserName?: string;
   title: string;
   description?: string;
+  label?: string;
   estimatedHours?: number;
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
@@ -21,6 +22,7 @@ export interface ProjectTask {
 export interface CreateTaskRequest {
   title: string;
   description?: string;
+  label?: string;
   assignedUserId?: string;
   estimatedHours?: number;
   startDate?: string;

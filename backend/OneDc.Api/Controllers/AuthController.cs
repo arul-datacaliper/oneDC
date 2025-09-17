@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OneDc.Services.Interfaces;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
 
 namespace OneDc.Api.Controllers;
 
@@ -26,6 +27,31 @@ public class AuthController : ControllerBase
         if (result == null) return Unauthorized("Invalid credentials");
 
         return Ok(result);
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public IActionResult Logout()
+    {
+        try
+        {
+            // For now, we'll just return success since JWT tokens are stateless
+            // In the future, we could implement a token blacklist here
+            
+            // Get user info from token for logging
+            var userId = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+            var userEmail = User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value;
+            
+            // Log the logout event (optional)
+            Console.WriteLine($"User logout: {userEmail} (ID: {userId}) at {DateTime.UtcNow}");
+            
+            return Ok(new { message = "Logged out successfully" });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during logout: {ex.Message}");
+            return Ok(new { message = "Logged out successfully" }); // Still return success for security
+        }
     }
 
     [HttpPost("set-password")]

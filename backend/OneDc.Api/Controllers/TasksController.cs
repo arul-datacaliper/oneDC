@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
@@ -6,7 +7,8 @@ using OneDc.Domain.Entities;
 namespace OneDc.Api.Controllers;
 
 [ApiController]
-[Route("api")] 
+[Route("api")]
+[Authorize]
 public class TasksController : ControllerBase
 {
     private readonly OneDcDbContext _db;
@@ -27,6 +29,7 @@ public class TasksController : ControllerBase
                 AssignedUserId = t.AssignedUserId,
                 Title = t.Title,
                 Description = t.Description,
+                Label = t.Label,
                 EstimatedHours = t.EstimatedHours,
                 StartDate = t.StartDate,
                 EndDate = t.EndDate,
@@ -51,6 +54,7 @@ public class TasksController : ControllerBase
             AssignedUserId = t.AssignedUserId,
             Title = t.Title,
             Description = t.Description,
+            Label = t.Label,
             EstimatedHours = t.EstimatedHours,
             StartDate = t.StartDate,
             EndDate = t.EndDate,
@@ -74,6 +78,7 @@ public class TasksController : ControllerBase
             AssignedUserId = req.AssignedUserId,
             Title = req.Title.Trim(),
             Description = req.Description?.Trim(),
+            Label = req.Label?.Trim(),
             EstimatedHours = req.EstimatedHours,
             StartDate = req.StartDate,
             EndDate = req.EndDate,
@@ -95,6 +100,7 @@ public class TasksController : ControllerBase
 
         t.Title = req.Title.Trim();
         t.Description = req.Description?.Trim();
+        t.Label = req.Label?.Trim();
         t.AssignedUserId = req.AssignedUserId;
         t.EstimatedHours = req.EstimatedHours;
         t.StartDate = req.StartDate;
@@ -129,8 +135,8 @@ public class TasksController : ControllerBase
     }
 }
 
-public record CreateTaskRequest(string Title, string? Description, Guid? AssignedUserId, decimal? EstimatedHours, DateOnly? StartDate, DateOnly? EndDate);
-public record UpdateTaskRequest(string Title, string? Description, Guid? AssignedUserId, decimal? EstimatedHours, DateOnly? StartDate, DateOnly? EndDate, OneDc.Domain.Entities.TaskStatus Status);
+public record CreateTaskRequest(string Title, string? Description, string? Label, Guid? AssignedUserId, decimal? EstimatedHours, DateOnly? StartDate, DateOnly? EndDate);
+public record UpdateTaskRequest(string Title, string? Description, string? Label, Guid? AssignedUserId, decimal? EstimatedHours, DateOnly? StartDate, DateOnly? EndDate, OneDc.Domain.Entities.TaskStatus Status);
 public record UpdateTaskStatusRequest(OneDc.Domain.Entities.TaskStatus Status);
 
 public class TaskDto
@@ -140,6 +146,7 @@ public class TaskDto
     public Guid? AssignedUserId { get; set; }
     public string Title { get; set; } = null!;
     public string? Description { get; set; }
+    public string? Label { get; set; }
     public decimal? EstimatedHours { get; set; }
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }

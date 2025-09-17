@@ -9,6 +9,7 @@ public class ProjectTask
     public Guid? AssignedUserId { get; set; }
     public string Title { get; set; } = null!;
     public string? Description { get; set; }
+    public string? Label { get; set; }
     public decimal? EstimatedHours { get; set; }
     public DateOnly? StartDate { get; set; }
     public DateOnly? EndDate { get; set; }
