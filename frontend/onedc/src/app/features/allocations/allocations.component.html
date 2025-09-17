@@ -5,31 +5,47 @@
       <h2 class="mb-1">Resource Allocation Management</h2>
       <p class="text-muted mb-0">Manage weekly project allocations for employees</p>
     </div>
-    <button class="btn btn-primary" (click)="openCreateModal()">
-      <i class="bi bi-plus-circle me-2"></i>
-      New Allocation
-    </button>
-  </div>
-
-  <!-- Week Navigation -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center">
-        <button class="btn btn-outline-secondary" (click)="onWeekChange('prev')">
+    
+    <!-- Week Selection and New Allocation -->
+    <div class="d-flex align-items-center gap-4">
+      <!-- Week Navigation -->
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-outline-secondary btn-sm" (click)="onWeekChange('prev')" title="Previous Week">
           <i class="bi bi-chevron-left"></i>
-          Previous Week
         </button>
         
-        <div class="text-center">
-          <h5 class="mb-0">Week of {{ currentWeekStart() | date:'mediumDate' }} - {{ weekEndDate() | date:'mediumDate' }}</h5>
-          <small class="text-muted">{{ currentWeekStart() | date:'EEEE' }} to {{ weekEndDate() | date:'EEEE' }}</small>
+        <!-- From Date -->
+        <div class="d-flex flex-column" style="margin-top: -25px;">
+          <label class="form-label mb-1 text-muted small">From Date</label>
+          <input 
+            type="date" 
+            class="form-control form-control-sm" 
+            [value]="formatCurrentWeekStart()" 
+            (change)="onWeekDateChange($event)"
+            style="width: 140px;">
         </div>
         
-        <button class="btn btn-outline-secondary" (click)="onWeekChange('next')">
-          Next Week
+        <!-- To Date -->
+        <div class="d-flex flex-column" style="margin-top: -25px;">
+          <label class="form-label mb-1 text-muted small">To Date</label>
+          <input 
+            type="date" 
+            class="form-control form-control-sm" 
+            [value]="formatCurrentWeekEnd()" 
+            readonly
+            style="width: 140px; background-color: #f8f9fa;">
+        </div>
+        
+        <button class="btn btn-outline-secondary btn-sm" (click)="onWeekChange('next')" title="Next Week">
           <i class="bi bi-chevron-right"></i>
         </button>
       </div>
+      
+      <!-- New Allocation Button -->
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <i class="bi bi-plus-circle me-2"></i>
+        New Allocation
+      </button>
     </div>
   </div>
 
@@ -169,13 +185,17 @@
       <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
           <h6 class="card-title mb-0">Project Allocations</h6>
-          <div>
-            <select class="form-select" [(ngModel)]="selectedProjectId" (ngModelChange)="onProjectSelect($event)">
-              <option value="">Select a project...</option>
-              <option *ngFor="let project of availableProjects()" [value]="project.projectId">
-                {{ project.projectName }}
-              </option>
-            </select>
+          <div style="width: 300px;">
+            <ng-select 
+              [ngModel]="selectedProjectId()" 
+              (ngModelChange)="onProjectSelect($event)"
+              placeholder="Search and select a project..."
+              [clearable]="true"
+              [searchable]="true"
+              bindLabel="projectName"
+              bindValue="projectId"
+              [items]="availableProjects()">
+            </ng-select>
           </div>
         </div>
       </div>
@@ -237,13 +257,17 @@
       <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
           <h6 class="card-title mb-0">Employee Allocations</h6>
-          <div>
-            <select class="form-select" [(ngModel)]="selectedUserId" (ngModelChange)="onEmployeeSelect($event)">
-              <option value="">Select an employee...</option>
-              <option *ngFor="let employee of availableEmployees()" [value]="employee.userId">
-                {{ employee.userName }}
-              </option>
-            </select>
+          <div style="width: 300px;">
+            <ng-select 
+              [ngModel]="selectedUserId()" 
+              (ngModelChange)="onEmployeeSelect($event)"
+              placeholder="Search and select an employee..."
+              [clearable]="true"
+              [searchable]="true"
+              bindLabel="userName"
+              bindValue="userId"
+              [items]="availableEmployees()">
+            </ng-select>
           </div>
         </div>
       </div>

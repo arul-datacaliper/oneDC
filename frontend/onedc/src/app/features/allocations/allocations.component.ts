@@ -77,6 +77,27 @@ export class AllocationsComponent implements OnInit {
       return this.allocationService.getWeekEndDate(this.currentWeekStart());
     }
     return '';
+  }
+
+  // Format current week start for date input
+  formatCurrentWeekStart(): string {
+    const weekStart = this.currentWeekStart();
+    if (weekStart) {
+      return new Date(weekStart).toISOString().split('T')[0];
+    }
+    return '';
+  }
+
+  // Format current week end for display
+  formatCurrentWeekEnd(): string {
+    const weekStart = this.currentWeekStart();
+    if (weekStart) {
+      const startDate = new Date(weekStart);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      return endDate.toISOString().split('T')[0];
+    }
+    return '';
   }  constructor() {
     // Form validation with realistic work hour limits
     // Business Rules:
@@ -161,6 +182,15 @@ export class AllocationsComponent implements OnInit {
     }
     this.currentWeekStart.set(this.allocationService.getWeekStartDate(currentDate));
     this.loadInitialData();
+  }
+
+  onWeekDateChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const selectedDate = new Date(input.value);
+    if (!isNaN(selectedDate.getTime())) {
+      this.currentWeekStart.set(this.allocationService.getWeekStartDate(selectedDate));
+      this.loadInitialData();
+    }
   }
 
   onViewModeChange(mode: 'overview' | 'project' | 'employee') {
