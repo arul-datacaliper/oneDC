@@ -1,4 +1,77 @@
+// Global font size reduction for tasks page
+.tasks-page {
+  font-size: 0.85rem;
+}
+
+// Reduced font sizes for all form elements
+.form-label {
+  font-size: 0.75rem !important;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.form-control, .form-select, .form-select-sm {
+  font-size: 0.8rem !important;
+}
+
+// Badge font sizes
+.badge {
+  font-size: 0.7rem !important;
+  padding: 0.25em 0.5em !important;
+  text-transform: capitalize;
+}
+
+// Button font sizes
+.btn {
+  font-size: 0.8rem !important;
+  
+  &.btn-sm {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+}
+
+// Table font sizes
+.table {
+  font-size: 0.8rem !important;
+  
+  th {
+    font-size: 0.75rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  td {
+    font-size: 0.8rem !important;
+    padding: 0.5rem !important;
+  }
+}
+
+// Pagination font sizes
+.pagination {
+  .page-link {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+}
+
+// Text content font sizes
+.text-muted {
+  font-size: 0.75rem !important;
+}
+
+.small {
+  font-size: 0.7rem !important;
+}
+
+// Card text font sizes
+.card-title {
+  font-size: 0.9rem !important;
+}
+
+.card-text {
+  font-size: 0.8rem !important;
+}
+
 .filter-card { border: 1px solid #eee; }
 .table-card { border: 1px solid #eee; }
-.badge { text-transform: capitalize; }
 .modal .modal-content { box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15); }

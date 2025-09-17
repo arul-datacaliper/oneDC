@@ -1,3 +1,4 @@
+<div class="clients-page">
 <!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
@@ -9,8 +10,9 @@
   </button>
 </div>
 
-<!-- Statistics Cards -->
-<div class="row g-2 mb-4">
+<!-- Statistics Cards and Search -->
+<div class="row g-3 mb-4">
+  <!-- KPI Cards -->
   <div class="col-auto">
     <div class="card stat-card border-start border-4 border-primary">
       <div class="card-body">
@@ -49,38 +51,31 @@
       </div>
     </div>
   </div>
-</div>
-
-<!-- Filters and Search -->
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Search Clients</label>
-        <div class="input-group">
-          <span class="input-group-text">
-            <i class="bi bi-search"></i>
-          </span>
-          <input type="text" class="form-control" placeholder="Search by name or code..." 
-                 [value]="searchTerm()" (input)="onSearchChange($event)">
+  
+  <!-- Search and Filter Section -->
+  <div class="col">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label">Search Clients</label>
+            <div class="input-group">
+              <span class="input-group-text">
+                <i class="bi bi-search"></i>
+              </span>
+              <input type="text" class="form-control" placeholder="Search by name or code..." 
+                     [value]="searchTerm()" (input)="onSearchChange($event)">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Status Filter</label>
+            <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
+              <option value="">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Status Filter</label>
-        <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-        </select>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Page Size</label>
-        <select class="form-select" [value]="pageSize()" (change)="onPageSizeChange($event)">
-          <option value="5">5 per page</option>
-          <option value="10">10 per page</option>
-          <option value="25">25 per page</option>
-          <option value="50">50 per page</option>
-        </select>
       </div>
     </div>
   </div>
@@ -256,3 +251,4 @@
 
 <!-- Modal backdrop -->
 <div class="modal-backdrop fade show" *ngIf="showModal()" (click)="closeModal()"></div>
+</div>

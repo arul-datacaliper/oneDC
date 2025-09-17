@@ -1,24 +1,69 @@
-<div class="login-wrapper d-flex align-items-center justify-content-center py-5">
-  <div class="card shadow-sm login-card">
-    <div class="card-body p-4">
-      <h5 class="card-title mb-3 text-center">Sign In</h5>
-      <form (ngSubmit)="submit()" novalidate>
-        <div class="mb-3">
-          <label class="form-label small">Email</label>
-          <input type="email" class="form-control" [ngModel]="email()" (ngModelChange)="email.set($event)" name="email" required>
+<div class="login-container">
+  <!-- Left Side - Branding -->
+  <div class="login-branding">
+    <div class="branding-content">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <i class="bi bi-box"></i>
         </div>
-        <div class="mb-3">
-          <label class="form-label small">Password</label>
-          <input type="password" class="form-control" [ngModel]="password()" (ngModelChange)="password.set($event)" name="password" required>
+      </div>
+      <h1 class="brand-title">OneDC Portal</h1>
+      <p class="brand-subtitle">A unified platform for internal operations and team collaboration.</p>
+    </div>
+  </div>
+
+  <!-- Right Side - Login Form -->
+  <div class="login-form-section">
+    <div class="form-container">
+      <div class="form-header">
+        <h2 class="form-title">Sign In</h2>
+      </div>
+      
+      <form (ngSubmit)="submit()" novalidate class="login-form">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input 
+            type="email" 
+            class="form-control" 
+            placeholder="Enter your email"
+            [ngModel]="email()" 
+            (ngModelChange)="email.set($event)" 
+            name="email" 
+            required>
         </div>
-        <button class="btn btn-primary w-100" type="submit" [disabled]="loading()">
-          <span *ngIf="!loading(); else loadingTpl">Login</span>
+        
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="password-input-wrapper">
+            <input 
+              [type]="showPassword ? 'text' : 'password'" 
+              class="form-control" 
+              placeholder="Enter your password"
+              [ngModel]="password()" 
+              (ngModelChange)="password.set($event)" 
+              name="password" 
+              required>
+            <button 
+              type="button" 
+              class="password-toggle-btn"
+              (click)="showPassword = !showPassword">
+              <i [class]="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <a href="#" class="forgot-password-link">Forgot Password?</a>
+        </div>
+
+        <button class="btn btn-primary btn-sign-in" type="submit" [disabled]="loading()">
+          <span *ngIf="!loading(); else loadingTpl">Sign In</span>
         </button>
+        
         <ng-template #loadingTpl>
-          <span><i class="bi bi-arrow-repeat spin me-1"></i>Signing in...</span>
+          <span><i class="bi bi-arrow-repeat spin me-2"></i>Signing In...</span>
         </ng-template>
       </form>
-      <div class="mt-3 small text-muted text-center">Demo login just stores token locally.</div>
     </div>
   </div>
 </div>

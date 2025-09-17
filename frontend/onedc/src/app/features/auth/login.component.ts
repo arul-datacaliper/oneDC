@@ -20,6 +20,7 @@ export class LoginComponent {
   email = signal('admin@onedc.local');
   password = signal('password123');
   loading = signal(false);
+  showPassword = false;
 
   submit() {
     if (!this.email() || !this.password()) {

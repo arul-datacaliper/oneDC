@@ -10,7 +10,12 @@ export const ADMIN_ROUTES: Routes = [
     canActivate: [adminGuard],
     children: [
       { path: '', redirectTo: 'users', pathMatch: 'full' },
-      { path: 'users', component: UserManagementComponent }
+      { path: 'users', component: UserManagementComponent },
+      { path: 'employees', component: UserManagementComponent },
+      // Navigation aliases for dashboard KPI cards
+      { path: 'projects', redirectTo: '/projects', pathMatch: 'full' },
+      { path: 'clients', redirectTo: '/clients', pathMatch: 'full' },
+      { path: 'approvals', redirectTo: '/approvals', pathMatch: 'full' }
     ]
   }
 ];

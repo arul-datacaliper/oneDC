@@ -60,6 +60,10 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("last_name");
 
+                    b.Property<Guid?>("ManagerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_id");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(600)
                         .HasColumnType("character varying(600)")
@@ -608,6 +612,73 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("user_skill", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.WeeklyAllocation", b =>
+                {
+                    b.Property<Guid>("AllocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("allocation_id");
+
+                    b.Property<int>("AllocatedHours")
+                        .HasColumnType("integer")
+                        .HasColumnName("allocated_hours");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("ACTIVE")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<decimal>("UtilizationPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("utilization_percentage");
+
+                    b.Property<DateOnly>("WeekEndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("week_end_date");
+
+                    b.Property<DateOnly>("WeekStartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("week_start_date");
+
+                    b.HasKey("AllocationId")
+                        .HasName("pk_weekly_allocation");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("ix_weekly_allocation_project_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_weekly_allocation_user_id");
+
+                    b.HasIndex("WeekStartDate")
+                        .HasDatabaseName("ix_weekly_allocation_week_start_date");
+
+                    b.HasIndex("ProjectId", "UserId", "WeekStartDate")
+                        .IsUnique()
+                        .HasDatabaseName("ix_weekly_allocation_project_id_user_id_week_start_date");
+
+                    b.ToTable("weekly_allocation", "ts");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.Client", "Client")
@@ -709,6 +780,27 @@ namespace OneDc.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_skill_app_user_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.WeeklyAllocation", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_allocation_project_project_id");
+
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_allocation_app_user_user_id");
+
+                    b.Navigation("Project");
 
                     b.Navigation("User");
                 });

@@ -1,126 +1,338 @@
-import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
+import { AdminService, AdminDashboardMetrics, TopProjectMetrics } from '../../core/services/admin.service';
+import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
 
-import { TimesheetsService } from '../../core/services/timesheets.service';
-import { ReportsService } from '../../core/services/reports.service';
+export interface TimesheetEntry {
+  date: string;
+  project: string;
+  hours: number;
+  status: string;
+}
 
-type UtilRow = {
-  project_id?: string;
-  project_code?: string;
-  project_name?: string;
-  billable?: boolean;
-  billable_hours: number;
-  total_hours: number;
-  utilization_pct: number;
-};
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterModule
-  ],
+  imports: [CommonModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
-
-
 export class DashboardComponent implements OnInit {
-  private tsSvc = inject(TimesheetsService);
-  private repSvc = inject(ReportsService);
+  private authService = inject(AuthService);
+  private adminService = inject(AdminService);
+  private employeeService = inject(EmployeeService);
+  private router = inject(Router);
 
-  // Date range mode toggle
-  dateRangeMode = signal<'week' | 'month'>('month');
+  // Admin dashboard data
+  adminMetrics: AdminDashboardMetrics | null = null;
+  topProjects: TopProjectMetrics[] = [];
   
-  from = signal(this.iso(startOfMonth(new Date())));
-  to   = signal(this.iso(endOfMonth(new Date())));
+  // Employee dashboard data
+  employeeMetrics: EmployeeDashboardMetrics | null = null;
+  employeeTasks: EmployeeTask[] = [];
+  timesheetSummary: TimesheetSummary | null = null;
+  projectUtilization: ProjectUtilization[] = [];
+  recentTimesheets: TimesheetEntry[] = [];
+  weeklyHours = 0;
+  pendingApprovals = 0;
+  
+  // Loading states
+  isLoadingAdminMetrics = false;
+  isLoadingTopProjects = false;
+  isLoadingEmployeeData = false;
 
-  myHours = signal({ total: 0, submitted: 0, approved: 0 });
-  util = signal<UtilRow[]>([]);
+  // Computed property to check if user is admin
+  isAdmin = computed(() => {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'ADMIN';
+  });
 
-  displayedColumns = ['project', 'billable_hours', 'total_hours', 'utilization_pct'];
+  // Computed property to check if user is employee (not admin or approver)
+  isEmployee = computed(() => {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'EMPLOYEE';
+  });
 
-  ngOnInit(): void {
-    this.load();
-  }
-
-  load() {
-    // My totals (sum of all statuses for current week for quick glance)
-    const weekFrom = this.iso(startOfWeek(new Date()));
-    const weekTo = this.iso(endOfWeek(new Date()));
-    
-    this.tsSvc.list(weekFrom, weekTo).subscribe(rows => {
-      const total     = rows.reduce((s: number, r: any) => s + (r.hours || 0), 0);
-      const submitted = rows.filter((r: any) => r.status === 'SUBMITTED').reduce((s: number, r: any) => s + (r.hours || 0), 0);
-      const approved  = rows.filter((r: any) => r.status === 'APPROVED' || r.status === 'LOCKED')
-                            .reduce((s: number, r: any) => s + (r.hours || 0), 0);
-      this.myHours.set({ total, submitted, approved });
-    });
-
-    // Utilization per project (using selected date range)
-    this.repSvc.utilization(this.from(), this.to(), 'project').subscribe(rows => {
-      this.util.set(rows as any);
-    });
-  }
-
-  toggleDateRange() {
-    const newMode = this.dateRangeMode() === 'week' ? 'month' : 'week';
-    this.dateRangeMode.set(newMode);
-    
-    if (newMode === 'week') {
-      this.from.set(this.iso(startOfWeek(new Date())));
-      this.to.set(this.iso(endOfWeek(new Date())));
+  ngOnInit() {
+    if (this.isAdmin()) {
+      this.loadAdminDashboard();
     } else {
-      this.from.set(this.iso(startOfMonth(new Date())));
-      this.to.set(this.iso(endOfMonth(new Date())));
+      this.loadEmployeeDashboard();
     }
-    
-    // Reload data with new date range
-    this.repSvc.utilization(this.from(), this.to(), 'project').subscribe(rows => {
-      this.util.set(rows as any);
+  }
+
+  private loadAdminDashboard() {
+    this.loadAdminMetrics();
+    this.loadTopProjects();
+  }
+
+  private loadAdminMetrics() {
+    this.isLoadingAdminMetrics = true;
+    this.adminService.getDashboardMetrics().subscribe({
+      next: (metrics) => {
+        this.adminMetrics = metrics;
+        this.isLoadingAdminMetrics = false;
+      },
+      error: (error) => {
+        console.error('Error loading admin metrics:', error);
+        this.isLoadingAdminMetrics = false;
+      }
     });
+  }
+
+  private loadTopProjects() {
+    this.isLoadingTopProjects = true;
+    this.adminService.getTopProjects().subscribe({
+      next: (projects: TopProjectMetrics[]) => {
+        this.topProjects = projects;
+        this.isLoadingTopProjects = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading top projects:', error);
+        this.isLoadingTopProjects = false;
+      }
+    });
+  }
+
+  private loadEmployeeDashboard() {
+    this.isLoadingEmployeeData = true;
+    const currentUser = this.authService.getCurrentUser();
+    
+    if (currentUser?.userId) {
+      // Load employee metrics
+      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId).subscribe({
+        next: (metrics) => {
+          this.employeeMetrics = metrics;
+        },
+        error: (error) => {
+          console.error('Error loading employee metrics:', error);
+        }
+      });
+
+      // Load assigned tasks
+      this.employeeService.getAssignedTasks(currentUser.userId).subscribe({
+        next: (tasks) => {
+          this.employeeTasks = tasks;
+        },
+        error: (error) => {
+          console.error('Error loading employee tasks:', error);
+        }
+      });
+
+      // Load timesheet summary
+      this.employeeService.getTimesheetSummary(currentUser.userId).subscribe({
+        next: (summary) => {
+          this.timesheetSummary = summary;
+        },
+        error: (error) => {
+          console.error('Error loading timesheet summary:', error);
+        }
+      });
+
+      // Load project utilization
+      this.employeeService.getProjectUtilization(currentUser.userId).subscribe({
+        next: (utilization) => {
+          this.projectUtilization = utilization;
+          this.isLoadingEmployeeData = false;
+        },
+        error: (error) => {
+          console.error('Error loading project utilization:', error);
+          this.isLoadingEmployeeData = false;
+        }
+      });
+    } else {
+      // Fallback mock data for testing
+      setTimeout(() => {
+        this.recentTimesheets = [
+          { date: '2024-01-15', project: 'Project Alpha', hours: 8, status: 'Approved' },
+          { date: '2024-01-14', project: 'Project Beta', hours: 6, status: 'Pending' },
+          { date: '2024-01-13', project: 'Project Alpha', hours: 7, status: 'Approved' },
+          { date: '2024-01-12', project: 'Project Gamma', hours: 8, status: 'Approved' },
+          { date: '2024-01-11', project: 'Project Beta', hours: 5, status: 'Pending' }
+        ];
+        
+        this.weeklyHours = 34;
+        this.pendingApprovals = 2;
+        this.isLoadingEmployeeData = false;
+      }, 1000);
+    }
+  }
+
+  getStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'badge bg-success';
+      case 'pending':
+        return 'badge bg-warning';
+      case 'rejected':
+        return 'badge bg-danger';
+      default:
+        return 'badge bg-secondary';
+    }
   }
 
   getUtilizationBadgeClass(percentage: number): string {
-    if (percentage >= 80) return 'badge bg-success';
-    if (percentage >= 60) return 'badge bg-warning';
-    if (percentage >= 40) return 'badge bg-info';
-    return 'badge bg-secondary';
+    if (percentage >= 90) {
+      return 'badge bg-success';
+    } else if (percentage >= 70) {
+      return 'badge bg-warning';
+    } else {
+      return 'badge bg-danger';
+    }
   }
 
-  iso(d: Date) { return d.toISOString().slice(0,10); }
-}
+  getTaskStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'badge bg-success';
+      case 'in progress':
+      case 'in-progress':
+        return 'badge bg-primary';
+      case 'pending':
+        return 'badge bg-warning';
+      case 'cancelled':
+      case 'canceled':
+        return 'badge bg-danger';
+      case 'on hold':
+      case 'on-hold':
+        return 'badge bg-secondary';
+      default:
+        return 'badge bg-info';
+    }
+  }
 
-function startOfWeek(d: Date) {
-  const x = new Date(d);
-  const day = x.getDay(); // 0 Sun .. 6 Sat
-  const diff = (day === 0 ? -6 : 1) - day; // make Monday start
-  x.setDate(x.getDate() + diff);
-  x.setHours(0,0,0,0);
-  return x;
-}
-function endOfWeek(d: Date) {
-  const s = startOfWeek(d);
-  const x = new Date(s);
-  x.setDate(x.getDate() + 6);
-  x.setHours(23,59,59,999);
-  return x;
-}
+  getProjectStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'badge bg-success';
+      case 'completed':
+        return 'badge bg-primary';
+      case 'on hold':
+      case 'on-hold':
+        return 'badge bg-warning';
+      case 'cancelled':
+      case 'canceled':
+        return 'badge bg-danger';
+      default:
+        return 'badge bg-secondary';
+    }
+  }
 
-function startOfMonth(d: Date) {
-  const x = new Date(d);
-  x.setDate(1);
-  x.setHours(0,0,0,0);
-  return x;
-}
+  getOverallUtilization(): number {
+    if (!this.projectUtilization || this.projectUtilization.length === 0) {
+      return 0;
+    }
+    
+    const totalAllocated = this.projectUtilization.reduce((sum, project) => 
+      sum + project.totalAllocatedHours, 0);
+    const totalWorked = this.projectUtilization.reduce((sum, project) => 
+      sum + project.totalWorkedHours, 0);
+    
+    return totalAllocated > 0 ? Math.round((totalWorked / totalAllocated) * 100) : 0;
+  }
 
-function endOfMonth(d: Date) {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() + 1);
-  x.setDate(0); // Last day of previous month (current month)
-  x.setHours(23,59,59,999);
-  return x;
+  // Mock data for employee dashboard - replace with actual service calls
+  myHours() {
+    return {
+      total: this.weeklyHours,
+      submitted: Math.floor(this.weeklyHours * 0.6),
+      approved: Math.floor(this.weeklyHours * 0.4)
+    };
+  }
+
+  // Mock utilization data - replace with actual service calls
+  util() {
+    return [
+      {
+        project_name: 'Project Alpha',
+        project_code: 'PA-001',
+        billable: true,
+        billable_hours: 32,
+        total_hours: 40,
+        utilization_pct: 80
+      },
+      {
+        project_name: 'Project Beta',
+        project_code: 'PB-002',
+        billable: false,
+        billable_hours: 0,
+        total_hours: 20,
+        utilization_pct: 100
+      }
+    ];
+  }
+
+  // Check if user can approve timesheets
+  canApprove(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'APPROVER' || currentUser?.role === 'ADMIN';
+  }
+
+  // Loading state for admin section
+  adminLoading(): boolean {
+    return this.isLoadingAdminMetrics || this.isLoadingTopProjects;
+  }
+
+  // Loading state for employee section
+  employeeLoading(): boolean {
+    return this.isLoadingEmployeeData;
+  }
+
+  // Date range mode (week/month)
+  private dateRange = 'week';
+  dateRangeMode(): string {
+    return this.dateRange;
+  }
+
+  // Toggle date range
+  toggleDateRange(): void {
+    this.dateRange = this.dateRange === 'week' ? 'month' : 'week';
+    if (!this.isAdmin()) {
+      this.loadEmployeeDashboard();
+    }
+  }
+
+  // Refresh data
+  refresh(): void {
+    this.ngOnInit();
+  }
+
+  // Navigation methods
+  navigateToEmployeeManagement(): void {
+    this.router.navigate(['/admin/employees']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToProjectManagement(): void {
+    this.router.navigate(['/projects']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToClientManagement(): void {
+    this.router.navigate(['/clients']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  navigateToApprovals(): void {
+    this.router.navigate(['/approvals']).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+
+  // Navigate to tasks page with specific project selected
+  navigateToProjectTasks(project: TopProjectMetrics): void {
+    this.router.navigate(['/tasks'], {
+      queryParams: {
+        projectId: project.projectId,
+        projectName: project.projectName
+      }
+    }).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
 }

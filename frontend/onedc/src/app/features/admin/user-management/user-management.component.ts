@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, of } from 'rxjs';
@@ -7,11 +8,12 @@ import { catchError } from 'rxjs/operators';
 
 import { UserManagementService, AppUser, CreateUserRequest, UpdateUserRequest, UserRole } from '../../../core/services/user-management.service';
 import { OnboardingService, UserProfile, UserSkill } from '../../../core/services/onboarding.service';
+import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, SearchableDropdownComponent],
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
 })
@@ -20,9 +22,12 @@ export class UserManagementComponent implements OnInit {
   private onboardingService = inject(OnboardingService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
+  private router = inject(Router);
 
   // Signals for reactive state
   users = signal<AppUser[]>([]);
+  managers = signal<AppUser[]>([]);
+  managerOptions = signal<DropdownOption[]>([]);
   loading = signal<boolean>(false);
   showCreateModal = signal<boolean>(false);
   showEditModal = signal<boolean>(false);
@@ -36,6 +41,24 @@ export class UserManagementComponent implements OnInit {
   editUserForm!: FormGroup;
 
   // Computed properties
+  isEmployeeManagementMode = computed(() => {
+    return this.router.url.includes('/admin/employees');
+  });
+
+  pageTitle = computed(() => {
+    return this.isEmployeeManagementMode() ? 'Employee Management' : 'User Management';
+  });
+
+  pageDescription = computed(() => {
+    return this.isEmployeeManagementMode() 
+      ? 'Manage employees, their profiles, and access permissions'
+      : 'Manage system users, roles, and access permissions';
+  });
+
+  addButtonText = computed(() => {
+    return this.isEmployeeManagementMode() ? 'Add New Employee' : 'Add New User';
+  });
+
   activeUsers = computed(() => this.users().filter(u => u.isActive));
   inactiveUsers = computed(() => this.users().filter(u => !u.isActive));
   userRoles = computed(() => this.userService.getUserRoles());
@@ -43,6 +66,7 @@ export class UserManagementComponent implements OnInit {
   ngOnInit() {
     this.initializeForms();
     this.loadUsers();
+    this.loadManagers();
   }
 
   private initializeForms() {
@@ -50,7 +74,8 @@ export class UserManagementComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       firstName: ['', [Validators.required, Validators.minLength(2)]],
       lastName: ['', [Validators.required, Validators.minLength(2)]],
-      role: [UserRole.EMPLOYEE, Validators.required]
+      role: [UserRole.EMPLOYEE, Validators.required],
+      managerId: ['']
     });
 
     this.editUserForm = this.fb.group({
@@ -79,6 +104,28 @@ export class UserManagementComponent implements OnInit {
       console.error('Error loading users:', error);
       this.toastr.error('Failed to load users');
       this.loading.set(false);
+    }
+  }
+
+  async loadManagers() {
+    try {
+      this.userService.getManagers().subscribe({
+        next: (managers) => {
+          this.managers.set(managers);
+          const options: DropdownOption[] = managers.map(manager => ({
+            value: manager.userId,
+            label: `${manager.firstName} ${manager.lastName}`
+          }));
+          this.managerOptions.set(options);
+        },
+        error: (error) => {
+          console.error('Error loading managers:', error);
+          this.toastr.error('Failed to load managers');
+        }
+      });
+    } catch (error) {
+      console.error('Error loading managers:', error);
+      this.toastr.error('Failed to load managers');
     }
   }
 
@@ -214,12 +261,51 @@ export class UserManagementComponent implements OnInit {
   }
 
   // Utility methods
-  getRoleDisplayName(role: UserRole): string {
-    return this.userService.getRoleDisplayName(role);
+  getRoleDisplayName(role: UserRole | string): string {
+    // Convert string role to enum if needed
+    let roleEnum: UserRole;
+    if (typeof role === 'string') {
+      switch (role.toUpperCase()) {
+        case 'ADMIN':
+          roleEnum = UserRole.ADMIN;
+          break;
+        case 'APPROVER':
+          roleEnum = UserRole.APPROVER;
+          break;
+        case 'EMPLOYEE':
+          roleEnum = UserRole.EMPLOYEE;
+          break;
+        default:
+          roleEnum = UserRole.EMPLOYEE;
+      }
+    } else {
+      roleEnum = role;
+    }
+    return this.userService.getRoleDisplayName(roleEnum);
   }
 
-  getRoleBadgeClass(role: UserRole): string {
-    switch (role) {
+  getRoleBadgeClass(role: UserRole | string): string {
+    // Convert string role to enum if needed
+    let roleEnum: UserRole;
+    if (typeof role === 'string') {
+      switch (role.toUpperCase()) {
+        case 'ADMIN':
+          roleEnum = UserRole.ADMIN;
+          break;
+        case 'APPROVER':
+          roleEnum = UserRole.APPROVER;
+          break;
+        case 'EMPLOYEE':
+          roleEnum = UserRole.EMPLOYEE;
+          break;
+        default:
+          roleEnum = UserRole.EMPLOYEE;
+      }
+    } else {
+      roleEnum = role;
+    }
+    
+    switch (roleEnum) {
       case UserRole.ADMIN:
         return 'bg-danger';
       case UserRole.APPROVER:

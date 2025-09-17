@@ -5,15 +5,15 @@
       <div class="row align-items-center">
         <div class="col-md-8">
           <h4 class="card-title mb-2">
-            <i class="bi bi-people-fill"></i> User Management
+            <i class="bi bi-people-fill"></i> {{ pageTitle() }}
           </h4>
           <p class="text-muted mb-0">
-            Manage system users, roles, and access permissions
+            {{ pageDescription() }}
           </p>
         </div>
         <div class="col-md-4 text-end">
           <button type="button" class="btn btn-primary" (click)="openCreateModal()">
-            <i class="bi bi-person-plus"></i> Add New User
+            <i class="bi bi-person-plus"></i> {{ addButtonText() }}
           </button>
         </div>
       </div>
@@ -217,6 +217,19 @@
             </select>
             <div class="form-text">
               Employees can manage timesheets, Approvers can approve timesheets, Admins have full access.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Manager</label>
+            <app-searchable-dropdown
+              formControlName="managerId"
+              [options]="managerOptions()"
+              placeholder="Select a manager (optional)"
+              [allowEmpty]="true">
+            </app-searchable-dropdown>
+            <div class="form-text">
+              Select a manager from the list of approvers and admins. This is optional.
             </div>
           </div>
         </div>

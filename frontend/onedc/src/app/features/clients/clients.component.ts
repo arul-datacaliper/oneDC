@@ -31,7 +31,7 @@ export class ClientsComponent implements OnInit {
   statusFilter = signal<string>('');
   
   // Pagination
-  pageSize = signal<number>(10);
+  pageSize = signal<number>(25); // Set default to 25 since no dropdown control
   pageIndex = signal<number>(0);
   
   // Computed properties
@@ -209,12 +209,6 @@ export class ClientsComponent implements OnInit {
 
   nextPage() {
     this.goToPage(this.pageIndex() + 1);
-  }
-
-  onPageSizeChange(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    this.pageSize.set(parseInt(target.value));
-    this.pageIndex.set(0); // Reset to first page
   }
 
   // Form validation helpers

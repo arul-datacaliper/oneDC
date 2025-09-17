@@ -29,6 +29,7 @@
     "@angular/material": "^20.2.3",
     "@angular/platform-browser": "^20.1.0",
     "@angular/router": "^20.1.0",
+    "@ng-select/ng-select": "^20.2.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "ngx-toastr": "^19.0.0",

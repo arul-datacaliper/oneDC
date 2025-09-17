@@ -1,10 +1,27 @@
+<div class="tasks-page">
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-1">Project Tasks</h2>
+    <p class="text-muted mb-0" *ngIf="isNavigatedFromDashboard()">
+      <i class="bi bi-arrow-left-circle text-primary me-1"></i>
+      Navigated from Admin Dashboard
+    </p>
+    <p class="text-muted mb-0" *ngIf="!isNavigatedFromDashboard()">
+      Manage and track project tasks
+    </p>
+  </div>
+</div>
+
 <div class="card filter-card mb-3">
   <div class="card-body">
     <div class="row g-3 align-items-end">
       <div class="col-md-3">
         <label class="form-label small">Project *</label>
         <app-searchable-dropdown
+          #projectDropdown
           [options]="projectOptions()"
+          [ngModel]="projectId()"
           placeholder="Search or select project..."
           emptyLabel="-- Select Project --"
           [searchFields]="['label']"
@@ -116,4 +133,5 @@
       </div>
     </div>
   </div>
+</div>
 </div>
