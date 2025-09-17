@@ -14,76 +14,99 @@
 
     <!-- Navigation Menu -->
     <ul class="nav nav-pills flex-column">
+      <!-- 1. Dashboard -->
       <li class="nav-item">
         <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">
           <i class="bi bi-speedometer2"></i>
           <span class="nav-text">Dashboard</span>
         </a>
       </li>
-      <li class="nav-item" *ngIf="!isOnboardingComplete()">
-        <a class="nav-link" routerLink="/onboarding" routerLinkActive="active">
-          <i class="bi bi-person-plus-fill"></i>
-          <span class="nav-text">Onboarding</span>
-        </a>
-      </li>
-      <li class="nav-item" *ngIf="isOnboardingComplete()">
-        <a class="nav-link" routerLink="/profile" routerLinkActive="active">
-          <i class="bi bi-person-circle"></i>
-          <span class="nav-text">My Profile</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" routerLink="/timesheets" routerLinkActive="active">
-          <i class="bi bi-clock-history"></i>
-          <span class="nav-text">My Timesheet</span>
-        </a>
-      </li>
-      <li class="nav-item" *ngIf="canApprove()">
-        <a class="nav-link" routerLink="/approvals" routerLinkActive="active">
-          <i class="bi bi-check-circle"></i>
-          <span class="nav-text">Approvals</span>
-        </a>
-      </li>
-      <li class="nav-item" *ngIf="isAdmin()">
-        <a class="nav-link" routerLink="/projects" routerLinkActive="active">
-          <i class="bi bi-briefcase"></i>
-          <span class="nav-text">Projects</span>
-        </a>
-      </li>
+      
+      <!-- 2. Clients -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/clients" routerLinkActive="active">
           <i class="bi bi-building"></i>
           <span class="nav-text">Clients</span>
         </a>
       </li>
+      
+      <!-- 3. Projects -->
       <li class="nav-item" *ngIf="isAdmin()">
-        <a class="nav-link" routerLink="/employees" routerLinkActive="active">
-          <i class="bi bi-people"></i>
-          <span class="nav-text">Employees</span>
+        <a class="nav-link" routerLink="/projects" routerLinkActive="active">
+          <i class="bi bi-briefcase"></i>
+          <span class="nav-text">Projects</span>
         </a>
       </li>
+      
+      <!-- 4. Allocations -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/allocations" routerLinkActive="active">
           <i class="bi bi-calendar-check"></i>
           <span class="nav-text">Allocations</span>
         </a>
       </li>
+      
+      <!-- 5. Tasks -->
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/tasks" routerLinkActive="active">
+          <i class="bi bi-list-check"></i>
+          <span class="nav-text">Tasks</span>
+        </a>
+      </li>
+      
+      <!-- 6. Approvals -->
+      <li class="nav-item" *ngIf="canApprove()">
+        <a class="nav-link" routerLink="/approvals" routerLinkActive="active">
+          <i class="bi bi-check-circle"></i>
+          <span class="nav-text">Approvals</span>
+        </a>
+      </li>
+      
+      <!-- 7. My TimeSheets -->
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/timesheets" routerLinkActive="active">
+          <i class="bi bi-clock-history"></i>
+          <span class="nav-text">My TimeSheets</span>
+        </a>
+      </li>
+      
+      <!-- 8. Employees -->
+      <li class="nav-item" *ngIf="isAdmin()">
+        <a class="nav-link" routerLink="/employees" routerLinkActive="active">
+          <i class="bi bi-people"></i>
+          <span class="nav-text">Employees</span>
+        </a>
+      </li>
+      
+      <!-- 9. Reports -->
       <li class="nav-item">
         <a class="nav-link" routerLink="/reports" routerLinkActive="active">
           <i class="bi bi-graph-up"></i>
           <span class="nav-text">Reports</span>
         </a>
       </li>
+      
+      <!-- 10. Admin -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/admin" routerLinkActive="active">
           <i class="bi bi-gear"></i>
           <span class="nav-text">Admin</span>
         </a>
       </li>
-      <li class="nav-item">
-        <a class="nav-link" routerLink="/tasks" routerLinkActive="active">
-          <i class="bi bi-list-check"></i>
-          <span class="nav-text">Tasks</span>
+      
+      <!-- 11. My Profile -->
+      <li class="nav-item" *ngIf="isOnboardingComplete()">
+        <a class="nav-link" routerLink="/profile" routerLinkActive="active">
+          <i class="bi bi-person-circle"></i>
+          <span class="nav-text">My Profile</span>
+        </a>
+      </li>
+      
+      <!-- Onboarding (special case - only shown when onboarding is not complete) -->
+      <li class="nav-item" *ngIf="!isOnboardingComplete()">
+        <a class="nav-link" routerLink="/onboarding" routerLinkActive="active">
+          <i class="bi bi-person-plus-fill"></i>
+          <span class="nav-text">Onboarding</span>
         </a>
       </li>
     </ul>

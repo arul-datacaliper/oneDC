@@ -172,6 +172,15 @@
   }
 }
 
+// Cursor pointer for clickable rows
+.cursor-pointer {
+  cursor: pointer;
+  
+  &:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+}
+
 // Print styles
 @media print {
   .btn, .pagination, .modal {

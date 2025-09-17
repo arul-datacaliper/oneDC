@@ -25,7 +25,9 @@ export class EmployeesComponent implements OnInit {
   filteredEmployees = signal<AppUser[]>([]);
   loading = signal<boolean>(false);
   showModal = signal<boolean>(false);
+  showProfileModal = signal<boolean>(false);
   editingEmployee = signal<AppUser | null>(null);
+  selectedEmployee = signal<AppUser | null>(null);
   searchTerm = signal<string>('');
   roleFilter = signal<string>('');
   statusFilter = signal<string>('');
@@ -306,5 +308,24 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['minlength']) return `${fieldName} must be at least ${field.errors['minlength'].requiredLength} characters`;
     }
     return '';
+  }
+
+  // Profile modal methods
+  viewEmployeeProfile(employee: AppUser) {
+    this.selectedEmployee.set(employee);
+    this.showProfileModal.set(true);
+  }
+
+  closeProfileModal() {
+    this.showProfileModal.set(false);
+    this.selectedEmployee.set(null);
+  }
+
+  editSelectedEmployee() {
+    const employee = this.selectedEmployee();
+    if (employee) {
+      this.closeProfileModal();
+      this.openEditModal(employee);
+    }
   }
 }

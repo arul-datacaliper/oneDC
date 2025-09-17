@@ -105,7 +105,7 @@
   <div class="card-header">
     <div class="d-flex justify-content-between align-items-center">
       <h6 class="card-title mb-0">Employees ({{ filteredEmployees().length }})</h6>
-      <small class="text-muted">
+      <small class="text-white">
         Showing {{ Math.min((pageIndex() * pageSize()) + 1, filteredEmployees().length) }} - 
         {{ Math.min((pageIndex() + 1) * pageSize(), filteredEmployees().length) }} 
         of {{ filteredEmployees().length }} employees
@@ -127,7 +127,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let employee of paginatedEmployees()">
+          <tr *ngFor="let employee of paginatedEmployees()" 
+              class="cursor-pointer" 
+              (click)="viewEmployeeProfile(employee)"
+              title="Click to view profile details">
             <td>
               <div class="d-flex align-items-center">
                 <div class="avatar-circle me-3">
@@ -155,17 +158,19 @@
             </td>
             <td class="text-center">
               <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary" (click)="openEditModal(employee)" 
+                <button class="btn btn-outline-primary" 
+                        (click)="$event.stopPropagation(); openEditModal(employee)" 
                         title="Edit Employee">
                   <i class="bi bi-pencil"></i>
                 </button>
                 <button class="btn" 
                         [class]="employee.isActive ? 'btn-outline-warning' : 'btn-outline-success'"
-                        (click)="toggleEmployeeStatus(employee)"
+                        (click)="$event.stopPropagation(); toggleEmployeeStatus(employee)"
                         [title]="employee.isActive ? 'Deactivate' : 'Activate'">
                   <i class="bi" [class]="employee.isActive ? 'bi-pause' : 'bi-play'"></i>
                 </button>
-                <button class="btn btn-outline-danger" (click)="deleteEmployee(employee)" 
+                <button class="btn btn-outline-danger" 
+                        (click)="$event.stopPropagation(); deleteEmployee(employee)" 
                         title="Delete Employee">
                   <i class="bi bi-trash"></i>
                 </button>
@@ -328,4 +333,92 @@
 
 <!-- Modal Backdrop -->
 <div class="modal-backdrop fade" [class.show]="showModal()" *ngIf="showModal()"></div>
+
+<!-- Employee Profile Modal -->
+<div class="modal fade" [class.show]="showProfileModal()" [style.display]="showProfileModal() ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" [attr.aria-hidden]="!showProfileModal()">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: #fff; font-size: 1rem;">
+        <h5 class="modal-title" style="font-size: 1rem;">
+          <i class="bi bi-person-circle me-2" style="font-size: 1.1rem;"></i>
+          User Profile - {{ selectedEmployee()?.firstName }} {{ selectedEmployee()?.lastName }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeProfileModal()" style="filter: invert(1);"></button>
+      </div>
+      <div class="modal-body" style="font-size: 0.85rem;">
+        <div class="row mb-4">
+          <div class="col-md-4 text-center d-flex flex-column align-items-center justify-content-center">
+            <div class="avatar-circle mb-3" style="width: 80px; height: 80px; font-size: 1.7rem; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+              <i class="bi bi-person" style="font-size: 1.7rem; color: #888;"></i>
+            </div>
+            <div class="fw-bold" style="font-size: 1rem;">{{ selectedEmployee()?.firstName }} {{ selectedEmployee()?.lastName }}</div>
+            <div class="text-muted mb-2" style="font-size: 0.85rem;">{{ selectedEmployee()?.email }}</div>
+            <span class="badge bg-primary" style="font-size: 0.85rem; padding: 0.3em 0.8em;">{{ getRoleDisplayName(selectedEmployee()?.role || 'EMPLOYEE') }}</span>
+          </div>
+          <div class="col-md-8">
+            <div class="row g-3">
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Phone Number</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
+              </div>
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Date of Birth</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
+              </div>
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Department</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not assigned</div>
+              </div>
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Job Title</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not specified</div>
+              </div>
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Start Date</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
+              </div>
+              <div class="col-6">
+                <div class="fw-bold" style="font-size: 0.85rem;">Manager</div>
+                <div class="text-muted" style="font-size: 0.8rem;">Not assigned</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card mb-3" style="border-radius: 0.75rem;">
+              <div class="card-header text-white" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem 0.75rem 0 0; font-size: 0.9rem;">
+                <i class="bi bi-gear me-2" style="font-size: 1rem;"></i> Skills
+              </div>
+              <div class="card-body p-3" style="font-size: 0.8rem;">
+                <div class="text-muted">No skills listed</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card mb-3" style="border-radius: 0.75rem;">
+              <div class="card-header text-white" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem 0.75rem 0 0; font-size: 0.9rem;">
+                <i class="bi bi-award me-2" style="font-size: 1rem;"></i> Certifications
+              </div>
+              <div class="card-body p-3" style="font-size: 0.8rem;">
+                <div class="text-muted">No certifications listed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="background: #f8f9fa; font-size: 0.85rem;">
+        <button type="button" class="btn btn-secondary" (click)="closeProfileModal()">
+          Close
+        </button>
+        <button type="button" class="btn btn-primary" (click)="editSelectedEmployee()" [disabled]="!selectedEmployee()">
+          <i class="bi bi-pencil me-2"></i>Edit Employee
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Profile Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showProfileModal()" *ngIf="showProfileModal()"></div>
 </div>
