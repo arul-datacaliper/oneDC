@@ -301,7 +301,7 @@ export class DashboardComponent implements OnInit {
 
   // Navigation methods
   navigateToEmployeeManagement(): void {
-    this.router.navigate(['/admin/employees']).catch(err => {
+    this.router.navigate(['/employees']).catch(err => {
       console.error('Navigation error:', err);
     });
   }
