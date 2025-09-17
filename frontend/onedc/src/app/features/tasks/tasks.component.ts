@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
@@ -15,12 +16,15 @@ import { ToastrService } from 'ngx-toastr';
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.scss']
 })
-export class TasksComponent implements OnInit {
+export class TasksComponent implements OnInit, AfterViewInit {
+  // ViewChild to access the project dropdown directly
+  @ViewChild('projectDropdown') projectDropdown!: SearchableDropdownComponent;
   // make service public for template access
   tasksSvc = inject(TasksService);
   private projectsSvc = inject(ProjectsService);
   private usersSvc = inject(UsersService);
   private toastr = inject(ToastrService);
+  private route = inject(ActivatedRoute);
 
   Math = Math; // expose Math to template
 
@@ -30,6 +34,7 @@ export class TasksComponent implements OnInit {
   // Dropdown options for searchable components
   projectOptions = signal<DropdownOption[]>([]);
   assigneeOptions = signal<DropdownOption[]>([]);
+  isNavigatedFromDashboard = signal<boolean>(false);
 
   projectId = signal<string>('');
   statusFilter = signal<TaskStatus|''>('');
@@ -65,9 +70,30 @@ export class TasksComponent implements OnInit {
   editMode = signal<boolean>(false);
   activeTask = signal<ProjectTask|null>(null);
 
+  ngAfterViewInit() {
+    // After view init, if we have a projectId from query params, ensure dropdown is updated
+    setTimeout(() => {
+      const currentProjectId = this.projectId();
+      if (currentProjectId && this.projectDropdown) {
+        console.log('ngAfterViewInit: Setting dropdown value to:', currentProjectId);
+        this.projectDropdown.writeValue(currentProjectId);
+      }
+    }, 100);
+  }
+
   ngOnInit() {
     this.loadProjects();
     this.loadUsers();
+    
+    // Check for projectId query parameter
+    this.route.queryParams.subscribe(params => {
+      if (params['projectId']) {
+        console.log('Setting projectId from query params:', params['projectId']);
+        this.projectId.set(params['projectId']);
+        this.isNavigatedFromDashboard.set(true);
+        this.loadTasks();
+      }
+    });
   }
 
   loadProjects() { 
@@ -78,6 +104,19 @@ export class TasksComponent implements OnInit {
         label: `${p.code} — ${p.name}`,
         project: p
       })));
+      
+      // Load tasks if a project is already selected
+      if (this.projectId()) {
+        this.loadTasks();
+        
+        // If the dropdown is available, update it directly
+        setTimeout(() => {
+          if (this.projectDropdown) {
+            console.log('Updating dropdown with projectId:', this.projectId());
+            this.projectDropdown.writeValue(this.projectId());
+          }
+        }, 50);
+      }
     });
   }
   

@@ -136,7 +136,9 @@
             <tr *ngFor="let project of topProjects; let i = index">
               <td>
                 <div>
-                  <div class="fw-medium">{{ project.projectName }}</div>
+                  <div class="fw-medium project-name-link" (click)="navigateToProjectTasks(project)">
+                    {{ project.projectName }}
+                  </div>
                   <small class="text-muted">{{ project.projectCode }}</small>
                 </div>
               </td>

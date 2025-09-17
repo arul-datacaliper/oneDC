@@ -216,4 +216,16 @@ export class DashboardComponent implements OnInit {
       console.error('Navigation error:', err);
     });
   }
+
+  // Navigate to tasks page with specific project selected
+  navigateToProjectTasks(project: TopProjectMetrics): void {
+    this.router.navigate(['/tasks'], {
+      queryParams: {
+        projectId: project.projectId,
+        projectName: project.projectName
+      }
+    }).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
 }
