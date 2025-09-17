@@ -51,19 +51,47 @@
   }
   
   .stat-value {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     line-height: 1;
   }
   
   .card-title {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
     margin-bottom: 0.5rem;
   }
   
   .card-subtitle {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+  }
+}
+
+// Search and Filter Section
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.form-control, .form-select {
+  font-size: 0.85rem;
+}
+
+.input-group-text {
+  font-size: 0.85rem;
+}
+
+// Employee Table
+.table {
+  font-size: 0.85rem;
+  
+  th {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  td {
+    font-size: 0.85rem;
   }
 }
 
