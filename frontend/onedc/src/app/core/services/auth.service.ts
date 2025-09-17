@@ -39,11 +39,39 @@ export class AuthService {
     );
   }
 
-  logout() {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('onboarding_complete');
-    this._user.next(null);
-    this._onboardingComplete.next(false);
+  logout(): void {
+    try {
+      // Optionally call backend logout endpoint for logging/security
+      const token = this.getToken();
+      if (token) {
+        // Call backend logout (don't wait for response to avoid delays)
+        this.http.post(`${this.base}/logout`, {}).subscribe({
+          next: () => console.log('Backend logout successful'),
+          error: (error) => console.warn('Backend logout failed:', error)
+        });
+      }
+      
+      // Clear all authentication-related data from localStorage immediately
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('onboarding_complete');
+      
+      // Clear any other app-specific data that should be removed on logout
+      // (Add more items here if needed in the future)
+      
+      // Reset all observables to their default states
+      this._user.next(null);
+      this._onboardingComplete.next(false);
+      
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      
+      // Ensure cleanup happens even if there's an error
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('onboarding_complete');
+      this._user.next(null);
+      this._onboardingComplete.next(false);
+    }
   }
 
   getToken(): string | null {
@@ -144,8 +172,15 @@ export class AuthService {
       return;
     }
 
+    // Admin users don't need onboarding - consider them as completed
+    if (user.role === 'ADMIN') {
+      this._onboardingComplete.next(true);
+      localStorage.setItem('onboarding_complete', 'true');
+      return;
+    }
+
     try {
-      // Check onboarding status from the API
+      // Check onboarding status from the API for non-admin users
       const response = await this.http.get<any>(`${environment.apiBaseUrl}/onboarding/profile/${user.userId}`).toPromise();
       const isComplete = response?.isOnboardingComplete || false;
       this._onboardingComplete.next(isComplete);

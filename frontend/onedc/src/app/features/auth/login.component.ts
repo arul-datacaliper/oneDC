@@ -17,7 +17,7 @@ export class LoginComponent {
   private toastr = inject(ToastrService);
   private authService = inject(AuthService);
 
-  email = signal('admin@onedc.com');
+  email = signal('admin@onedc.local');
   password = signal('password123');
   loading = signal(false);
 

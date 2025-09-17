@@ -19,8 +19,8 @@ export class OnboardingComponent implements OnInit {
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
 
-  // Current user ID (in a real app, this would come from auth service)
-  currentUserId = signal<string>(localStorage.getItem('debugUserId') || '');
+  // Current user ID from auth service
+  currentUserId = signal<string>('');
   
   // Signals for reactive state
   userProfile = signal<UserProfile | null>(null);
@@ -67,6 +67,12 @@ export class OnboardingComponent implements OnInit {
   });
 
   ngOnInit() {
+    // Get current user ID from auth service
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      this.currentUserId.set(currentUser.userId);
+    }
+    
     this.initializeForms();
     this.loadSkillLevels();
     this.loadUserData();
@@ -111,8 +117,14 @@ export class OnboardingComponent implements OnInit {
   loadUserData() {
     const userId = this.currentUserId();
     if (!userId) {
-      this.toastr.error('Please set a user ID in the debug menu');
+      this.toastr.error('User not logged in');
       return;
+    }
+
+    // Check if user is admin - admins might not need onboarding
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser?.role === 'ADMIN') {
+      this.toastr.info('Admin users can create profiles but onboarding is optional');
     }
 
     this.loading.set(true);

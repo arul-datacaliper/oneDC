@@ -123,18 +123,14 @@
             <button class="btn btn-outline-light btn-sm dropdown-toggle" 
                     type="button" 
                     data-bs-toggle="dropdown" 
-                    aria-expanded="false">
+                    aria-expanded="false"
+                    (click)="toggleUserDropdown()">
               <i class="bi bi-person-circle"></i>
-              <span class="ms-1">Dev</span>
+              <span class="ms-1">{{ currentUser()?.name || 'User' }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li>
-                <button class="dropdown-item" (click)="openDevUserDialog()">
-                  <i class="bi bi-fingerprint"></i>
-                  <span class="ms-2">Set Dev User (GUID)</span>
-                </button>
-              </li>
-              <li><hr class="dropdown-divider"></li>
+            <ul class="dropdown-menu dropdown-menu-end" 
+                [class.show]="userDropdownOpen()"
+                (click)="closeUserDropdown()">
               <li>
                 <button class="dropdown-item" (click)="logout()">
                   <i class="bi bi-box-arrow-right"></i>

@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using OneDc.Api.JsonConverters;
+using System.Security.Cryptography;
 
 
 
@@ -174,74 +175,154 @@ app.MapGet("/weatherforecast", () =>
 
 app.Run();
 
+// Add method to hash passwords (same as AuthService)
+static string HashPassword(string password)
+{
+    // Use the same method as AuthService for consistency
+    using var rng = RandomNumberGenerator.Create();
+    var salt = new byte[32];
+    rng.GetBytes(salt);
+
+    using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256);
+    var hash = pbkdf2.GetBytes(32);
+
+    return $"10000.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
+}
+
 static async Task SeedTestDataAsync(OneDcDbContext context)
 {
-    // Check if we already have users
-    if (await context.AppUsers.AnyAsync())
-        return; // Already seeded
+    // Force update password hashes to fix format mismatch
+    var existingUsers = await context.AppUsers.ToListAsync();
     
-    // Create test user
-    var testUser = new OneDc.Domain.Entities.AppUser
+    if (existingUsers.Any())
     {
-        UserId = Guid.Parse("59bd99db-9be0-4a55-a062-ecf8636896ad"),
-        Email = "admin@onedc.com",
-        FirstName = "Admin",
-        LastName = "User",
-        Role = OneDc.Domain.Entities.UserRole.ADMIN,
-        IsActive = true,
-        CreatedAt = DateTimeOffset.UtcNow
+        // Update all existing users with correct password format
+        foreach (var user in existingUsers)
+        {
+            user.PasswordHash = HashPassword("password123");
+        }
+        await context.SaveChangesAsync();
+        return; // Users updated with correct passwords
+    }
+    
+    // Create all users from scratch
+    var users = new List<OneDc.Domain.Entities.AppUser>
+    {
+        // Admin user
+        new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.Parse("59bd99db-9be0-4a55-a062-ecf8636896ad"),
+            Email = "admin@onedc.local",
+            FirstName = "Admin",
+            LastName = "User",
+            Role = OneDc.Domain.Entities.UserRole.ADMIN,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("password123")
+        },
+        
+        // Approver user
+        new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.Parse("f6f173b6-ac51-4944-9082-e670533438e9"),
+            Email = "approver@onedc.local",
+            FirstName = "Project",
+            LastName = "Manager",
+            Role = OneDc.Domain.Entities.UserRole.APPROVER,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("password123")
+        },
+        
+        // Developer user
+        new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
+            Email = "developer@onedc.local",
+            FirstName = "John",
+            LastName = "Developer",
+            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("password123")
+        },
+        
+        // QA user
+        new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.Parse("b2c3d4e5-f637-8901-bcde-f23456789012"),
+            Email = "qa@onedc.local",
+            FirstName = "Jane",
+            LastName = "Tester",
+            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("password123")
+        },
+        
+        // UX user
+        new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.Parse("c3d4e5f6-a7b8-9012-cdef-345678901234"),
+            Email = "ux@onedc.local",
+            FirstName = "Alex",
+            LastName = "Designer",
+            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("password123")
+        }
     };
     
-    // Create test approver
-    var testApprover = new OneDc.Domain.Entities.AppUser
+    // Add all users
+    context.AppUsers.AddRange(users);
+    
+    // Create test client only if it doesn't exist
+    if (!await context.Clients.AnyAsync(c => c.ClientId == Guid.Parse("11111111-1111-1111-1111-111111111111")))
     {
-        UserId = Guid.Parse("f6f173b6-ac51-4944-9082-e670533438e9"),
-        Email = "approver@onedc.com",
-        FirstName = "Project",
-        LastName = "Manager",
-        Role = OneDc.Domain.Entities.UserRole.APPROVER,
-        IsActive = true,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
+        var testClient = new OneDc.Domain.Entities.Client
+        {
+            ClientId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Name = "Demo Client",
+            Code = "DEMO",
+            Status = "ACTIVE"
+        };
+        context.Clients.Add(testClient);
+    }
     
-    // Create test client
-    var testClient = new OneDc.Domain.Entities.Client
+    // Create test projects only if they don't exist
+    if (!await context.Projects.AnyAsync())
     {
-        ClientId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-        Name = "Demo Client",
-        Code = "DEMO",
-        Status = "ACTIVE"
-    };
+        var approverUser = users.First(u => u.Role == OneDc.Domain.Entities.UserRole.APPROVER);
+        
+        var testProject1 = new OneDc.Domain.Entities.Project
+        {
+            ProjectId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            ClientId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Code = "DEMO",
+            Name = "Demo Project",
+            Status = "ACTIVE",
+            Billable = true,
+            DefaultApprover = approverUser.UserId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        
+        var testProject2 = new OneDc.Domain.Entities.Project
+        {
+            ProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            ClientId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Code = "INTERNAL",
+            Name = "Internal Work",
+            Status = "ACTIVE",
+            Billable = false,
+            DefaultApprover = approverUser.UserId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        
+        context.Projects.AddRange(testProject1, testProject2);
+    }
     
-    // Create test projects
-    var testProject1 = new OneDc.Domain.Entities.Project
-    {
-        ProjectId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-        ClientId = testClient.ClientId,
-        Code = "DEMO",
-        Name = "Demo Project",
-        Status = "ACTIVE",
-        Billable = true,
-        DefaultApprover = testApprover.UserId,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-    
-    var testProject2 = new OneDc.Domain.Entities.Project
-    {
-        ProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-        ClientId = testClient.ClientId,
-        Code = "INTERNAL",
-        Name = "Internal Work",
-        Status = "ACTIVE",
-        Billable = false,
-        DefaultApprover = testApprover.UserId,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-    
-    context.AppUsers.AddRange(testUser, testApprover);
-    context.Clients.Add(testClient);
-    context.Projects.AddRange(testProject1, testProject2);
-    
+    // Save all changes
     await context.SaveChangesAsync();
 }
 
