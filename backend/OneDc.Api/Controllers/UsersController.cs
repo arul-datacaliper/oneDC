@@ -22,6 +22,8 @@ public class CreateUserRequest
     
     [Required]
     public UserRole Role { get; set; } = UserRole.EMPLOYEE;
+    
+    public Guid? ManagerId { get; set; }
 }
 
 public class UpdateUserRequest
@@ -78,6 +80,21 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    // GET api/users/by-role/{role}
+    [HttpGet("by-role/{role}")]
+    public async Task<IActionResult> GetUsersByRole(UserRole role)
+    {
+        try
+        {
+            var users = await _repo.GetUsersByRoleAsync(role);
+            return Ok(users);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Failed to get users by role: {ex.Message}");
+        }
+    }
+
     // POST api/users
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
@@ -96,6 +113,7 @@ public class UsersController : ControllerBase
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Role = request.Role,
+                ManagerId = request.ManagerId,
                 IsActive = true,
                 CreatedAt = DateTimeOffset.UtcNow
             };

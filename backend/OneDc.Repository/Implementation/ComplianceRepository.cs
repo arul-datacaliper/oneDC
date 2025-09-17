@@ -20,6 +20,9 @@ public class ComplianceRepository : IComplianceRepository
     public Task<AppUser?> GetUserByIdAsync(Guid userId) =>
         _db.AppUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId);
 
+    public Task<List<AppUser>> GetUsersByRoleAsync(UserRole role) =>
+        _db.AppUsers.Where(u => u.Role == role).AsNoTracking().ToListAsync();
+
     public async Task<AppUser> CreateUserAsync(AppUser user)
     {
         _db.AppUsers.Add(user);

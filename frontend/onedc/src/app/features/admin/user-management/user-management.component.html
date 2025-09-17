@@ -219,6 +219,19 @@
               Employees can manage timesheets, Approvers can approve timesheets, Admins have full access.
             </div>
           </div>
+
+          <div class="mb-3">
+            <label class="form-label">Manager</label>
+            <app-searchable-dropdown
+              formControlName="managerId"
+              [options]="managerOptions()"
+              placeholder="Select a manager (optional)"
+              [allowEmpty]="true">
+            </app-searchable-dropdown>
+            <div class="form-text">
+              Select a manager from the list of approvers and admins. This is optional.
+            </div>
+          </div>
         </div>
         
         <div class="modal-footer">

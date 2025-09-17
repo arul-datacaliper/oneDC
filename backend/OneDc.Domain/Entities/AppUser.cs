@@ -11,6 +11,7 @@ public class AppUser
     public UserRole Role { get; set; } = UserRole.EMPLOYEE;
     public bool IsActive { get; set; } = true;
     public string? PasswordHash { get; set; } // PBKDF2 hash (format: iterations.salt.hash)
+    public Guid? ManagerId { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

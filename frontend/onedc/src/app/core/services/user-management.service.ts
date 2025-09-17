@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 export interface AppUser {
@@ -8,9 +9,11 @@ export interface AppUser {
   email: string;
   firstName: string;
   lastName: string;
-  role: UserRole;
+  role: UserRole | string; // Allow both enum and string values
   isActive: boolean;
   createdAt: string;
+  managerId?: string;
+  managerName?: string;
 }
 
 export enum UserRole {
@@ -24,6 +27,7 @@ export interface CreateUserRequest {
   firstName: string;
   lastName: string;
   role: UserRole;
+  managerId?: string;
 }
 
 export interface UpdateUserRequest {
@@ -48,6 +52,48 @@ export class UserManagementService {
   // Get user by ID
   getUserById(userId: string): Observable<AppUser> {
     return this.http.get<AppUser>(`${this.apiUrl}/${userId}`);
+  }
+
+  // Get users with specific role
+  getUsersByRole(role: UserRole): Observable<AppUser[]> {
+    return this.http.get<AppUser[]>(`${this.apiUrl}/by-role/${role}`);
+  }
+
+  // Get approvers only
+  getApprovers(): Observable<AppUser[]> {
+    return this.getUsersByRole(UserRole.APPROVER);
+  }
+
+  // Get potential managers (Approvers and Admins)
+  getManagers(): Observable<AppUser[]> {
+    return this.http.get<AppUser[]>(`${this.apiUrl}`).pipe(
+      map((users: AppUser[]) => {
+        const managers = users.filter((user: AppUser) => {
+          // Convert string role to enum value for comparison
+          let userRoleValue: UserRole;
+          if (typeof user.role === 'string') {
+            switch (user.role.toUpperCase()) {
+              case 'EMPLOYEE':
+                userRoleValue = UserRole.EMPLOYEE;
+                break;
+              case 'APPROVER':
+                userRoleValue = UserRole.APPROVER;
+                break;
+              case 'ADMIN':
+                userRoleValue = UserRole.ADMIN;
+                break;
+              default:
+                userRoleValue = UserRole.EMPLOYEE;
+            }
+          } else {
+            userRoleValue = user.role;
+          }
+          
+          return userRoleValue === UserRole.APPROVER || userRoleValue === UserRole.ADMIN;
+        });
+        return managers;
+      })
+    );
   }
 
   // Create new user

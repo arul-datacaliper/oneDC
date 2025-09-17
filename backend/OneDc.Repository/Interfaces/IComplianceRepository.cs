@@ -8,6 +8,7 @@ public interface IComplianceRepository
     Task<List<AppUser>> GetActiveUsersAsync();
     Task<List<AppUser>> GetAllUsersAsync();
     Task<AppUser?> GetUserByIdAsync(Guid userId);
+    Task<List<AppUser>> GetUsersByRoleAsync(UserRole role);
     Task<AppUser> CreateUserAsync(AppUser user);
     Task<AppUser> UpdateUserAsync(AppUser user);
     
