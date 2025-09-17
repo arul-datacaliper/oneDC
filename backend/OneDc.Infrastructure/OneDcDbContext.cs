@@ -12,6 +12,7 @@ public class OneDcDbContext : DbContext
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectAllocation> ProjectAllocations => Set<ProjectAllocation>();
+    public DbSet<WeeklyAllocation> WeeklyAllocations => Set<WeeklyAllocation>();
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -207,6 +208,35 @@ public class OneDcDbContext : DbContext
              .WithMany()
              .HasForeignKey(x => x.AssignedUserId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ===== WeeklyAllocation =====
+        b.Entity<WeeklyAllocation>(e =>
+        {
+            e.ToTable("weekly_allocation");
+            e.HasKey(x => x.AllocationId);
+            e.Property(x => x.AllocatedHours).IsRequired();
+            e.Property(x => x.UtilizationPercentage).HasPrecision(5, 2);
+            e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("ACTIVE");
+            e.Property(x => x.CreatedAt).IsRequired();
+            e.Property(x => x.UpdatedAt).IsRequired();
+            
+            e.HasIndex(x => new { x.ProjectId, x.UserId, x.WeekStartDate }).IsUnique();
+            e.HasIndex(x => x.WeekStartDate);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.ProjectId);
+
+            // 🔗 WeeklyAllocation → Project
+            e.HasOne(wa => wa.Project)
+             .WithMany()
+             .HasForeignKey(wa => wa.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // 🔗 WeeklyAllocation → AppUser
+            e.HasOne(wa => wa.User)
+             .WithMany()
+             .HasForeignKey(wa => wa.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

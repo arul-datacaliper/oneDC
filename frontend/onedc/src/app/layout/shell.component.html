@@ -56,6 +56,12 @@
           <span class="nav-text">Clients</span>
         </a>
       </li>
+      <li class="nav-item" *ngIf="isAdmin()">
+        <a class="nav-link" routerLink="/allocations" routerLinkActive="active">
+          <i class="bi bi-calendar-check"></i>
+          <span class="nav-text">Allocations</span>
+        </a>
+      </li>
       <li class="nav-item">
         <a class="nav-link" routerLink="/reports" routerLinkActive="active">
           <i class="bi bi-graph-up"></i>

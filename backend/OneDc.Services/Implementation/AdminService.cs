@@ -24,10 +24,10 @@ public class AdminService : IAdminService
 
         // Total and active projects
         var totalProjects = await _context.Projects.CountAsync();
-        var activeProjects = await _context.Projects.CountAsync(p => p.Status == "ACTIVE");
+        var activeProjects = await _context.Projects.CountAsync(p => p.Status.ToLower() == "active");
 
         // Total clients
-        var totalClients = await _context.Clients.CountAsync(c => c.Status == "ACTIVE");
+        var totalClients = await _context.Clients.CountAsync(c => c.Status.ToLower() == "active");
 
         // Pending approvals (timesheet entries awaiting approval)
         var pendingApprovals = await _context.TimesheetEntries
@@ -47,7 +47,7 @@ public class AdminService : IAdminService
     {
         // Get projects with their task counts (using timesheet entries as "tasks")
         var projectMetrics = await _context.Projects
-            .Where(p => p.Status == "ACTIVE")
+            .Where(p => p.Status.ToLower() == "active")
             .Include(p => p.Client)
             .Select(p => new TopProjectMetrics
             {

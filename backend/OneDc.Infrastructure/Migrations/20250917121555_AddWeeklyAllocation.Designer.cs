@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneDc.Infrastructure;
@@ -11,9 +12,11 @@ using OneDc.Infrastructure;
 namespace OneDc.Infrastructure.Migrations
 {
     [DbContext(typeof(OneDcDbContext))]
-    partial class OneDcDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250917121555_AddWeeklyAllocation")]
+    partial class AddWeeklyAllocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -636,7 +639,7 @@ namespace OneDc.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasDefaultValue("Active")
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")

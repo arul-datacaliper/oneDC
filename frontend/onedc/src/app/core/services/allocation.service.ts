@@ -1,0 +1,122 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+
+export interface WeeklyAllocation {
+  allocationId: string;
+  projectId: string;
+  projectName: string;
+  userId: string;
+  userName: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  allocatedHours: number;
+  utilizationPercentage: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAllocationRequest {
+  projectId: string;
+  userId: string;
+  weekStartDate: string;
+  allocatedHours: number;
+}
+
+export interface UpdateAllocationRequest {
+  allocatedHours: number;
+  status?: string;
+}
+
+export interface AllocationSummary {
+  projectId: string;
+  projectName: string;
+  totalAllocatedHours: number;
+  totalEmployees: number;
+  utilizationPercentage: number;
+}
+
+export interface EmployeeAllocationSummary {
+  userId: string;
+  userName: string;
+  totalAllocatedHours: number;
+  totalProjects: number;
+  weeklyCapacity: number;
+  utilizationPercentage: number;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AllocationService {
+  private http = inject(HttpClient);
+  private apiUrl = `${environment.apiBaseUrl}/allocations`;
+
+  // Get all allocations for a specific week
+  getAllocationsForWeek(weekStartDate: string): Observable<WeeklyAllocation[]> {
+    return this.http.get<WeeklyAllocation[]>(`${this.apiUrl}/week/${weekStartDate}`);
+  }
+
+  // Get allocations by project for a specific week
+  getAllocationsByProject(projectId: string, weekStartDate: string): Observable<WeeklyAllocation[]> {
+    return this.http.get<WeeklyAllocation[]>(`${this.apiUrl}/project/${projectId}/week/${weekStartDate}`);
+  }
+
+  // Get allocations by employee for a specific week
+  getAllocationsByEmployee(userId: string, weekStartDate: string): Observable<WeeklyAllocation[]> {
+    return this.http.get<WeeklyAllocation[]>(`${this.apiUrl}/employee/${userId}/week/${weekStartDate}`);
+  }
+
+  // Get allocation summary by projects for a week
+  getProjectAllocationSummary(weekStartDate: string): Observable<AllocationSummary[]> {
+    return this.http.get<AllocationSummary[]>(`${this.apiUrl}/project-summary/${weekStartDate}`);
+  }
+
+  // Get allocation summary by employees for a week
+  getEmployeeAllocationSummary(weekStartDate: string): Observable<EmployeeAllocationSummary[]> {
+    return this.http.get<EmployeeAllocationSummary[]>(`${this.apiUrl}/employee-summary/${weekStartDate}`);
+  }
+
+  // Create new allocation
+  createAllocation(request: CreateAllocationRequest): Observable<WeeklyAllocation> {
+    return this.http.post<WeeklyAllocation>(this.apiUrl, request);
+  }
+
+  // Update allocation
+  updateAllocation(allocationId: string, request: UpdateAllocationRequest): Observable<WeeklyAllocation> {
+    return this.http.put<WeeklyAllocation>(`${this.apiUrl}/${allocationId}`, request);
+  }
+
+  // Delete allocation
+  deleteAllocation(allocationId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${allocationId}`);
+  }
+
+  // Get available projects for allocation
+  getAvailableProjects(): Observable<{projectId: string, projectName: string, status: string}[]> {
+    return this.http.get<{projectId: string, projectName: string, status: string}[]>(`${this.apiUrl}/available-projects`);
+  }
+
+  // Get available employees for allocation
+  getAvailableEmployees(): Observable<{userId: string, userName: string, role: string}[]> {
+    return this.http.get<{userId: string, userName: string, role: string}[]>(`${this.apiUrl}/available-employees`);
+  }
+
+  // Helper method to get week start date
+  getWeekStartDate(date: Date): string {
+    const startOfWeek = new Date(date);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+    return startOfWeek.toISOString().split('T')[0];
+  }
+
+  // Helper method to get week end date
+  getWeekEndDate(weekStartDate: string): string {
+    const endDate = new Date(weekStartDate);
+    endDate.setDate(endDate.getDate() + 6);
+    return endDate.toISOString().split('T')[0];
+  }
+}
