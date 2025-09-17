@@ -57,6 +57,12 @@
         </a>
       </li>
       <li class="nav-item" *ngIf="isAdmin()">
+        <a class="nav-link" routerLink="/employees" routerLinkActive="active">
+          <i class="bi bi-people"></i>
+          <span class="nav-text">Employees</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/allocations" routerLinkActive="active">
           <i class="bi bi-calendar-check"></i>
           <span class="nav-text">Allocations</span>
