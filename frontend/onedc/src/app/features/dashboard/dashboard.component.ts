@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics } from '../../core/services/admin.service';
+import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
 
 export interface TimesheetEntry {
   date: string;
@@ -21,6 +22,7 @@ export interface TimesheetEntry {
 export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
   private adminService = inject(AdminService);
+  private employeeService = inject(EmployeeService);
   private router = inject(Router);
 
   // Admin dashboard data
@@ -28,6 +30,10 @@ export class DashboardComponent implements OnInit {
   topProjects: TopProjectMetrics[] = [];
   
   // Employee dashboard data
+  employeeMetrics: EmployeeDashboardMetrics | null = null;
+  employeeTasks: EmployeeTask[] = [];
+  timesheetSummary: TimesheetSummary | null = null;
+  projectUtilization: ProjectUtilization[] = [];
   recentTimesheets: TimesheetEntry[] = [];
   weeklyHours = 0;
   pendingApprovals = 0;
@@ -41,6 +47,12 @@ export class DashboardComponent implements OnInit {
   isAdmin = computed(() => {
     const currentUser = this.authService.getCurrentUser();
     return currentUser?.role === 'ADMIN';
+  });
+
+  // Computed property to check if user is employee (not admin or approver)
+  isEmployee = computed(() => {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'EMPLOYEE';
   });
 
   ngOnInit() {
@@ -86,21 +98,66 @@ export class DashboardComponent implements OnInit {
 
   private loadEmployeeDashboard() {
     this.isLoadingEmployeeData = true;
+    const currentUser = this.authService.getCurrentUser();
     
-    // Mock data for now - replace with actual service calls
-    setTimeout(() => {
-      this.recentTimesheets = [
-        { date: '2024-01-15', project: 'Project Alpha', hours: 8, status: 'Approved' },
-        { date: '2024-01-14', project: 'Project Beta', hours: 6, status: 'Pending' },
-        { date: '2024-01-13', project: 'Project Alpha', hours: 7, status: 'Approved' },
-        { date: '2024-01-12', project: 'Project Gamma', hours: 8, status: 'Approved' },
-        { date: '2024-01-11', project: 'Project Beta', hours: 5, status: 'Pending' }
-      ];
-      
-      this.weeklyHours = 34;
-      this.pendingApprovals = 2;
-      this.isLoadingEmployeeData = false;
-    }, 1000);
+    if (currentUser?.userId) {
+      // Load employee metrics
+      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId).subscribe({
+        next: (metrics) => {
+          this.employeeMetrics = metrics;
+        },
+        error: (error) => {
+          console.error('Error loading employee metrics:', error);
+        }
+      });
+
+      // Load assigned tasks
+      this.employeeService.getAssignedTasks(currentUser.userId).subscribe({
+        next: (tasks) => {
+          this.employeeTasks = tasks;
+        },
+        error: (error) => {
+          console.error('Error loading employee tasks:', error);
+        }
+      });
+
+      // Load timesheet summary
+      this.employeeService.getTimesheetSummary(currentUser.userId).subscribe({
+        next: (summary) => {
+          this.timesheetSummary = summary;
+        },
+        error: (error) => {
+          console.error('Error loading timesheet summary:', error);
+        }
+      });
+
+      // Load project utilization
+      this.employeeService.getProjectUtilization(currentUser.userId).subscribe({
+        next: (utilization) => {
+          this.projectUtilization = utilization;
+          this.isLoadingEmployeeData = false;
+        },
+        error: (error) => {
+          console.error('Error loading project utilization:', error);
+          this.isLoadingEmployeeData = false;
+        }
+      });
+    } else {
+      // Fallback mock data for testing
+      setTimeout(() => {
+        this.recentTimesheets = [
+          { date: '2024-01-15', project: 'Project Alpha', hours: 8, status: 'Approved' },
+          { date: '2024-01-14', project: 'Project Beta', hours: 6, status: 'Pending' },
+          { date: '2024-01-13', project: 'Project Alpha', hours: 7, status: 'Approved' },
+          { date: '2024-01-12', project: 'Project Gamma', hours: 8, status: 'Approved' },
+          { date: '2024-01-11', project: 'Project Beta', hours: 5, status: 'Pending' }
+        ];
+        
+        this.weeklyHours = 34;
+        this.pendingApprovals = 2;
+        this.isLoadingEmployeeData = false;
+      }, 1000);
+    }
   }
 
   getStatusBadgeClass(status: string): string {
@@ -124,6 +181,56 @@ export class DashboardComponent implements OnInit {
     } else {
       return 'badge bg-danger';
     }
+  }
+
+  getTaskStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'badge bg-success';
+      case 'in progress':
+      case 'in-progress':
+        return 'badge bg-primary';
+      case 'pending':
+        return 'badge bg-warning';
+      case 'cancelled':
+      case 'canceled':
+        return 'badge bg-danger';
+      case 'on hold':
+      case 'on-hold':
+        return 'badge bg-secondary';
+      default:
+        return 'badge bg-info';
+    }
+  }
+
+  getProjectStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'badge bg-success';
+      case 'completed':
+        return 'badge bg-primary';
+      case 'on hold':
+      case 'on-hold':
+        return 'badge bg-warning';
+      case 'cancelled':
+      case 'canceled':
+        return 'badge bg-danger';
+      default:
+        return 'badge bg-secondary';
+    }
+  }
+
+  getOverallUtilization(): number {
+    if (!this.projectUtilization || this.projectUtilization.length === 0) {
+      return 0;
+    }
+    
+    const totalAllocated = this.projectUtilization.reduce((sum, project) => 
+      sum + project.totalAllocatedHours, 0);
+    const totalWorked = this.projectUtilization.reduce((sum, project) => 
+      sum + project.totalWorkedHours, 0);
+    
+    return totalAllocated > 0 ? Math.round((totalWorked / totalAllocated) * 100) : 0;
   }
 
   // Mock data for employee dashboard - replace with actual service calls

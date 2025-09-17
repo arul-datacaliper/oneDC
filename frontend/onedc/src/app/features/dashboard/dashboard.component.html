@@ -199,46 +199,125 @@
       </div>
     </div>
 
-    <!-- Time Summary Cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-4">
+    <!-- Employee KPI Cards -->
+    <div class="row g-3 mb-4" *ngIf="!canApprove()">
+      <!-- Total Assigned Tasks -->
+      <div class="col-lg-3 col-md-6">
         <div class="card border-start border-4 border-primary">
           <div class="card-body">
             <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-clock-history text-primary me-2"></i>
-              <span class="card-title mb-0">Total Hours</span>
+              <i class="bi bi-list-task text-primary me-2"></i>
+              <span class="card-title mb-0">Assigned Tasks</span>
             </div>
-            <div class="stat-value text-primary">{{ myHours().total | number:'1.0-2' }} h</div>
-            <div class="card-subtitle text-muted">
-              {{ dateRangeMode() === 'week' ? 'This week' : 'This month' }}
+            <div class="stat-value text-primary">
+              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalAssignedTasks || 0 }}</span>
+              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-primary"></div>
             </div>
+            <div class="card-subtitle text-muted">Active assignments</div>
           </div>
         </div>
       </div>
 
-      <div class="col-md-4">
+      <!-- Total Submitted Hours -->
+      <div class="col-lg-3 col-md-6">
         <div class="card border-start border-4 border-warning">
           <div class="card-body">
             <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-send text-warning me-2"></i>
-              <span class="card-title mb-0">Submitted</span>
+              <i class="bi bi-clock text-warning me-2"></i>
+              <span class="card-title mb-0">Submitted Hours</span>
             </div>
-            <div class="stat-value text-warning">{{ myHours().submitted | number:'1.0-2' }} h</div>
-            <div class="card-subtitle text-muted">Awaiting approval</div>
+            <div class="stat-value text-warning">
+              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalSubmittedHours || 0 }}</span>
+              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-warning"></div>
+            </div>
+            <div class="card-subtitle text-muted">Total logged time</div>
           </div>
         </div>
       </div>
 
-      <div class="col-md-4">
+      <!-- Total Approved Hours -->
+      <div class="col-lg-3 col-md-6">
         <div class="card border-start border-4 border-success">
           <div class="card-body">
             <div class="d-flex align-items-center mb-2">
               <i class="bi bi-check-circle text-success me-2"></i>
-              <span class="card-title mb-0">Approved</span>
+              <span class="card-title mb-0">Approved Hours</span>
             </div>
-            <div class="stat-value text-success">{{ myHours().approved | number:'1.0-2' }} h</div>
+            <div class="stat-value text-success">
+              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalApprovedHours || 0 }}</span>
+              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-success"></div>
+            </div>
             <div class="card-subtitle text-muted">Ready for billing</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Utilization Rate -->
+      <div class="col-lg-3 col-md-6">
+        <div class="card border-start border-4 border-info">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-2">
+              <i class="bi bi-graph-up text-info me-2"></i>
+              <span class="card-title mb-0">Utilization</span>
+            </div>
+            <div class="stat-value text-info">
+              <span *ngIf="!isLoadingEmployeeData">{{ getOverallUtilization() }}%</span>
+              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-info"></div>
+            </div>
+            <div class="card-subtitle text-muted">Overall efficiency</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Tasks Table -->
+    <div class="card shadow-sm mb-4" *ngIf="!canApprove()">
+      <div class="card-header bg-white">
+        <h5 class="card-title mb-0">My Tasks</h5>
+        <p class="text-muted mb-0 small">Tasks assigned to you with current status</p>
+      </div>
+      <div class="card-body p-0">
+        <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        
+        <div *ngIf="!isLoadingEmployeeData && employeeTasks.length === 0" class="text-center p-4">
+          <i class="bi bi-inbox text-muted fs-1"></i>
+          <p class="text-muted mt-2 mb-0">No tasks assigned</p>
+        </div>
+
+        <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 0" class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="border-0">Task Name</th>
+                <th class="border-0">Project</th>
+                <th class="border-0 text-center">Status</th>
+                <th class="border-0">Manager</th>
+                <th class="border-0">Start Date</th>
+                <th class="border-0">End Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let task of employeeTasks">
+                <td>
+                  <div class="fw-medium">{{ task.taskName }}</div>
+                  <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
+                </td>
+                <td>{{ task.projectName }}</td>
+                <td class="text-center">
+                  <span [class]="getTaskStatusBadgeClass(task.status)">
+                    {{ task.status }}
+                  </span>
+                </td>
+                <td>{{ task.managerName }}</td>
+                <td>{{ task.startDate | date:'shortDate' }}</td>
+                <td>{{ task.endDate | date:'shortDate' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -247,46 +326,55 @@
     <div class="card shadow-sm">
       <div class="card-header bg-white">
         <h5 class="card-title mb-0">Project Utilization</h5>
-        <p class="text-muted mb-0 small">Your time allocation across projects</p>
+        <p class="text-muted mb-0 small">Your time allocation and efficiency across projects</p>
       </div>
       <div class="card-body p-0">
-        <div *ngIf="employeeLoading()" class="text-center p-4">
+        <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
         </div>
         
-        <div *ngIf="!employeeLoading() && util().length === 0" class="text-center p-4">
+        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length === 0" class="text-center p-4">
           <i class="bi bi-inbox text-muted fs-1"></i>
-          <p class="text-muted mt-2 mb-0">No timesheet data for this period</p>
+          <p class="text-muted mt-2 mb-0">No project utilization data available</p>
         </div>
 
-        <div *ngIf="!employeeLoading() && util().length > 0" class="table-responsive">
+        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive">
           <table class="table table-hover mb-0">
             <thead class="table-light">
               <tr>
                 <th class="border-0">Project</th>
-                <th class="border-0 text-end">Billable Hours</th>
-                <th class="border-0 text-end">Total Hours</th>
+                <th class="border-0 text-end">Allocated Hours</th>
+                <th class="border-0 text-end">Worked Hours</th>
                 <th class="border-0 text-center">Utilization</th>
+                <th class="border-0 text-center">Status</th>
+                <th class="border-0">Manager</th>
+                <th class="border-0">Duration</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of util()">
+              <tr *ngFor="let project of projectUtilization">
                 <td>
-                  <div>
-                    <div class="fw-medium">{{ row.project_name }}</div>
-                    <small class="text-muted">{{ row.project_code }}</small>
-                    <span *ngIf="row.billable" class="badge bg-success ms-2">Billable</span>
-                    <span *ngIf="!row.billable" class="badge bg-info ms-2">Internal</span>
-                  </div>
+                  <div class="fw-medium">{{ project.projectName }}</div>
                 </td>
-                <td class="text-end">{{ row.billable_hours | number:'1.0-2' }}</td>
-                <td class="text-end">{{ row.total_hours | number:'1.0-2' }}</td>
+                <td class="text-end">{{ project.totalAllocatedHours | number:'1.0-2' }}</td>
+                <td class="text-end">{{ project.totalWorkedHours | number:'1.0-2' }}</td>
                 <td class="text-center">
-                  <span [class]="getUtilizationBadgeClass(row.utilization_pct)">
-                    {{ row.utilization_pct | number:'1.0-1' }}%
+                  <span [class]="getUtilizationBadgeClass(project.utilizationPercentage)">
+                    {{ project.utilizationPercentage | number:'1.0-1' }}%
                   </span>
+                </td>
+                <td class="text-center">
+                  <span [class]="getProjectStatusBadgeClass(project.status)">
+                    {{ project.status }}
+                  </span>
+                </td>
+                <td>{{ project.managerName }}</td>
+                <td>
+                  <small class="text-muted">
+                    {{ project.startDate | date:'shortDate' }} - {{ project.endDate | date:'shortDate' }}
+                  </small>
                 </td>
               </tr>
             </tbody>
