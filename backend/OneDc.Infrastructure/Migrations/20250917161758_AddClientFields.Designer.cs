@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneDc.Infrastructure;
@@ -11,9 +12,11 @@ using OneDc.Infrastructure;
 namespace OneDc.Infrastructure.Migrations
 {
     [DbContext(typeof(OneDcDbContext))]
-    partial class OneDcDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250917161758_AddClientFields")]
+    partial class AddClientFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,27 +33,9 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
-                    b.Property<string>("ContactNumber")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("contact_number");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
-
-                    b.Property<DateOnly?>("DateOfBirth")
-                        .HasColumnType("date")
-                        .HasColumnName("date_of_birth");
-
-                    b.Property<DateOnly?>("DateOfJoining")
-                        .HasColumnType("date")
-                        .HasColumnName("date_of_joining");
-
-                    b.Property<string>("Department")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("department");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -58,38 +43,15 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("email");
 
-                    b.Property<string>("EmergencyContactNumber")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("emergency_contact_number");
-
-                    b.Property<string>("EmployeeId")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("employee_id");
-
-                    b.Property<int>("EmployeeType")
-                        .HasColumnType("integer")
-                        .HasColumnName("employee_type");
-
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("first_name");
 
-                    b.Property<int?>("Gender")
-                        .HasColumnType("integer")
-                        .HasColumnName("gender");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<string>("JobTitle")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("job_title");
 
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone")
@@ -110,80 +72,9 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(600)")
                         .HasColumnName("password_hash");
 
-                    b.Property<string>("PermanentAddressLine1")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("permanent_address_line1");
-
-                    b.Property<string>("PermanentAddressLine2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("permanent_address_line2");
-
-                    b.Property<string>("PermanentCity")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("permanent_city");
-
-                    b.Property<string>("PermanentCountry")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("permanent_country");
-
-                    b.Property<string>("PermanentState")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("permanent_state");
-
-                    b.Property<string>("PermanentZipCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("permanent_zip_code");
-
-                    b.Property<string>("PersonalEmail")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("personal_email");
-
-                    b.Property<string>("PresentAddressLine1")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("present_address_line1");
-
-                    b.Property<string>("PresentAddressLine2")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("present_address_line2");
-
-                    b.Property<string>("PresentCity")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("present_city");
-
-                    b.Property<string>("PresentCountry")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("present_country");
-
-                    b.Property<string>("PresentState")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("present_state");
-
-                    b.Property<string>("PresentZipCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("present_zip_code");
-
                     b.Property<int>("Role")
                         .HasColumnType("integer")
                         .HasColumnName("role");
-
-                    b.Property<string>("WorkEmail")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("work_email");
 
                     b.HasKey("UserId")
                         .HasName("pk_app_user");

@@ -1,9 +1,9 @@
-<div class="employees-container">
+<div class="employees-page">
 <!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
     <h2 class="mb-1">Employee Management</h2>
-    <p class="text-muted mb-0">Manage employee information and roles</p>
+    <p class="text-muted mb-0">Manage employee information and profiles</p>
   </div>
   <button class="btn btn-primary" (click)="openCreateModal()">
     <i class="bi bi-plus-circle"></i> Add New Employee
@@ -14,7 +14,7 @@
 <div class="row g-3 mb-4">
   <!-- KPI Cards -->
   <div class="col-auto">
-    <div class="card stat-card">
+    <div class="card stat-card border-start border-4 border-primary">
       <div class="card-body">
         <div class="card-title d-flex align-items-center mb-2">
           <i class="bi bi-people text-primary me-2"></i>
@@ -27,7 +27,7 @@
   </div>
   
   <div class="col-auto">
-    <div class="card stat-card">
+    <div class="card stat-card border-start border-4 border-success">
       <div class="card-body">
         <div class="card-title d-flex align-items-center mb-2">
           <i class="bi bi-check-circle text-success me-2"></i>
@@ -40,7 +40,7 @@
   </div>
   
   <div class="col-auto">
-    <div class="card stat-card">
+    <div class="card stat-card border-start border-4 border-secondary">
       <div class="card-body">
         <div class="card-title d-flex align-items-center mb-2">
           <i class="bi bi-pause-circle text-secondary me-2"></i>
@@ -52,18 +52,31 @@
     </div>
   </div>
   
+  <!-- <div class="col-auto">
+    <div class="card stat-card border-start border-4 border-danger">
+      <div class="card-body">
+        <div class="card-title d-flex align-items-center mb-2">
+          <i class="bi bi-shield text-danger me-2"></i>
+          <span>Admins</span>
+        </div>
+        <div class="stat-value text-danger">{{ adminEmployees() }}</div>
+        <div class="card-subtitle text-muted">Admin users</div>
+      </div>
+    </div>
+  </div> -->
+  
   <!-- Search and Filter Section -->
   <div class="col">
     <div class="card h-100">
       <div class="card-body">
         <div class="row g-3 align-items-end">
-          <div class="col-md-6">
+          <div class="col-md-5">
             <label class="form-label">Search Employees</label>
             <div class="input-group">
               <span class="input-group-text">
                 <i class="bi bi-search"></i>
               </span>
-              <input type="text" class="form-control" placeholder="Search by name or email..." 
+              <input type="text" class="form-control" placeholder="Search by name, email, ID..." 
                      [value]="searchTerm()" (input)="onSearchChange($event)">
             </div>
           </div>
@@ -76,8 +89,15 @@
               <option value="EMPLOYEE">Employee</option>
             </select>
           </div>
+          <!-- <div class="col-md-3">
+            <label class="form-label">Department</label>
+            <select class="form-select" [value]="departmentFilter()" (change)="onDepartmentFilterChange($event)">
+              <option value="">All Departments</option>
+              <option *ngFor="let dept of availableDepartments" [value]="dept">{{ dept }}</option>
+            </select>
+          </div> -->
           <div class="col-md-3">
-            <label class="form-label">Status Filter</label>
+            <label class="form-label">Status</label>
             <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -102,76 +122,67 @@
 
 <!-- Employees Table -->
 <div class="card" *ngIf="!loading()">
-  <div class="card-header">
-    <div class="d-flex justify-content-between align-items-center">
-      <h6 class="card-title mb-0">Employees ({{ filteredEmployees().length }})</h6>
-      <small class="text-white">
-        Showing {{ Math.min((pageIndex() * pageSize()) + 1, filteredEmployees().length) }} - 
-        {{ Math.min((pageIndex() + 1) * pageSize(), filteredEmployees().length) }} 
-        of {{ filteredEmployees().length }} employees
-      </small>
-    </div>
-  </div>
-  
-  <div class="card-body p-0" *ngIf="paginatedEmployees().length > 0">
+  <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Employee</th>
-            <th>Email</th>
-            <th class="text-center">Role</th>
-            <th class="text-center">Status</th>
-            <th class="text-center">Created</th>
-            <th class="text-center">Actions</th>
+            <th scope="col">Employee</th>
+            <th scope="col">Employee ID</th>
+            <th scope="col">Job Title</th>
+            <th scope="col">Department</th>
+            <th scope="col">Role</th>
+            <th scope="col">Contact</th>
+            <th scope="col">Status</th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let employee of paginatedEmployees()" 
-              class="cursor-pointer" 
-              (click)="viewEmployeeProfile(employee)"
-              title="Click to view profile details">
+          <tr *ngFor="let employee of paginatedEmployees(); trackBy: trackByEmployeeId">
             <td>
               <div class="d-flex align-items-center">
-                <div class="avatar-circle me-3">
-                  {{ employee.firstName.charAt(0) }}{{ employee.lastName.charAt(0) }}
+                <div class="avatar me-3">
+                  <div class="avatar-initials bg-primary text-white">
+                    {{ employee.firstName.charAt(0) }}{{ employee.lastName.charAt(0) }}
+                  </div>
                 </div>
                 <div>
-                  <div class="fw-medium">{{ employee.firstName }} {{ employee.lastName }}</div>
-                  <small class="text-muted">ID: {{ employee.userId }}</small>
+                  <div class="fw-semibold">{{ getFullName(employee) }}</div>
+                  <small class="text-muted">{{ employee.workEmail }}</small>
                 </div>
               </div>
             </td>
-            <td>{{ employee.email }}</td>
-            <td class="text-center">
-              <span [class]="getRoleBadgeClass(employee.role)">
-                {{ getRoleDisplayName(employee.role) }}
+            <td>
+              <span class="badge bg-light text-dark">{{ employee.employeeId || 'N/A' }}</span>
+            </td>
+            <td>{{ employee.jobTitle || 'N/A' }}</td>
+            <td>{{ employee.department || 'N/A' }}</td>
+            <td>
+              <span class="badge" [ngClass]="getRoleClass(employee.role)">
+                {{ employee.role }}
               </span>
             </td>
-            <td class="text-center">
-              <span [class]="getStatusBadgeClass(employee.isActive)">
+            <td>{{ employee.contactNumber || 'N/A' }}</td>
+            <td>
+              <span class="badge" [ngClass]="getStatusClass(employee.isActive)">
                 {{ employee.isActive ? 'Active' : 'Inactive' }}
               </span>
             </td>
-            <td class="text-center">
-              <small class="text-muted">{{ employee.createdAt | date:'shortDate' }}</small>
-            </td>
-            <td class="text-center">
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary" 
-                        (click)="$event.stopPropagation(); openEditModal(employee)" 
-                        title="Edit Employee">
+            <td>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-info" 
+                        (click)="openProfileModal(employee)" 
+                        title="View profile">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-primary" 
+                        (click)="openEditModal(employee)" 
+                        title="Edit employee">
                   <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn" 
-                        [class]="employee.isActive ? 'btn-outline-warning' : 'btn-outline-success'"
-                        (click)="$event.stopPropagation(); toggleEmployeeStatus(employee)"
-                        [title]="employee.isActive ? 'Deactivate' : 'Activate'">
-                  <i class="bi" [class]="employee.isActive ? 'bi-pause' : 'bi-play'"></i>
-                </button>
-                <button class="btn btn-outline-danger" 
-                        (click)="$event.stopPropagation(); deleteEmployee(employee)" 
-                        title="Delete Employee">
+                <button class="btn btn-sm btn-outline-danger" 
+                        (click)="deleteEmployee(employee)" 
+                        title="Delete employee">
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
@@ -180,61 +191,57 @@
         </tbody>
       </table>
     </div>
-  </div>
-  
-  <!-- Empty State -->
-  <div class="card-body text-center py-5" *ngIf="paginatedEmployees().length === 0">
-    <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-    <h5 class="mt-3 text-muted">No employees found</h5>
-    <p class="text-muted">
-      <span *ngIf="searchTerm() || roleFilter() || statusFilter()">
-        Try adjusting your search criteria or filters.
-      </span>
-      <span *ngIf="!searchTerm() && !roleFilter() && !statusFilter()">
-        Get started by adding your first employee.
-      </span>
-    </p>
-    <button class="btn btn-primary" (click)="openCreateModal()" 
-            *ngIf="!searchTerm() && !roleFilter() && !statusFilter()">
-      <i class="bi bi-plus-circle me-2"></i>Add First Employee
-    </button>
-  </div>
-  
-  <!-- Pagination -->
-  <div class="card-footer d-flex justify-content-between align-items-center" 
-       *ngIf="paginatedEmployees().length > 0 && totalPages() > 1">
-    <small class="text-muted">
-      Page {{ pageIndex() + 1 }} of {{ totalPages() }}
-    </small>
-    <nav>
-      <ul class="pagination pagination-sm mb-0">
-        <li class="page-item" [class.disabled]="pageIndex() === 0">
-          <button class="page-link" (click)="previousPage()" [disabled]="pageIndex() === 0">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-        </li>
-        <li class="page-item" 
-            *ngFor="let page of [].constructor(totalPages()); let i = index"
-            [class.active]="i === pageIndex()">
-          <button class="page-link" (click)="goToPage(i)">{{ i + 1 }}</button>
-        </li>
-        <li class="page-item" [class.disabled]="pageIndex() === totalPages() - 1">
-          <button class="page-link" (click)="nextPage()" [disabled]="pageIndex() === totalPages() - 1">
-            <i class="bi bi-chevron-right"></i>
-          </button>
-        </li>
-      </ul>
-    </nav>
+
+    <!-- Empty State -->
+    <div class="text-center py-5" *ngIf="!loading() && filteredEmployees().length === 0">
+      <i class="bi bi-people display-1 text-muted"></i>
+      <div class="mt-3">
+        <h5 class="text-muted">No employees found</h5>
+        <p class="text-muted mb-3">{{ searchTerm() || roleFilter() || departmentFilter() || statusFilter() ? 'Try adjusting your filters' : 'Get started by adding your first employee' }}</p>
+        <button class="btn btn-primary" (click)="openCreateModal()" *ngIf="!searchTerm() && !roleFilter() && !departmentFilter() && !statusFilter()">
+          <i class="bi bi-plus-circle"></i> Add First Employee
+        </button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="d-flex justify-content-between align-items-center p-3 border-top" *ngIf="filteredEmployees().length > 0">
+      <div class="text-muted">
+        Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), filteredEmployees().length) }} of {{ filteredEmployees().length }} employees
+      </div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="pageIndex() === 0">
+            <button class="page-link" (click)="previousPage()" [disabled]="pageIndex() === 0">
+              Previous
+            </button>
+          </li>
+          <li class="page-item" 
+              *ngFor="let page of getPageNumbers()" 
+              [class.active]="page === pageIndex()">
+            <button class="page-link" (click)="goToPage(page)">
+              {{ page + 1 }}
+            </button>
+          </li>
+          <li class="page-item" [class.disabled]="pageIndex() >= totalPages() - 1">
+            <button class="page-link" (click)="nextPage()" [disabled]="pageIndex() >= totalPages() - 1">
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
   </div>
 </div>
 
 <!-- Create/Edit Employee Modal -->
-<div class="modal fade" [class.show]="showModal()" [style.display]="showModal() ? 'block' : 'none'" 
-     tabindex="-1" role="dialog" [attr.aria-hidden]="!showModal()">
-  <div class="modal-dialog modal-lg" role="document">
+<div class="modal fade" [class.show]="showModal()" [style.display]="showModal() ? 'block' : 'none'"
+     *ngIf="showModal()">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
+          <i class="bi" [ngClass]="editingEmployee() ? 'bi-pencil' : 'bi-plus-circle'"></i>
           {{ editingEmployee() ? 'Edit Employee' : 'Add New Employee' }}
         </h5>
         <button type="button" class="btn-close" (click)="closeModal()"></button>
@@ -243,75 +250,259 @@
       <form [formGroup]="employeeForm" (ngSubmit)="onSubmit()">
         <div class="modal-body">
           <div class="row">
+            <!-- Personal Information -->
             <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">First Name *</label>
-                <input type="text" class="form-control" formControlName="firstName" 
-                       placeholder="Enter first name"
-                       [class.is-invalid]="isFieldInvalid('firstName')">
-                <div class="invalid-feedback" *ngIf="isFieldInvalid('firstName')">
-                  {{ getFieldError('firstName') }}
+              <h6 class="text-muted mb-3">Personal Information</h6>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">First Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="firstName"
+                         [class.is-invalid]="isFieldInvalid('firstName')"
+                         placeholder="Enter first name">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('firstName')">
+                    {{ getFieldError('firstName') }}
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="lastName"
+                         [class.is-invalid]="isFieldInvalid('lastName')"
+                         placeholder="Enter last name">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('lastName')">
+                    {{ getFieldError('lastName') }}
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div class="col-md-6">
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Gender</label>
+                  <select class="form-select" formControlName="gender">
+                    <option value="">Select gender</option>
+                    <option *ngFor="let gender of availableGenders" [value]="gender.value">
+                      {{ gender.label }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Date of Birth</label>
+                  <input type="date" class="form-control" formControlName="dateOfBirth">
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Personal Email</label>
+                  <input type="email" class="form-control" formControlName="personalEmail"
+                         [class.is-invalid]="isFieldInvalid('personalEmail')"
+                         placeholder="Enter personal email">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('personalEmail')">
+                    {{ getFieldError('personalEmail') }}
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+                  <input type="tel" class="form-control" formControlName="contactNumber"
+                         [class.is-invalid]="isFieldInvalid('contactNumber')"
+                         placeholder="Enter contact number">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('contactNumber')">
+                    {{ getFieldError('contactNumber') }}
+                  </div>
+                </div>
+              </div>
+
               <div class="mb-3">
-                <label class="form-label">Last Name *</label>
-                <input type="text" class="form-control" formControlName="lastName" 
-                       placeholder="Enter last name"
-                       [class.is-invalid]="isFieldInvalid('lastName')">
-                <div class="invalid-feedback" *ngIf="isFieldInvalid('lastName')">
-                  {{ getFieldError('lastName') }}
+                <label class="form-label">Emergency Contact Number</label>
+                <input type="tel" class="form-control" formControlName="emergencyContactNumber"
+                       placeholder="Enter emergency contact number">
+              </div>
+            </div>
+
+            <!-- Work Information -->
+            <div class="col-md-6">
+              <h6 class="text-muted mb-3">Work Information</h6>
+              
+              <div class="row mb-3">
+                <div class="col-md-6" *ngIf="editingEmployee()">
+                  <label class="form-label">Employee ID</label>
+                  <input type="text" class="form-control" [value]="editingEmployee()?.employeeId || 'Auto-generated'" 
+                         disabled readonly>
+                  <div class="form-text">Employee ID is automatically assigned</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Date of Joining <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control" formControlName="dateOfJoining"
+                         [class.is-invalid]="isFieldInvalid('dateOfJoining')">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('dateOfJoining')">
+                    {{ getFieldError('dateOfJoining') }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Job Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="jobTitle"
+                       [class.is-invalid]="isFieldInvalid('jobTitle')"
+                       placeholder="Enter job title">
+                <div class="invalid-feedback" *ngIf="isFieldInvalid('jobTitle')">
+                  {{ getFieldError('jobTitle') }}
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Department <span class="text-danger">*</span></label>
+                  <select class="form-select" formControlName="department"
+                          [class.is-invalid]="isFieldInvalid('department')">
+                    <option value="">Select department</option>
+                    <option *ngFor="let dept of availableDepartments" [value]="dept">
+                      {{ dept }}
+                    </option>
+                  </select>
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('department')">
+                    {{ getFieldError('department') }}
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Employee Type <span class="text-danger">*</span></label>
+                  <select class="form-select" formControlName="employeeType">
+                    <option *ngFor="let type of availableEmployeeTypes" [value]="type.value">
+                      {{ type.label }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Role <span class="text-danger">*</span></label>
+                  <select class="form-select" formControlName="role">
+                    <option *ngFor="let role of availableRoles" [value]="role.value">
+                      {{ role.label }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Work Email <span class="text-danger">*</span></label>
+                  <input type="email" class="form-control" formControlName="workEmail"
+                         [class.is-invalid]="isFieldInvalid('workEmail')"
+                         placeholder="Enter work email">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('workEmail')">
+                    {{ getFieldError('workEmail') }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" formControlName="isActive" id="isActive">
+                  <label class="form-check-label" for="isActive">
+                    Active Employee
+                  </label>
                 </div>
               </div>
             </div>
           </div>
-          
-          <div class="row">
-            <div class="col-md-8">
-              <div class="mb-3">
-                <label class="form-label">Email Address *</label>
-                <input type="email" class="form-control" formControlName="email" 
-                       placeholder="Enter email address"
-                       [class.is-invalid]="isFieldInvalid('email')"
-                       [disabled]="!!editingEmployee()">
-                <div class="invalid-feedback" *ngIf="isFieldInvalid('email')">
-                  {{ getFieldError('email') }}
-                </div>
-                <div class="form-text" *ngIf="editingEmployee()">
-                  Email cannot be changed after employee creation
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-md-4">
-              <div class="mb-3">
-                <label class="form-label">Role *</label>
-                <ng-select formControlName="role"
-                          placeholder="Select role..."
-                          [clearable]="false"
-                          [searchable]="false"
-                          bindLabel="label"
-                          bindValue="value"
-                          [items]="availableRoles">
-                </ng-select>
-                <div class="invalid-feedback d-block" *ngIf="isFieldInvalid('role')">
-                  {{ getFieldError('role') }}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="row" *ngIf="editingEmployee()">
+
+          <!-- Address Information -->
+          <div class="row mt-4">
             <div class="col-12">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" formControlName="isActive" id="isActive">
-                <label class="form-check-label" for="isActive">
-                  Active Employee
-                </label>
-                <div class="form-text">
-                  Inactive employees cannot access the system
+              <h6 class="text-muted mb-3">Address Information</h6>
+            </div>
+            
+            <!-- Present Address -->
+            <div class="col-md-6" formGroupName="presentAddress">
+              <h6 class="mb-3">Present Address</h6>
+              
+              <div class="mb-3">
+                <label class="form-label">Address Line 1 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="addressLine1"
+                       placeholder="Enter address line 1">
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Address Line 2</label>
+                <input type="text" class="form-control" formControlName="addressLine2"
+                       placeholder="Enter address line 2 (optional)">
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">City <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="city"
+                         placeholder="Enter city">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">State <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="state"
+                         placeholder="Enter state">
+                </div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="country"
+                         placeholder="Enter country">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Zip Code <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="zipCode"
+                         placeholder="Enter zip code">
+                </div>
+              </div>
+            </div>
+
+            <!-- Permanent Address -->
+            <div class="col-md-6" formGroupName="permanentAddress">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Permanent Address</h6>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="sameAsPresent"
+                         [checked]="sameAsPresentAddress()" 
+                         (change)="onSameAsPresentAddressChange($event.target.checked)">
+                  <label class="form-check-label" for="sameAsPresent">
+                    Same as present address
+                  </label>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Address Line 1 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" formControlName="addressLine1"
+                       placeholder="Enter address line 1">
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Address Line 2</label>
+                <input type="text" class="form-control" formControlName="addressLine2"
+                       placeholder="Enter address line 2 (optional)">
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">City <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="city"
+                         placeholder="Enter city">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">State <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="state"
+                         placeholder="Enter state">
+                </div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="country"
+                         placeholder="Enter country">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Zip Code <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" formControlName="zipCode"
+                         placeholder="Enter zip code">
                 </div>
               </div>
             </div>
@@ -323,6 +514,7 @@
             Cancel
           </button>
           <button type="submit" class="btn btn-primary" [disabled]="employeeForm.invalid">
+            <i class="bi" [ngClass]="editingEmployee() ? 'bi-check' : 'bi-plus'"></i>
             {{ editingEmployee() ? 'Update Employee' : 'Create Employee' }}
           </button>
         </div>
@@ -331,94 +523,128 @@
   </div>
 </div>
 
-<!-- Modal Backdrop -->
-<div class="modal-backdrop fade" [class.show]="showModal()" *ngIf="showModal()"></div>
-
 <!-- Employee Profile Modal -->
-<div class="modal fade" [class.show]="showProfileModal()" [style.display]="showProfileModal() ? 'block' : 'none'" 
-     tabindex="-1" role="dialog" [attr.aria-hidden]="!showProfileModal()">
-  <div class="modal-dialog modal-lg" role="document">
+<div class="modal fade" [class.show]="showProfileModal()" [style.display]="showProfileModal() ? 'block' : 'none'"
+     *ngIf="showProfileModal() && selectedEmployee()">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: #fff; font-size: 1rem;">
-        <h5 class="modal-title" style="font-size: 1rem;">
-          <i class="bi bi-person-circle me-2" style="font-size: 1.1rem;"></i>
-          User Profile - {{ selectedEmployee()?.firstName }} {{ selectedEmployee()?.lastName }}
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-person-circle"></i>
+          Employee Profile
         </h5>
-        <button type="button" class="btn-close" (click)="closeProfileModal()" style="filter: invert(1);"></button>
+        <button type="button" class="btn-close" (click)="closeProfileModal()"></button>
       </div>
-      <div class="modal-body" style="font-size: 0.85rem;">
-        <div class="row mb-4">
-          <div class="col-md-4 text-center d-flex flex-column align-items-center justify-content-center">
-            <div class="avatar-circle mb-3" style="width: 80px; height: 80px; font-size: 1.7rem; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
-              <i class="bi bi-person" style="font-size: 1.7rem; color: #888;"></i>
+      
+      <div class="modal-body">
+        <div class="row" *ngIf="selectedEmployee() as employee">
+          <!-- Profile Header -->
+          <div class="col-12 mb-4">
+            <div class="d-flex align-items-center">
+              <div class="avatar me-3" style="width: 60px; height: 60px;">
+                <div class="avatar-initials bg-primary text-white d-flex align-items-center justify-content-center" style="width: 100%; height: 100%; border-radius: 50%; font-size: 1.5rem;">
+                  {{ employee.firstName.charAt(0) }}{{ employee.lastName.charAt(0) }}
+                </div>
+              </div>
+              <div>
+                <h4 class="mb-1">{{ getFullName(employee) }}</h4>
+                <p class="text-muted mb-1">{{ employee.jobTitle || 'N/A' }} • {{ employee.department || 'N/A' }}</p>
+                <span class="badge me-2" [ngClass]="getRoleClass(employee.role)">{{ employee.role }}</span>
+                <span class="badge" [ngClass]="getStatusClass(employee.isActive)">
+                  {{ employee.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
             </div>
-            <div class="fw-bold" style="font-size: 1rem;">{{ selectedEmployee()?.firstName }} {{ selectedEmployee()?.lastName }}</div>
-            <div class="text-muted mb-2" style="font-size: 0.85rem;">{{ selectedEmployee()?.email }}</div>
-            <span class="badge bg-primary" style="font-size: 0.85rem; padding: 0.3em 0.8em;">{{ getRoleDisplayName(selectedEmployee()?.role || 'EMPLOYEE') }}</span>
           </div>
-          <div class="col-md-8">
-            <div class="row g-3">
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Phone Number</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
+
+          <!-- Personal Information -->
+          <div class="col-md-6">
+            <h6 class="text-muted mb-3">Personal Information</h6>
+            <div class="mb-3">
+              <strong>Employee ID:</strong> {{ employee.employeeId || 'N/A' }}
+            </div>
+            <div class="mb-3">
+              <strong>Gender:</strong> {{ employee.gender || 'N/A' }}
+            </div>
+            <div class="mb-3">
+              <strong>Date of Birth:</strong> 
+              {{ employee.dateOfBirth || 'N/A' }}
+              <span *ngIf="employee.dateOfBirth" class="text-muted">
+                ({{ getAge(employee.dateOfBirth) }} years)
+              </span>
+            </div>
+            <div class="mb-3">
+              <strong>Date of Joining:</strong> {{ employee.dateOfJoining || 'N/A' }}
+            </div>
+            <div class="mb-3">
+              <strong>Employee Type:</strong> {{ employee.employeeType || 'N/A' }}
+            </div>
+          </div>
+
+          <!-- Contact Information -->
+          <div class="col-md-6">
+            <h6 class="text-muted mb-3">Contact Information</h6>
+            <div class="mb-3">
+              <strong>Work Email:</strong> 
+              <a [href]="'mailto:' + employee.workEmail">{{ employee.workEmail }}</a>
+            </div>
+            <div class="mb-3" *ngIf="employee.personalEmail">
+              <strong>Personal Email:</strong> 
+              <a [href]="'mailto:' + employee.personalEmail">{{ employee.personalEmail }}</a>
+            </div>
+            <div class="mb-3">
+              <strong>Contact Number:</strong> 
+              <a [href]="'tel:' + employee.contactNumber">{{ employee.contactNumber || 'N/A' }}</a>
+            </div>
+            <div class="mb-3" *ngIf="employee.emergencyContactNumber">
+              <strong>Emergency Contact:</strong> 
+              <a [href]="'tel:' + employee.emergencyContactNumber">{{ employee.emergencyContactNumber }}</a>
+            </div>
+          </div>
+
+          <!-- Address Information -->
+          <div class="col-12 mt-4">
+            <h6 class="text-muted mb-3">Address Information</h6>
+            <div class="row">
+              <div class="col-md-6">
+                <h6>Present Address</h6>
+                <div class="mb-3">
+                  <div *ngIf="employee.presentAddress">
+                    {{ formatAddress(employee.presentAddress) }}
+                  </div>
+                  <div *ngIf="!employee.presentAddress" class="text-muted">
+                    No present address on file
+                  </div>
+                </div>
               </div>
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Date of Birth</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
-              </div>
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Department</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not assigned</div>
-              </div>
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Job Title</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not specified</div>
-              </div>
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Start Date</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not provided</div>
-              </div>
-              <div class="col-6">
-                <div class="fw-bold" style="font-size: 0.85rem;">Manager</div>
-                <div class="text-muted" style="font-size: 0.8rem;">Not assigned</div>
+              <div class="col-md-6">
+                <h6>Permanent Address</h6>
+                <div class="mb-3">
+                  <div *ngIf="employee.permanentAddress">
+                    {{ formatAddress(employee.permanentAddress) }}
+                  </div>
+                  <div *ngIf="!employee.permanentAddress" class="text-muted">
+                    No permanent address on file
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="card mb-3" style="border-radius: 0.75rem;">
-              <div class="card-header text-white" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem 0.75rem 0 0; font-size: 0.9rem;">
-                <i class="bi bi-gear me-2" style="font-size: 1rem;"></i> Skills
-              </div>
-              <div class="card-body p-3" style="font-size: 0.8rem;">
-                <div class="text-muted">No skills listed</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card mb-3" style="border-radius: 0.75rem;">
-              <div class="card-header text-white" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem 0.75rem 0 0; font-size: 0.9rem;">
-                <i class="bi bi-award me-2" style="font-size: 1rem;"></i> Certifications
-              </div>
-              <div class="card-body p-3" style="font-size: 0.8rem;">
-                <div class="text-muted">No certifications listed</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-      <div class="modal-footer" style="background: #f8f9fa; font-size: 0.85rem;">
+      
+      <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="closeProfileModal()">
           Close
         </button>
-        <button type="button" class="btn btn-primary" (click)="editSelectedEmployee()" [disabled]="!selectedEmployee()">
-          <i class="bi bi-pencil me-2"></i>Edit Employee
+        <button type="button" class="btn btn-primary" (click)="openEditModal(selectedEmployee()!); closeProfileModal()">
+          <i class="bi bi-pencil"></i> Edit Employee
         </button>
       </div>
     </div>
   </div>
 </div>
-<!-- Profile Modal Backdrop -->
-<div class="modal-backdrop fade" [class.show]="showProfileModal()" *ngIf="showProfileModal()"></div>
+
+<!-- Modal backdrop -->
+<div class="modal-backdrop fade show" *ngIf="showModal() || showProfileModal()" (click)="showModal() ? closeModal() : closeProfileModal()"></div>
 </div>

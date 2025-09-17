@@ -30,10 +30,38 @@ public class OneDcDbContext : DbContext
         {
             e.ToTable("app_user");
             e.HasKey(x => x.UserId);
+            e.Property(x => x.EmployeeId).HasMaxLength(20);
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.FirstName).HasMaxLength(80).IsRequired();
             e.Property(x => x.LastName).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Gender);
+            e.Property(x => x.DateOfBirth);
+            e.Property(x => x.DateOfJoining);
+            e.Property(x => x.JobTitle).HasMaxLength(100);
             e.Property(x => x.Role).IsRequired();
+            e.Property(x => x.Department).HasMaxLength(100);
+            e.Property(x => x.EmployeeType).IsRequired();
+            e.Property(x => x.PersonalEmail).HasMaxLength(150);
+            e.Property(x => x.WorkEmail).HasMaxLength(150).IsRequired();
+            e.Property(x => x.ContactNumber).HasMaxLength(30);
+            e.Property(x => x.EmergencyContactNumber).HasMaxLength(30);
+            
+            // Present Address
+            e.Property(x => x.PresentAddressLine1).HasMaxLength(200);
+            e.Property(x => x.PresentAddressLine2).HasMaxLength(200);
+            e.Property(x => x.PresentCity).HasMaxLength(80);
+            e.Property(x => x.PresentState).HasMaxLength(80);
+            e.Property(x => x.PresentCountry).HasMaxLength(80);
+            e.Property(x => x.PresentZipCode).HasMaxLength(20);
+            
+            // Permanent Address
+            e.Property(x => x.PermanentAddressLine1).HasMaxLength(200);
+            e.Property(x => x.PermanentAddressLine2).HasMaxLength(200);
+            e.Property(x => x.PermanentCity).HasMaxLength(80);
+            e.Property(x => x.PermanentState).HasMaxLength(80);
+            e.Property(x => x.PermanentCountry).HasMaxLength(80);
+            e.Property(x => x.PermanentZipCode).HasMaxLength(20);
+            
             e.Property(x => x.IsActive).IsRequired();
             e.Property(x => x.CreatedAt).IsRequired();
             e.Property(x => x.PasswordHash).HasMaxLength(600);
@@ -49,6 +77,13 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
             e.Property(x => x.Code).HasMaxLength(30);
             e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.ContactPerson).HasMaxLength(100);
+            e.Property(x => x.Email).HasMaxLength(150);
+            e.Property(x => x.ContactNumber).HasMaxLength(30);
+            e.Property(x => x.Country).HasMaxLength(80);
+            e.Property(x => x.State).HasMaxLength(80);
+            e.Property(x => x.City).HasMaxLength(80);
+            e.Property(x => x.ZipCode).HasMaxLength(20);
             e.HasIndex(x => x.Code).IsUnique();
         });
 

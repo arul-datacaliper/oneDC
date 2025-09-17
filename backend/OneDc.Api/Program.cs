@@ -197,13 +197,142 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
     
     if (existingUsers.Any())
     {
-        // Update all existing users with correct password format
+        // Update all existing users with correct password format and address data
         foreach (var user in existingUsers)
         {
             user.PasswordHash = HashPassword("password123");
+            
+            // Add missing fields if they don't exist
+            if (string.IsNullOrEmpty(user.WorkEmail))
+            {
+                user.WorkEmail = user.Email;
+            }
+            
+            // Add address data if missing
+            if (string.IsNullOrEmpty(user.PresentAddressLine1))
+            {
+                switch (user.FirstName)
+                {
+                    case "Admin":
+                        user.JobTitle = "System Administrator";
+                        user.Department = "IT";
+                        user.EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME;
+                        user.Gender = OneDc.Domain.Entities.Gender.PREFER_NOT_TO_SAY;
+                        user.DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-2));
+                        user.DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-30));
+                        user.ContactNumber = "+1-555-0101";
+                        user.EmergencyContactNumber = "+1-555-0102";
+                        user.PersonalEmail = "admin.personal@gmail.com";
+                        user.PresentAddressLine1 = "123 Admin Street";
+                        user.PresentAddressLine2 = "Apt 1A";
+                        user.PresentCity = "New York";
+                        user.PresentState = "NY";
+                        user.PresentCountry = "USA";
+                        user.PresentZipCode = "10001";
+                        user.PermanentAddressLine1 = "123 Admin Street";
+                        user.PermanentAddressLine2 = "Apt 1A";
+                        user.PermanentCity = "New York";
+                        user.PermanentState = "NY";
+                        user.PermanentCountry = "USA";
+                        user.PermanentZipCode = "10001";
+                        break;
+                    case "Project":
+                        user.JobTitle = "Project Manager";
+                        user.Department = "Operations";
+                        user.EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME;
+                        user.Gender = OneDc.Domain.Entities.Gender.MALE;
+                        user.DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-3));
+                        user.DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-35));
+                        user.ContactNumber = "+1-555-0201";
+                        user.EmergencyContactNumber = "+1-555-0202";
+                        user.PersonalEmail = "project.manager@gmail.com";
+                        user.PresentAddressLine1 = "456 Manager Avenue";
+                        user.PresentAddressLine2 = "Suite 200";
+                        user.PresentCity = "Los Angeles";
+                        user.PresentState = "CA";
+                        user.PresentCountry = "USA";
+                        user.PresentZipCode = "90210";
+                        user.PermanentAddressLine1 = "789 Permanent Lane";
+                        user.PermanentAddressLine2 = "";
+                        user.PermanentCity = "San Francisco";
+                        user.PermanentState = "CA";
+                        user.PermanentCountry = "USA";
+                        user.PermanentZipCode = "94102";
+                        break;
+                    case "John":
+                        user.JobTitle = "Senior Software Developer";
+                        user.Department = "Engineering";
+                        user.EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME;
+                        user.Gender = OneDc.Domain.Entities.Gender.MALE;
+                        user.DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-1));
+                        user.DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-28));
+                        user.ContactNumber = "+1-555-0301";
+                        user.EmergencyContactNumber = "+1-555-0302";
+                        user.PersonalEmail = "john.dev@gmail.com";
+                        user.PresentAddressLine1 = "789 Developer Drive";
+                        user.PresentAddressLine2 = "Unit 5B";
+                        user.PresentCity = "Austin";
+                        user.PresentState = "TX";
+                        user.PresentCountry = "USA";
+                        user.PresentZipCode = "73301";
+                        user.PermanentAddressLine1 = "789 Developer Drive";
+                        user.PermanentAddressLine2 = "Unit 5B";
+                        user.PermanentCity = "Austin";
+                        user.PermanentState = "TX";
+                        user.PermanentCountry = "USA";
+                        user.PermanentZipCode = "73301";
+                        break;
+                    case "Jane":
+                        user.JobTitle = "Quality Assurance Engineer";
+                        user.Department = "Engineering";
+                        user.EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME;
+                        user.Gender = OneDc.Domain.Entities.Gender.FEMALE;
+                        user.DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-8));
+                        user.DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-26));
+                        user.ContactNumber = "+1-555-0401";
+                        user.EmergencyContactNumber = "+1-555-0402";
+                        user.PersonalEmail = "jane.tester@gmail.com";
+                        user.PresentAddressLine1 = "321 Quality Street";
+                        user.PresentAddressLine2 = "";
+                        user.PresentCity = "Seattle";
+                        user.PresentState = "WA";
+                        user.PresentCountry = "USA";
+                        user.PresentZipCode = "98101";
+                        user.PermanentAddressLine1 = "654 Testing Boulevard";
+                        user.PermanentAddressLine2 = "Apt 12C";
+                        user.PermanentCity = "Portland";
+                        user.PermanentState = "OR";
+                        user.PermanentCountry = "USA";
+                        user.PermanentZipCode = "97201";
+                        break;
+                    case "Alex":
+                        user.JobTitle = "UX/UI Designer";
+                        user.Department = "Design";
+                        user.EmployeeType = OneDc.Domain.Entities.EmployeeType.CONTRACT;
+                        user.Gender = OneDc.Domain.Entities.Gender.OTHER;
+                        user.DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-6));
+                        user.DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-29));
+                        user.ContactNumber = "+1-555-0501";
+                        user.EmergencyContactNumber = "+1-555-0502";
+                        user.PersonalEmail = "alex.designer@gmail.com";
+                        user.PresentAddressLine1 = "987 Design Plaza";
+                        user.PresentAddressLine2 = "Floor 15";
+                        user.PresentCity = "Chicago";
+                        user.PresentState = "IL";
+                        user.PresentCountry = "USA";
+                        user.PresentZipCode = "60601";
+                        user.PermanentAddressLine1 = "987 Design Plaza";
+                        user.PermanentAddressLine2 = "Floor 15";
+                        user.PermanentCity = "Chicago";
+                        user.PermanentState = "IL";
+                        user.PermanentCountry = "USA";
+                        user.PermanentZipCode = "60601";
+                        break;
+                }
+            }
         }
         await context.SaveChangesAsync();
-        return; // Users updated with correct passwords
+        return; // Users updated with correct passwords and address data
     }
     
     // Create all users from scratch
@@ -214,9 +343,31 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         {
             UserId = Guid.Parse("59bd99db-9be0-4a55-a062-ecf8636896ad"),
             Email = "admin@onedc.local",
+            WorkEmail = "admin@onedc.local",
             FirstName = "Admin",
             LastName = "User",
             Role = OneDc.Domain.Entities.UserRole.ADMIN,
+            JobTitle = "System Administrator",
+            Department = "IT",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+            Gender = OneDc.Domain.Entities.Gender.PREFER_NOT_TO_SAY,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-2)),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-30)),
+            ContactNumber = "+1-555-0101",
+            EmergencyContactNumber = "+1-555-0102",
+            PersonalEmail = "admin.personal@gmail.com",
+            PresentAddressLine1 = "123 Admin Street",
+            PresentAddressLine2 = "Apt 1A",
+            PresentCity = "New York",
+            PresentState = "NY",
+            PresentCountry = "USA",
+            PresentZipCode = "10001",
+            PermanentAddressLine1 = "123 Admin Street",
+            PermanentAddressLine2 = "Apt 1A",
+            PermanentCity = "New York",
+            PermanentState = "NY",
+            PermanentCountry = "USA",
+            PermanentZipCode = "10001",
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -227,9 +378,31 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         {
             UserId = Guid.Parse("f6f173b6-ac51-4944-9082-e670533438e9"),
             Email = "approver@onedc.local",
+            WorkEmail = "approver@onedc.local",
             FirstName = "Project",
             LastName = "Manager",
             Role = OneDc.Domain.Entities.UserRole.APPROVER,
+            JobTitle = "Project Manager",
+            Department = "Operations",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+            Gender = OneDc.Domain.Entities.Gender.MALE,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-3)),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-35)),
+            ContactNumber = "+1-555-0201",
+            EmergencyContactNumber = "+1-555-0202",
+            PersonalEmail = "project.manager@gmail.com",
+            PresentAddressLine1 = "456 Manager Avenue",
+            PresentAddressLine2 = "Suite 200",
+            PresentCity = "Los Angeles",
+            PresentState = "CA",
+            PresentCountry = "USA",
+            PresentZipCode = "90210",
+            PermanentAddressLine1 = "789 Permanent Lane",
+            PermanentAddressLine2 = "",
+            PermanentCity = "San Francisco",
+            PermanentState = "CA",
+            PermanentCountry = "USA",
+            PermanentZipCode = "94102",
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -240,9 +413,31 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         {
             UserId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
             Email = "developer@onedc.local",
+            WorkEmail = "developer@onedc.local",
             FirstName = "John",
             LastName = "Developer",
             Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            JobTitle = "Senior Software Developer",
+            Department = "Engineering",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+            Gender = OneDc.Domain.Entities.Gender.MALE,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-1)),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-28)),
+            ContactNumber = "+1-555-0301",
+            EmergencyContactNumber = "+1-555-0302",
+            PersonalEmail = "john.dev@gmail.com",
+            PresentAddressLine1 = "789 Developer Drive",
+            PresentAddressLine2 = "Unit 5B",
+            PresentCity = "Austin",
+            PresentState = "TX",
+            PresentCountry = "USA",
+            PresentZipCode = "73301",
+            PermanentAddressLine1 = "789 Developer Drive",
+            PermanentAddressLine2 = "Unit 5B",
+            PermanentCity = "Austin",
+            PermanentState = "TX",
+            PermanentCountry = "USA",
+            PermanentZipCode = "73301",
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -253,9 +448,31 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         {
             UserId = Guid.Parse("b2c3d4e5-f637-8901-bcde-f23456789012"),
             Email = "qa@onedc.local",
+            WorkEmail = "qa@onedc.local",
             FirstName = "Jane",
             LastName = "Tester",
             Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            JobTitle = "Quality Assurance Engineer",
+            Department = "Engineering",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+            Gender = OneDc.Domain.Entities.Gender.FEMALE,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-8)),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-26)),
+            ContactNumber = "+1-555-0401",
+            EmergencyContactNumber = "+1-555-0402",
+            PersonalEmail = "jane.tester@gmail.com",
+            PresentAddressLine1 = "321 Quality Street",
+            PresentAddressLine2 = "",
+            PresentCity = "Seattle",
+            PresentState = "WA",
+            PresentCountry = "USA",
+            PresentZipCode = "98101",
+            PermanentAddressLine1 = "654 Testing Boulevard",
+            PermanentAddressLine2 = "Apt 12C",
+            PermanentCity = "Portland",
+            PermanentState = "OR",
+            PermanentCountry = "USA",
+            PermanentZipCode = "97201",
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -266,9 +483,31 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         {
             UserId = Guid.Parse("c3d4e5f6-a7b8-9012-cdef-345678901234"),
             Email = "ux@onedc.local",
+            WorkEmail = "ux@onedc.local",
             FirstName = "Alex",
             LastName = "Designer",
             Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
+            JobTitle = "UX/UI Designer",
+            Department = "Design",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.CONTRACT,
+            Gender = OneDc.Domain.Entities.Gender.OTHER,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-6)),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-29)),
+            ContactNumber = "+1-555-0501",
+            EmergencyContactNumber = "+1-555-0502",
+            PersonalEmail = "alex.designer@gmail.com",
+            PresentAddressLine1 = "987 Design Plaza",
+            PresentAddressLine2 = "Floor 15",
+            PresentCity = "Chicago",
+            PresentState = "IL",
+            PresentCountry = "USA",
+            PresentZipCode = "60601",
+            PermanentAddressLine1 = "987 Design Plaza",
+            PermanentAddressLine2 = "Floor 15",
+            PermanentCity = "Chicago",
+            PermanentState = "IL",
+            PermanentCountry = "USA",
+            PermanentZipCode = "60601",
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")

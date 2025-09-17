@@ -44,10 +44,23 @@ public class ClientsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] Client client)
     {
-        client.ClientId = id;
-        _context.Clients.Update(client);
+        var existingClient = await _context.Clients.FirstOrDefaultAsync(c => c.ClientId == id);
+        if (existingClient is null) return NotFound();
+
+        // Update only the provided fields
+        existingClient.Name = client.Name;
+        existingClient.Code = client.Code;
+        existingClient.ContactPerson = client.ContactPerson;
+        existingClient.Email = client.Email;
+        existingClient.ContactNumber = client.ContactNumber;
+        existingClient.Country = client.Country;
+        existingClient.State = client.State;
+        existingClient.City = client.City;
+        existingClient.ZipCode = client.ZipCode;
+        existingClient.Status = client.Status;
+
         await _context.SaveChangesAsync();
-        return Ok(client);
+        return Ok(existingClient);
     }
 
     [HttpDelete("{id:guid}")]

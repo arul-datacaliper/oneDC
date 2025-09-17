@@ -2,7 +2,68 @@ export interface Client {
   clientId: string;
   name: string;
   code?: string;
+  contactPerson?: string;
+  email?: string;
+  contactNumber?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipCode?: string;
   status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface Address {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY'
+}
+
+export enum EmployeeType {
+  FULL_TIME = 'FULL_TIME',
+  PART_TIME = 'PART_TIME',
+  CONTRACT = 'CONTRACT',
+  INTERN = 'INTERN',
+  CONSULTANT = 'CONSULTANT'
+}
+
+export enum UserRole {
+  EMPLOYEE = 'EMPLOYEE',
+  APPROVER = 'APPROVER', 
+  ADMIN = 'ADMIN'
+}
+
+export interface Employee {
+  userId: string;
+  employeeId?: string;
+  firstName: string;
+  lastName: string;
+  gender?: Gender;
+  dateOfBirth?: string; // YYYY-MM-DD
+  dateOfJoining?: string; // YYYY-MM-DD
+  jobTitle?: string;
+  role: UserRole;
+  department?: string;
+  employeeType?: EmployeeType;
+  personalEmail?: string;
+  workEmail: string;
+  contactNumber?: string;
+  emergencyContactNumber?: string;
+  presentAddress?: Address;
+  permanentAddress?: Address;
+  isActive: boolean;
+  managerId?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }
 
 export interface Project {
@@ -86,4 +147,18 @@ export interface TimesheetEntry {
   ticketRef?: string;
   taskType: TaskType;
   status: TimesheetStatus;
+}
+
+// Legacy AppUser interface for backward compatibility
+export interface AppUser {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole | string;
+  isActive: boolean;
+  passwordHash?: string;
+  managerId?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }
