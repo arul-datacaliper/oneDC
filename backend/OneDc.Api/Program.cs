@@ -129,11 +129,24 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Ensure database is created and seed test data
+// Ensure database is created and migrated
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<OneDcDbContext>();
-    await SeedTestDataAsync(context);
+    
+    // Apply any pending migrations
+    await context.Database.MigrateAsync();
+    
+    // Only seed data in development environment
+    if (app.Environment.IsDevelopment())
+    {
+        await SeedTestDataAsync(context);
+    }
+    else
+    {
+        // In production, only create the admin user if it doesn't exist
+        await SeedProductionDataAsync(context);
+    }
 }
 
 app.UseSwagger();
@@ -467,12 +480,12 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
             PresentState = "WA",
             PresentCountry = "USA",
             PresentZipCode = "98101",
-            PermanentAddressLine1 = "654 Testing Boulevard",
-            PermanentAddressLine2 = "Apt 12C",
-            PermanentCity = "Portland",
-            PermanentState = "OR",
-            PermanentCountry = "USA",
-            PermanentZipCode = "97201",
+            PermanentAddressLine1 = "654 Testing Boulevard";
+            PermanentAddressLine2 = "Apt 12C";
+            PermanentCity = "Portland";
+            PermanentState = "OR";
+            PermanentCountry = "USA";
+            PermanentZipCode = "97201";
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -491,23 +504,23 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
             Department = "Design",
             EmployeeType = OneDc.Domain.Entities.EmployeeType.CONTRACT,
             Gender = OneDc.Domain.Entities.Gender.OTHER,
-            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-6)),
-            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-29)),
-            ContactNumber = "+1-555-0501",
-            EmergencyContactNumber = "+1-555-0502",
-            PersonalEmail = "alex.designer@gmail.com",
-            PresentAddressLine1 = "987 Design Plaza",
-            PresentAddressLine2 = "Floor 15",
-            PresentCity = "Chicago",
-            PresentState = "IL",
-            PresentCountry = "USA",
-            PresentZipCode = "60601",
-            PermanentAddressLine1 = "987 Design Plaza",
-            PermanentAddressLine2 = "Floor 15",
-            PermanentCity = "Chicago",
-            PermanentState = "IL",
-            PermanentCountry = "USA",
-            PermanentZipCode = "60601",
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-6));
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-29));
+            ContactNumber = "+1-555-0501";
+            EmergencyContactNumber = "+1-555-0502";
+            PersonalEmail = "alex.designer@gmail.com";
+            PresentAddressLine1 = "987 Design Plaza";
+            PresentAddressLine2 = "Floor 15";
+            PresentCity = "Chicago";
+            PresentState = "IL";
+            PresentCountry = "USA";
+            PresentZipCode = "60601";
+            PermanentAddressLine1 = "987 Design Plaza";
+            PermanentAddressLine2 = "Floor 15";
+            PermanentCity = "Chicago";
+            PermanentState = "IL";
+            PermanentCountry = "USA";
+            PermanentZipCode = "60601";
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow,
             PasswordHash = HashPassword("password123")
@@ -741,6 +754,55 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
     
     // Save all changes
     await context.SaveChangesAsync();
+}
+
+// Production data seeding - only creates essential admin user
+static async Task SeedProductionDataAsync(OneDcDbContext context)
+{
+    // Check if any users exist
+    if (!await context.AppUsers.AnyAsync())
+    {
+        // Create only the admin user for production
+        var adminUser = new OneDc.Domain.Entities.AppUser
+        {
+            UserId = Guid.NewGuid(),
+            Email = "admin@yourcompany.com", // Change this to your company email
+            WorkEmail = "admin@yourcompany.com",
+            FirstName = "System",
+            LastName = "Administrator",
+            Role = OneDc.Domain.Entities.UserRole.ADMIN,
+            JobTitle = "System Administrator",
+            Department = "IT",
+            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+            Gender = OneDc.Domain.Entities.Gender.PREFER_NOT_TO_SAY,
+            DateOfJoining = DateOnly.FromDateTime(DateTime.Now),
+            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-30)),
+            ContactNumber = "+1-000-000-0000",
+            EmergencyContactNumber = "+1-000-000-0001",
+            PersonalEmail = "admin.personal@yourcompany.com",
+            PresentAddressLine1 = "Your Company Address",
+            PresentCity = "Your City",
+            PresentState = "Your State", 
+            PresentCountry = "Your Country",
+            PresentZipCode = "00000",
+            PermanentAddressLine1 = "Your Company Address",
+            PermanentCity = "Your City",
+            PermanentState = "Your State",
+            PermanentCountry = "Your Country", 
+            PermanentZipCode = "00000",
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = HashPassword("YourSecurePassword123!") // Change this password!
+        };
+        
+        context.AppUsers.Add(adminUser);
+        await context.SaveChangesAsync();
+        
+        Console.WriteLine("Production admin user created successfully.");
+        Console.WriteLine("Email: admin@yourcompany.com");
+        Console.WriteLine("Password: YourSecurePassword123!");
+        Console.WriteLine("IMPORTANT: Change these credentials after first login!");
+    }
 }
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
