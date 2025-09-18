@@ -577,8 +577,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
 
     // Seed sample tasks - force creation for testing
     var existingTasks = await context.ProjectTasks.ToListAsync();
+    Console.WriteLine($"Existing tasks count: {existingTasks.Count}");
     if (existingTasks.Count == 0)
     {
+        Console.WriteLine("Seeding sample tasks...");
         var demoProjectId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var internalProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333"); 
         var remapProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
@@ -730,6 +732,11 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         };
 
         context.ProjectTasks.AddRange(sampleTasks);
+        Console.WriteLine($"Added {sampleTasks.Length} sample tasks");
+    }
+    else 
+    {
+        Console.WriteLine("Tasks already exist, skipping seeding");
     }
     
     // Save all changes
