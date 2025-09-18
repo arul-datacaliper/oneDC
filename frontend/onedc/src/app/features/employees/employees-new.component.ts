@@ -1,10 +1,14 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { EmployeesService } from '../../core/services/employees.service';
+import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
 import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/models';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-employees',
@@ -15,7 +19,9 @@ import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/
 })
 export class EmployeesComponent implements OnInit {
   private employeesService = inject(EmployeesService);
+  private onboardingService = inject(OnboardingService);
   private fb = inject(FormBuilder);
+  private router = inject(Router);
   private toastr = inject(ToastrService);
 
   // Make Math available in template
@@ -29,6 +35,9 @@ export class EmployeesComponent implements OnInit {
   showProfileModal = signal<boolean>(false);
   editingEmployee = signal<Employee | null>(null);
   selectedEmployee = signal<Employee | null>(null);
+  selectedEmployeeProfile = signal<UserProfile | null>(null);
+  selectedEmployeeSkills = signal<UserSkill[]>([]);
+  profileLoading = signal<boolean>(false);
   searchTerm = signal<string>('');
   roleFilter = signal<string>('');
   statusFilter = signal<string>('');
@@ -264,6 +273,37 @@ export class EmployeesComponent implements OnInit {
   openProfileModal(employee: Employee) {
     this.selectedEmployee.set(employee);
     this.showProfileModal.set(true);
+    this.profileLoading.set(true);
+    
+    // Fetch comprehensive profile data
+    const profile$ = this.onboardingService.getUserProfile(employee.userId).pipe(
+      catchError(error => {
+        console.error('Error fetching profile for user:', employee.userId, error);
+        return of(null);
+      })
+    );
+    
+    const skills$ = this.onboardingService.getUserSkills(employee.userId).pipe(
+      catchError(error => {
+        console.error('Error fetching skills for user:', employee.userId, error);
+        return of([]);
+      })
+    );
+
+    forkJoin({
+      profile: profile$,
+      skills: skills$
+    }).subscribe({
+      next: (data) => {
+        this.selectedEmployeeProfile.set(data.profile);
+        this.selectedEmployeeSkills.set(data.skills);
+        this.profileLoading.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading profile data:', error);
+        this.profileLoading.set(false);
+      }
+    });
   }
 
   closeModal() {
@@ -275,6 +315,9 @@ export class EmployeesComponent implements OnInit {
   closeProfileModal() {
     this.showProfileModal.set(false);
     this.selectedEmployee.set(null);
+    this.selectedEmployeeProfile.set(null);
+    this.selectedEmployeeSkills.set([]);
+    this.profileLoading.set(false);
   }
 
   onSameAsPresentAddressChange(checked: boolean) {
@@ -466,5 +509,21 @@ export class EmployeesComponent implements OnInit {
       .filter(part => part && part.trim());
     
     return parts.length > 0 ? parts.join(', ') : 'No address on file';
+  }
+
+  // Navigate to full profile page for the selected employee
+  viewFullProfile(employee: Employee): void {
+    this.router.navigate(['/profile', employee.userId]);
+  }
+
+  // Get skill level text
+  getSkillLevelText(level: number): string {
+    switch (level) {
+      case 1: return 'Beginner';
+      case 2: return 'Intermediate';
+      case 3: return 'Advanced';
+      case 4: return 'Expert';
+      default: return 'Unknown';
+    }
   }
 }

@@ -172,13 +172,8 @@
               <div class="btn-group" role="group">
                 <button class="btn btn-sm btn-outline-info" 
                         (click)="openProfileModal(employee)" 
-                        title="Quick view profile">
-                  <i class="bi bi-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-success" 
-                        (click)="viewFullProfile(employee)" 
-                        title="View full profile page">
-                  <i class="bi bi-person-lines-fill"></i>
+                        title="View comprehensive profile">
+                  <i class="bi bi-person-circle"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-primary" 
                         (click)="openEditModal(employee)" 
@@ -531,7 +526,7 @@
 <!-- Employee Profile Modal -->
 <div class="modal fade" [class.show]="showProfileModal()" [style.display]="showProfileModal() ? 'block' : 'none'"
      *ngIf="showProfileModal() && selectedEmployee()">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
@@ -642,6 +637,78 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Professional Information -->
+          <div class="col-12 mt-4" *ngIf="selectedEmployeeProfile()">
+            <h6 class="text-muted mb-3">Professional Information</h6>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.reportingManager">
+                  <strong>Reporting Manager:</strong> {{ selectedEmployeeProfile()?.reportingManager }}
+                </div>
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.totalExperienceYears">
+                  <strong>Total Experience:</strong> {{ selectedEmployeeProfile()?.totalExperienceYears }} years
+                </div>
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.educationBackground">
+                  <strong>Education:</strong> {{ selectedEmployeeProfile()?.educationBackground }}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.certifications">
+                  <strong>Certifications:</strong> {{ selectedEmployeeProfile()?.certifications }}
+                </div>
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.linkedInProfile">
+                  <strong>LinkedIn:</strong> 
+                  <a [href]="selectedEmployeeProfile()?.linkedInProfile" target="_blank" class="text-decoration-none">
+                    <i class="bi bi-linkedin"></i> View Profile
+                  </a>
+                </div>
+                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.gitHubProfile">
+                  <strong>GitHub:</strong> 
+                  <a [href]="selectedEmployeeProfile()?.gitHubProfile" target="_blank" class="text-decoration-none">
+                    <i class="bi bi-github"></i> View Profile
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills & Expertise -->
+          <div class="col-12 mt-4" *ngIf="selectedEmployeeSkills().length > 0">
+            <h6 class="text-muted mb-3">Skills & Expertise</h6>
+            <div class="row">
+              <div class="col-12">
+                <div class="d-flex flex-wrap gap-2">
+                  <div *ngFor="let skill of selectedEmployeeSkills()" 
+                       class="badge bg-light text-dark border p-2 d-flex align-items-center">
+                    <div class="me-2">
+                      <strong>{{ skill.skillName }}</strong>
+                      <small class="text-muted d-block">{{ getSkillLevelText(skill.level) }}</small>
+                    </div>
+                    <span class="badge bg-primary ms-1">{{ skill.yearsOfExperience }}y</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bio -->
+          <div class="col-12 mt-4" *ngIf="selectedEmployeeProfile()?.bio">
+            <h6 class="text-muted mb-3">About</h6>
+            <div class="card">
+              <div class="card-body">
+                <p class="mb-0">{{ selectedEmployeeProfile()?.bio }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div class="col-12 text-center py-4" *ngIf="profileLoading()">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading profile...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading comprehensive profile data...</p>
           </div>
         </div>
       </div>

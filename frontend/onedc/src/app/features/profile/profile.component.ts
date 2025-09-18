@@ -2,6 +2,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
+import { EmployeesService } from '../../core/services/employees.service';
+import { Employee } from '../../shared/models';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, of } from 'rxjs';
@@ -44,8 +46,8 @@ import { catchError } from 'rxjs/operators';
               <div class="card">
                 <div class="card-body text-center">
                   <div class="profile-photo mb-3">
-                    <div *ngIf="userProfile()?.profilePhotoUrl; else defaultAvatar">
-                      <img [src]="userProfile()?.profilePhotoUrl" 
+                    <div *ngIf="getProfilePhotoUrl(); else defaultAvatar">
+                      <img [src]="getProfilePhotoUrl()" 
                            alt="Profile Photo" 
                            class="rounded-circle profile-image"
                            style="width: 150px; height: 150px; object-fit: cover;">
@@ -57,9 +59,9 @@ import { catchError } from 'rxjs/operators';
                       </div>
                     </ng-template>
                   </div>
-                  <h4>{{ getCurrentUser()?.name }}</h4>
-                  <p class="text-muted">{{ getCurrentUser()?.email }}</p>
-                  <span class="badge bg-primary">{{ getCurrentUser()?.role }}</span>
+                  <h4>{{ getDisplayName() }}</h4>
+                  <p class="text-muted">{{ getDisplayEmail() }}</p>
+                  <span class="badge bg-primary">{{ getDisplayRole() }}</span>
                 </div>
               </div>
             </div>
@@ -190,6 +192,82 @@ import { catchError } from 'rxjs/operators';
                 </div>
               </div>
 
+              <!-- Address Information -->
+              <div class="card mb-4" *ngIf="employeeData()">
+                <div class="card-header">
+                  <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Address Information</h5>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <!-- Present Address -->
+                    <div class="col-md-6 mb-4">
+                      <h6 class="fw-bold text-primary mb-3">Present Address</h6>
+                      <div class="mb-2">
+                        <label class="form-label fw-bold">Address Line 1</label>
+                        <p class="mb-0">{{ employeeData()?.presentAddressLine1 || 'Not provided' }}</p>
+                      </div>
+                      <div class="mb-2" *ngIf="employeeData()?.presentAddressLine2">
+                        <label class="form-label fw-bold">Address Line 2</label>
+                        <p class="mb-0">{{ employeeData()?.presentAddressLine2 }}</p>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">City</label>
+                          <p class="mb-0">{{ employeeData()?.presentCity || 'Not provided' }}</p>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">State</label>
+                          <p class="mb-0">{{ employeeData()?.presentState || 'Not provided' }}</p>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">Country</label>
+                          <p class="mb-0">{{ employeeData()?.presentCountry || 'Not provided' }}</p>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">ZIP Code</label>
+                          <p class="mb-0">{{ employeeData()?.presentZipCode || 'Not provided' }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Permanent Address -->
+                    <div class="col-md-6 mb-4">
+                      <h6 class="fw-bold text-success mb-3">Permanent Address</h6>
+                      <div class="mb-2">
+                        <label class="form-label fw-bold">Address Line 1</label>
+                        <p class="mb-0">{{ employeeData()?.permanentAddressLine1 || 'Not provided' }}</p>
+                      </div>
+                      <div class="mb-2" *ngIf="employeeData()?.permanentAddressLine2">
+                        <label class="form-label fw-bold">Address Line 2</label>
+                        <p class="mb-0">{{ employeeData()?.permanentAddressLine2 }}</p>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">City</label>
+                          <p class="mb-0">{{ employeeData()?.permanentCity || 'Not provided' }}</p>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">State</label>
+                          <p class="mb-0">{{ employeeData()?.permanentState || 'Not provided' }}</p>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">Country</label>
+                          <p class="mb-0">{{ employeeData()?.permanentCountry || 'Not provided' }}</p>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                          <label class="form-label fw-bold">ZIP Code</label>
+                          <p class="mb-0">{{ employeeData()?.permanentZipCode || 'Not provided' }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Skills Section -->
               <div class="card" *ngIf="skills() && skills().length > 0">
                 <div class="card-header">
@@ -269,6 +347,7 @@ import { catchError } from 'rxjs/operators';
 })
 export class ProfileComponent implements OnInit {
   private onboardingService = inject(OnboardingService);
+  private employeesService = inject(EmployeesService);
   private authService = inject(AuthService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -276,20 +355,29 @@ export class ProfileComponent implements OnInit {
 
   loading = signal<boolean>(false);
   userProfile = signal<UserProfile | null>(null);
+  employeeData = signal<Employee | null>(null);
   skills = signal<UserSkill[]>([]);
   viewingUserId = signal<string | null>(null);
   isViewingOwnProfile = signal<boolean>(true);
 
   ngOnInit() {
-    // Check if we're viewing a specific user's profile
-    const userId = this.route.snapshot.paramMap.get('userId');
-    if (userId) {
-      this.viewingUserId.set(userId);
-      this.isViewingOwnProfile.set(false);
-    } else {
-      this.isViewingOwnProfile.set(true);
-    }
-    this.loadProfile();
+    // Subscribe to route parameter changes (reactive)
+    this.route.paramMap.subscribe(params => {
+      const userId = params.get('userId');
+      console.log('Route params changed - userId:', userId);
+      
+      if (userId) {
+        this.viewingUserId.set(userId);
+        this.isViewingOwnProfile.set(false);
+        console.log('Setting viewingUserId to:', userId, 'isViewingOwnProfile:', false);
+      } else {
+        this.viewingUserId.set(null);
+        this.isViewingOwnProfile.set(true);
+        console.log('No userId in route, viewing own profile');
+      }
+      
+      this.loadProfile();
+    });
   }
 
   getCurrentUser() {
@@ -302,24 +390,53 @@ export class ProfileComponent implements OnInit {
 
     // Determine which user's profile to load
     const targetUserId = this.viewingUserId() || currentUser.userId;
+    
+    console.log('loadProfile - currentUser.userId:', currentUser.userId);
+    console.log('loadProfile - viewingUserId():', this.viewingUserId());
+    console.log('loadProfile - targetUserId:', targetUserId);
 
     this.loading.set(true);
 
-    // Fetch profile and skills in parallel
+    // Fetch profile, skills, and employee data in parallel
     const profile$ = this.onboardingService.getUserProfile(targetUserId).pipe(
-      catchError(error => of(null))
+      catchError(error => {
+        console.error('Error fetching profile for userId:', targetUserId, error);
+        return of(null);
+      })
     );
     
     const skills$ = this.onboardingService.getUserSkills(targetUserId).pipe(
-      catchError(error => of([]))
+      catchError(error => {
+        console.error('Error fetching skills for userId:', targetUserId, error);
+        return of([]);
+      })
+    );
+
+    // For employee data, we need to find the employee by userId
+    const employee$ = this.employeesService.getAll().pipe(
+      catchError(error => {
+        console.error('Error fetching employees:', error);
+        return of([]);
+      })
     );
 
     forkJoin({
       profile: profile$,
-      skills: skills$
+      skills: skills$,
+      employees: employee$
     }).subscribe({
       next: (data) => {
+        console.log('Profile loaded:', data.profile);
+        console.log('Skills loaded:', data.skills);
+        console.log('Employees loaded:', data.employees);
+        
+        // Find the employee with matching userId
+        const employee = data.employees.find((emp: Employee) => emp.userId === targetUserId);
+        console.log('Found employee:', employee);
+        
         this.userProfile.set(data.profile);
+        this.skills.set(data.skills);
+        this.employeeData.set(employee || null);
         this.skills.set(data.skills || []);
         this.loading.set(false);
       },
@@ -376,5 +493,45 @@ export class ProfileComponent implements OnInit {
 
   goBackToEmployees(): void {
     this.router.navigate(['/employees']);
+  }
+
+  // Get the display name - use employee data if viewing someone else, otherwise current user
+  getDisplayName(): string {
+    if (!this.isViewingOwnProfile() && this.employeeData()) {
+      const employee = this.employeeData()!;
+      return `${employee.firstName} ${employee.lastName}`;
+    }
+    return this.getCurrentUser()?.name || 'User';
+  }
+
+  // Get the display email - use employee data if viewing someone else, otherwise current user
+  getDisplayEmail(): string {
+    if (!this.isViewingOwnProfile() && this.employeeData()) {
+      const employee = this.employeeData()!;
+      return employee.workEmail || employee.personalEmail || 'No email';
+    }
+    return this.getCurrentUser()?.email || 'user@onedc.local';
+  }
+
+  // Get the display role - use employee data if viewing someone else, otherwise current user
+  getDisplayRole(): string {
+    if (!this.isViewingOwnProfile() && this.employeeData()) {
+      const employee = this.employeeData()!;
+      return employee.role || 'EMPLOYEE';
+    }
+    return this.getCurrentUser()?.role || 'EMPLOYEE';
+  }
+
+  // Get the profile photo URL with correct base URL
+  getProfilePhotoUrl(): string | null {
+    const profile = this.userProfile();
+    if (profile?.profilePhotoUrl) {
+      // If the URL is relative, prepend the API base URL
+      if (profile.profilePhotoUrl.startsWith('/')) {
+        return `http://localhost:5110${profile.profilePhotoUrl}`;
+      }
+      return profile.profilePhotoUrl;
+    }
+    return null;
   }
 }
