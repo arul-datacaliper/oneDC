@@ -140,7 +140,7 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Hours).HasPrecision(4, 2);
             e.Property(x => x.Status).IsRequired();
             e.Property(x => x.TaskType).IsRequired();
-            e.Property<Guid?>("TaskId"); // shadow property if not added to entity yet
+            e.Property(x => x.TaskId).HasColumnName("task_id"); // Map TaskId to task_id column
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -156,6 +156,12 @@ public class OneDcDbContext : DbContext
              .WithMany()
              .HasForeignKey(t => t.UserId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            // 🔗 Timesheet → Task (optional)
+            e.HasOne(t => t.Task)
+             .WithMany()
+             .HasForeignKey(t => t.TaskId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         // ===== Holiday =====

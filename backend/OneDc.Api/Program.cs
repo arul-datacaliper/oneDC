@@ -534,6 +534,7 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
     if (!await context.Projects.AnyAsync())
     {
         var approverUser = users.First(u => u.Role == OneDc.Domain.Entities.UserRole.APPROVER);
+        var employeeUser = users.First(u => u.Role == OneDc.Domain.Entities.UserRole.EMPLOYEE);
         
         var testProject1 = new OneDc.Domain.Entities.Project
         {
@@ -558,8 +559,177 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
             DefaultApprover = approverUser.UserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
+
+        var testProject3 = new OneDc.Domain.Entities.Project
+        {
+            ProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            ClientId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Code = "PR000J3",
+            Name = "Remap",
+            Status = "ACTIVE", 
+            Billable = true,
+            DefaultApprover = approverUser.UserId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
         
-        context.Projects.AddRange(testProject1, testProject2);
+        context.Projects.AddRange(testProject1, testProject2, testProject3);
+    }
+
+    // Seed sample tasks - force creation for testing
+    var existingTasks = await context.ProjectTasks.ToListAsync();
+    if (existingTasks.Count == 0)
+    {
+        var demoProjectId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var internalProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333"); 
+        var remapProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var employeeUser = users.First(u => u.Role == OneDc.Domain.Entities.UserRole.EMPLOYEE);
+        var employeeUserId = employeeUser.UserId;
+
+        var sampleTasks = new[]
+        {
+            // DEMO Project Tasks
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = demoProjectId,
+                Title = "Frontend Component Development",
+                Description = "Develop React components for the demo application",
+                Label = "Frontend",
+                EstimatedHours = 16,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                AssignedUserId = employeeUserId,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = demoProjectId,
+                Title = "API Integration",
+                Description = "Integrate with backend APIs",
+                Label = "Backend",
+                EstimatedHours = 12,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                AssignedUserId = employeeUserId,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = demoProjectId,
+                Title = "Database Schema Updates",
+                Description = "Update database schema for demo requirements",
+                Label = "Database",
+                EstimatedHours = 8,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = demoProjectId,
+                Title = "Testing & QA",
+                Description = "Comprehensive testing of demo features",
+                Label = "QA",
+                EstimatedHours = 20,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+
+            // INTERNAL Project Tasks
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = internalProjectId,
+                Title = "Team Meeting",
+                Description = "Weekly team sync and planning",
+                Label = "Meeting",
+                EstimatedHours = 2,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = internalProjectId,
+                Title = "Code Review",
+                Description = "Review and approve code changes",
+                Label = "Review",
+                EstimatedHours = 4,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = internalProjectId,
+                Title = "Documentation",
+                Description = "Update project documentation",
+                Label = "Docs",
+                EstimatedHours = 6,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = internalProjectId,
+                Title = "Process Improvement",
+                Description = "Analyze and improve development processes",
+                Label = "Process",
+                EstimatedHours = 10,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+
+            // Remap Project Tasks
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = remapProjectId,
+                Title = "Data Migration",
+                Description = "Migrate existing data to new schema",
+                Label = "Migration",
+                EstimatedHours = 24,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                AssignedUserId = employeeUserId,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = remapProjectId,
+                Title = "UI/UX Redesign",
+                Description = "Redesign user interface for better UX",
+                Label = "Design",
+                EstimatedHours = 18,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = remapProjectId,
+                Title = "Performance Optimization",
+                Description = "Optimize application performance",
+                Label = "Performance",
+                EstimatedHours = 14,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = remapProjectId,
+                Title = "Bug Fixes",
+                Description = "Fix reported bugs and issues",
+                Label = "Bug",
+                EstimatedHours = 16,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                CreatedAt = DateTimeOffset.UtcNow
+            }
+        };
+
+        context.ProjectTasks.AddRange(sampleTasks);
     }
     
     // Save all changes

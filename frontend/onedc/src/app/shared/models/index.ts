@@ -156,6 +156,7 @@ export interface TimesheetEntry {
   entryId: string;
   userId: string;
   projectId: string;
+  taskId?: string; // Added missing taskId property
   workDate: string; // YYYY-MM-DD
   hours: number;
   description?: string;

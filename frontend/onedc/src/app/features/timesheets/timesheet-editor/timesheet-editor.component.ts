@@ -202,7 +202,7 @@ export class TimesheetEditorComponent implements OnInit {
       entryId: [r.entryId],
       workDate: [r.workDate, Validators.required],
       projectId: [r.projectId, Validators.required],
-      taskId: [(r as any).taskId || ''],
+      taskId: [r.taskId || ''],
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
       description: [r.description ?? ''],
       ticketRef: [r.ticketRef ?? ''],

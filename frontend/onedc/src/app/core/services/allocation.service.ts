@@ -110,13 +110,28 @@ export class AllocationService {
     const day = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     // Calculate days to go back to reach Sunday
     startOfWeek.setDate(startOfWeek.getDate() - day);
-    return startOfWeek.toISOString().split('T')[0];
+    
+    // Use local date to avoid timezone issues
+    const year = startOfWeek.getFullYear();
+    const month = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(startOfWeek.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dayOfMonth}`;
   }
 
   // Helper method to get week end date (Saturday, 6 days after Sunday)
   getWeekEndDate(weekStartDate: string): string {
-    const endDate = new Date(weekStartDate);
-    endDate.setDate(endDate.getDate() + 6); // Sunday + 6 = Saturday
-    return endDate.toISOString().split('T')[0];
+    // Parse the date string directly without timezone conversion
+    const [year, month, day] = weekStartDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+    
+    // Add 6 days for Saturday
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    
+    // Format as YYYY-MM-DD
+    const endYear = endDate.getFullYear();
+    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+    const endDay = String(endDate.getDate()).padStart(2, '0');
+    return `${endYear}-${endMonth}-${endDay}`;
   }
 }

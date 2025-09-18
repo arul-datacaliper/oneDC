@@ -369,7 +369,7 @@
                   formControlName="weekStartDate"
                   [disabled]="!!editingAllocation()">
                 <div class="form-text">
-                  Select the Sunday that starts the work week
+                  <!-- Select the Sunday that starts the work week -->
                   <div *ngIf="allocationForm.get('weekStartDate')?.value" class="mt-1">
                     <small class="text-primary">
                       Week: {{ allocationForm.get('weekStartDate')?.value | date:'mediumDate' }} - 

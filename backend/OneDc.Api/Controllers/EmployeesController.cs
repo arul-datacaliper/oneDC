@@ -335,9 +335,9 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            // Get assigned tasks count - using ProjectAllocations as proxy for tasks
-            var allocations = await _context.ProjectAllocations
-                .Where(pa => pa.UserId == userId)
+            // Get assigned tasks count - using WeeklyAllocations as proxy for tasks
+            var allocations = await _context.WeeklyAllocations
+                .Where(wa => wa.UserId == userId && wa.Status == "ACTIVE")
                 .CountAsync();
 
             // Get timesheet data for hours calculation
@@ -370,10 +370,12 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            // Get project allocations as proxy for tasks
-            var allocations = await _context.ProjectAllocations
-                .Include(pa => pa.Project)
-                .Where(pa => pa.UserId == userId)
+            // Get weekly allocations as proxy for tasks
+            var allocations = await _context.WeeklyAllocations
+                .Include(wa => wa.Project)
+                .Include(wa => wa.User)
+                .Where(wa => wa.UserId == userId && wa.Status == "ACTIVE")
+                .OrderByDescending(wa => wa.WeekStartDate)
                 .ToListAsync();
 
             var result = allocations.Select(allocation => new
@@ -381,12 +383,14 @@ public class EmployeesController : ControllerBase
                 TaskId = allocation.AllocationId.ToString(),
                 TaskName = $"Work on {allocation.Project?.Name ?? "Unknown Project"}",
                 ProjectName = allocation.Project?.Name ?? "Unknown Project",
-                Status = "Active",
+                Status = allocation.Status,
                 ManagerName = GetManagerName(allocation.Project?.DefaultApprover),
-                StartDate = allocation.StartDate.ToString("yyyy-MM-dd"),
-                EndDate = allocation.EndDate?.ToString("yyyy-MM-dd") ?? "",
-                Description = $"Allocated to work on {allocation.Project?.Name ?? "Unknown Project"}",
-                Priority = "Medium"
+                StartDate = allocation.WeekStartDate.ToString("yyyy-MM-dd"),
+                EndDate = allocation.WeekEndDate.ToString("yyyy-MM-dd"),
+                Description = $"Allocated {allocation.AllocatedHours} hours to work on {allocation.Project?.Name ?? "Unknown Project"}",
+                Priority = "Medium",
+                AllocatedHours = allocation.AllocatedHours,
+                UtilizationPercentage = allocation.UtilizationPercentage
             });
 
             return Ok(result);
@@ -450,9 +454,9 @@ public class EmployeesController : ControllerBase
                 .Where(t => t.UserId == userId)
                 .ToListAsync();
 
-            var allocations = await _context.ProjectAllocations
-                .Include(pa => pa.Project)
-                .Where(pa => pa.UserId == userId)
+            var allocations = await _context.WeeklyAllocations
+                .Include(wa => wa.Project)
+                .Where(wa => wa.UserId == userId && wa.Status == "ACTIVE")
                 .ToListAsync();
 
             // Group timesheets by project to calculate utilization
@@ -461,19 +465,19 @@ public class EmployeesController : ControllerBase
                 .Select(g => {
                     var project = g.First().Project;
                     var allocation = allocations.FirstOrDefault(a => a.ProjectId == g.Key);
-                    var allocatedHours = (double)(allocation?.AllocationPct ?? 100m); // Use allocation percentage as proxy
+                    var allocatedHours = (double)(allocation?.AllocatedHours ?? 0); // Use weekly allocated hours
                     var workedHours = g.Sum(t => t.Hours);
                     
                     return new
                     {
                         ProjectId = g.Key.ToString(),
                         ProjectName = project?.Name ?? "Unknown Project",
-                        TotalAllocatedHours = (double)allocatedHours * 1.6, // Convert percentage to hours (example calculation)
+                        TotalAllocatedHours = allocatedHours,
                         TotalWorkedHours = (double)workedHours,
-                        UtilizationPercentage = allocatedHours > 0 ? Math.Round(((double)workedHours / ((double)allocatedHours * 1.6)) * 100, 1) : 0,
-                        Status = "Active", // Default status
-                        StartDate = project?.StartDate?.ToString("yyyy-MM-dd") ?? "",
-                        EndDate = project?.EndDate?.ToString("yyyy-MM-dd") ?? "",
+                        UtilizationPercentage = allocatedHours > 0 ? Math.Round(((double)workedHours / allocatedHours) * 100, 1) : 0,
+                        Status = allocation?.Status ?? "Active",
+                        StartDate = allocation?.WeekStartDate.ToString("yyyy-MM-dd") ?? "",
+                        EndDate = allocation?.WeekEndDate.ToString("yyyy-MM-dd") ?? "",
                         ManagerName = GetManagerName(project?.DefaultApprover)
                     };
                 })

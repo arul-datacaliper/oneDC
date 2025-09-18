@@ -34,6 +34,7 @@ export class AllocationsComponent implements OnInit {
   viewMode = signal<'overview' | 'project' | 'employee'>('overview');
   selectedProjectId = signal<string>('');
   selectedUserId = signal<string>('');
+  formWeekStartDate = signal<string>(''); // Track form week start date
   
   // Data signals
   allocations = signal<WeeklyAllocation[]>([]);
@@ -71,12 +72,21 @@ export class AllocationsComponent implements OnInit {
 
   // Computed property for selected week end date
   selectedWeekEndDate = computed(() => {
-    const weekStartDate = this.allocationForm?.get('weekStartDate')?.value;
+    const weekStartDate = this.formWeekStartDate();
     if (weekStartDate) {
-      const startDate = new Date(weekStartDate);
+      // Parse the date string directly without timezone conversion
+      const [year, month, day] = weekStartDate.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+      
+      // Add 6 days for Saturday
       const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6); // Sunday + 6 = Saturday
-      return endDate.toISOString().split('T')[0];
+      endDate.setDate(startDate.getDate() + 6);
+      
+      // Format as YYYY-MM-DD
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      return `${endYear}-${endMonth}-${endDay}`;
     }
     return '';
   });
@@ -93,7 +103,7 @@ export class AllocationsComponent implements OnInit {
   formatCurrentWeekStart(): string {
     const weekStart = this.currentWeekStart();
     if (weekStart) {
-      return new Date(weekStart).toISOString().split('T')[0];
+      return weekStart; // weekStart is already in YYYY-MM-DD format
     }
     return '';
   }
@@ -102,10 +112,7 @@ export class AllocationsComponent implements OnInit {
   formatCurrentWeekEnd(): string {
     const weekStart = this.currentWeekStart();
     if (weekStart) {
-      const startDate = new Date(weekStart);
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6); // Sunday + 6 = Saturday
-      return endDate.toISOString().split('T')[0];
+      return this.allocationService.getWeekEndDate(weekStart);
     }
     return '';
   }  constructor() {
@@ -113,6 +120,11 @@ export class AllocationsComponent implements OnInit {
     this.allocationForm = this.fb.group({
       projectId: ['', Validators.required],
       weekStartDate: ['', Validators.required]
+    });
+
+    // Track form weekStartDate changes and update signal
+    this.allocationForm.get('weekStartDate')?.valueChanges.subscribe(value => {
+      this.formWeekStartDate.set(value || '');
     });
 
     // Initialize with current week
@@ -210,7 +222,7 @@ export class AllocationsComponent implements OnInit {
 
   onWeekDateChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    const selectedDate = new Date(input.value);
+    const selectedDate = new Date(input.value + 'T00:00:00'); // Add time to avoid timezone issues
     if (!isNaN(selectedDate.getTime())) {
       this.currentWeekStart.set(this.allocationService.getWeekStartDate(selectedDate));
       this.loadInitialData();
@@ -236,9 +248,11 @@ export class AllocationsComponent implements OnInit {
   openCreateModal() {
     console.log('openCreateModal called');
     this.allocationForm.reset();
+    const currentWeek = this.currentWeekStart();
     this.allocationForm.patchValue({
-      weekStartDate: this.currentWeekStart()
+      weekStartDate: currentWeek
     });
+    this.formWeekStartDate.set(currentWeek); // Update signal manually for initial value
     this.selectedEmployeeAllocations.set([]);
     this.selectedEmployeeForDropdown.set(null);
     this.updateAvailableEmployeesForSelection();
@@ -253,6 +267,7 @@ export class AllocationsComponent implements OnInit {
       projectId: allocation.projectId,
       weekStartDate: allocation.weekStartDate
     });
+    this.formWeekStartDate.set(allocation.weekStartDate); // Update signal manually
     // For edit mode, set single employee allocation
     this.selectedEmployeeAllocations.set([{
       userId: allocation.userId,
@@ -268,6 +283,7 @@ export class AllocationsComponent implements OnInit {
     this.showCreateModal.set(false);
     this.editingAllocation.set(null);
     this.selectedEmployeeAllocations.set([]);
+    this.formWeekStartDate.set(''); // Clear the signal
     this.allocationForm.reset();
   }
 
