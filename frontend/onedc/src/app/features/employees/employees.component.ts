@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
@@ -16,6 +17,7 @@ import { Employee, UserRole, Gender, EmployeeType, Address } from '../../shared/
 export class EmployeesComponent implements OnInit {
   private employeesService = inject(EmployeesService);
   private fb = inject(FormBuilder);
+  private router = inject(Router);
   private toastr = inject(ToastrService);
 
   // Make Math available in template
@@ -568,5 +570,10 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['minlength']) return `${fieldName} must be at least ${field.errors['minlength'].requiredLength} characters`;
     }
     return '';
+  }
+
+  // Navigate to full profile page for the selected employee
+  viewFullProfile(employee: Employee): void {
+    this.router.navigate(['/profile', employee.userId]);
   }
 }

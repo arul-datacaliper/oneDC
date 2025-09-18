@@ -172,8 +172,13 @@
               <div class="btn-group" role="group">
                 <button class="btn btn-sm btn-outline-info" 
                         (click)="openProfileModal(employee)" 
-                        title="View profile">
+                        title="Quick view profile">
                   <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" 
+                        (click)="viewFullProfile(employee)" 
+                        title="View full profile page">
+                  <i class="bi bi-person-lines-fill"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-primary" 
                         (click)="openEditModal(employee)" 

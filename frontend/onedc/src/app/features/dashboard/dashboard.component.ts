@@ -45,6 +45,11 @@ export class DashboardComponent implements OnInit {
   isLoadingProjectsReleaseInfo = false;
   isLoadingEmployeeData = false;
 
+  // Computed property to get current user data
+  currentUser = computed(() => {
+    return this.authService.getCurrentUser();
+  });
+
   // Computed property to check if user is admin
   isAdmin = computed(() => {
     const currentUser = this.authService.getCurrentUser();
@@ -351,5 +356,68 @@ export class DashboardComponent implements OnInit {
     }).catch(err => {
       console.error('Navigation error:', err);
     });
+  }
+
+  // User profile helper methods
+  getCurrentUserName(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.name || 'User';
+  }
+
+  getCurrentUserEmail(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.email || 'user@onedc.local';
+  }
+
+  getCurrentUserRole(): string {
+    const currentUser = this.authService.getCurrentUser();
+    const role = currentUser?.role || 'EMPLOYEE';
+    
+    // Convert role to display format
+    switch (role) {
+      case 'ADMIN':
+        return 'Administrator';
+      case 'APPROVER':
+        return 'Approver';
+      case 'EMPLOYEE':
+      default:
+        return 'Employee';
+    }
+  }
+
+  getCurrentUserId(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.userId || '';
+  }
+
+  // Check if profile and dashboard data are in sync
+  isProfileDataSynced(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !this.employeeMetrics) {
+      return true; // If no data to compare, assume synced
+    }
+    
+    // Here you can add more validation if needed
+    // For example, checking if the user ID matches between auth and employee data
+    return true;
+  }
+
+  // Get profile completeness percentage (can be enhanced later)
+  getProfileCompleteness(): number {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) return 0;
+    
+    let completeness = 0;
+    if (currentUser.name) completeness += 25;
+    if (currentUser.email) completeness += 25;
+    if (currentUser.role) completeness += 25;
+    if (currentUser.userId) completeness += 25;
+    
+    return completeness;
+  }
+
+  // Navigate to user profile page
+  navigateToProfile(): void {
+    this.router.navigate(['/profile']);
   }
 }

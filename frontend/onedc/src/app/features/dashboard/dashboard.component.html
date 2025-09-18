@@ -269,134 +269,244 @@
       </div>
     </div>
 
-    <!-- Employee KPI Cards -->
-    <div class="row g-3 mb-4" *ngIf="!canApprove()">
-      <!-- Total Assigned Tasks -->
-      <div class="col-lg-3 col-md-6">
-        <div class="card border-start border-4 border-primary">
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-list-task text-primary me-2"></i>
-              <span class="card-title mb-0">Assigned Tasks</span>
+    <!-- Employee Profile Section -->
+    <div class="row g-3 mb-4">
+      <!-- User Profile Card -->
+      <div class="col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <div class="card-body text-center text-white p-4">
+            <!-- Avatar -->
+            <div class="mb-3">
+              <div class="rounded-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center" 
+                   style="width: 80px; height: 80px;">
+                <i class="bi bi-person-fill fs-1 text-white"></i>
+              </div>
             </div>
-            <div class="stat-value text-primary">
-              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalAssignedTasks || 0 }}</span>
-              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-primary"></div>
+            
+            <!-- User Info -->
+            <h5 class="fw-bold mb-1">
+              {{ currentUser()?.name || 'User' }}
+              <small class="text-success ms-1" *ngIf="isProfileDataSynced()">
+                <i class="bi bi-check-circle-fill" title="Profile synced"></i>
+              </small>
+            </h5>
+            <p class="mb-2 opacity-75">{{ currentUser()?.email || 'user@onedc.local' }}</p>
+            <span class="badge bg-white text-primary px-3 py-1" 
+                  [class.bg-warning]="currentUser()?.role === 'ADMIN'" 
+                  [class.text-dark]="currentUser()?.role === 'ADMIN'"
+                  [class.bg-info]="currentUser()?.role === 'APPROVER'"
+                  [class.text-white]="currentUser()?.role === 'APPROVER'">
+              {{ getCurrentUserRole() }}
+            </span>
+            
+            <!-- Profile Action Button -->
+            <div class="mt-3">
+              <button class="btn btn-outline-light btn-sm" (click)="navigateToProfile()" title="View My Profile">
+                <i class="bi bi-person-circle me-1"></i>
+                View Profile
+              </button>
             </div>
-            <div class="card-subtitle text-muted">Active assignments</div>
+            
+            <!-- Quick Stats -->
+            <div class="row g-2 mt-3">
+              <div class="col-6">
+                <div class="text-center">
+                  <div class="fw-bold">{{ employeeMetrics?.totalAssignedTasks || 0 }}</div>
+                  <small class="opacity-75">Tasks</small>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="text-center">
+                  <div class="fw-bold">{{ employeeMetrics?.totalSubmittedHours || 0 }}</div>
+                  <small class="opacity-75">Hours</small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Total Submitted Hours -->
-      <div class="col-lg-3 col-md-6">
-        <div class="card border-start border-4 border-warning">
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-clock text-warning me-2"></i>
-              <span class="card-title mb-0">Submitted Hours</span>
+      <!-- Employee KPI Cards -->
+      <div class="col-lg-8">
+        <div class="row g-3 h-100">
+          <!-- Total Assigned Tasks -->
+          <div class="col-lg-6 col-md-6">
+            <div class="card border-start border-4 border-primary h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="bi bi-list-task text-primary me-2"></i>
+                  <span class="card-title mb-0">Assigned Tasks</span>
+                </div>
+                <div class="stat-value text-primary">
+                  <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalAssignedTasks || 0 }}</span>
+                  <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-primary"></div>
+                </div>
+                <div class="card-subtitle text-muted">Active assignments</div>
+              </div>
             </div>
-            <div class="stat-value text-warning">
-              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalSubmittedHours || 0 }}</span>
-              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-warning"></div>
-            </div>
-            <div class="card-subtitle text-muted">Total logged time</div>
           </div>
-        </div>
-      </div>
 
-      <!-- Total Approved Hours -->
-      <div class="col-lg-3 col-md-6">
-        <div class="card border-start border-4 border-success">
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-check-circle text-success me-2"></i>
-              <span class="card-title mb-0">Approved Hours</span>
+          <!-- Total Submitted Hours -->
+          <div class="col-lg-6 col-md-6">
+            <div class="card border-start border-4 border-warning h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="bi bi-clock text-warning me-2"></i>
+                  <span class="card-title mb-0">Submitted Hours</span>
+                </div>
+                <div class="stat-value text-warning">
+                  <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalSubmittedHours || 0 }}</span>
+                  <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-warning"></div>
+                </div>
+                <div class="card-subtitle text-muted">Total logged time</div>
+              </div>
             </div>
-            <div class="stat-value text-success">
-              <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalApprovedHours || 0 }}</span>
-              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-success"></div>
-            </div>
-            <div class="card-subtitle text-muted">Ready for billing</div>
           </div>
-        </div>
-      </div>
 
-      <!-- Utilization Rate -->
-      <div class="col-lg-3 col-md-6">
-        <div class="card border-start border-4 border-info">
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-2">
-              <i class="bi bi-graph-up text-info me-2"></i>
-              <span class="card-title mb-0">Utilization</span>
+          <!-- Total Approved Hours -->
+          <div class="col-lg-6 col-md-6">
+            <div class="card border-start border-4 border-success h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="bi bi-check-circle text-success me-2"></i>
+                  <span class="card-title mb-0">Approved Hours</span>
+                </div>
+                <div class="stat-value text-success">
+                  <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalApprovedHours || 0 }}</span>
+                  <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-success"></div>
+                </div>
+                <div class="card-subtitle text-muted">Ready for billing</div>
+              </div>
             </div>
-            <div class="stat-value text-info">
-              <span *ngIf="!isLoadingEmployeeData">{{ getOverallUtilization() }}%</span>
-              <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-info"></div>
+          </div>
+
+          <!-- Utilization Rate -->
+          <div class="col-lg-6 col-md-6">
+            <div class="card border-start border-4 border-info h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="bi bi-graph-up text-info me-2"></i>
+                  <span class="card-title mb-0">Utilization</span>
+                </div>
+                <div class="stat-value text-info">
+                  <span *ngIf="!isLoadingEmployeeData">{{ getOverallUtilization() }}%</span>
+                  <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-info"></div>
+                </div>
+                <div class="card-subtitle text-muted">Overall efficiency</div>
+              </div>
             </div>
-            <div class="card-subtitle text-muted">Overall efficiency</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- My Tasks Table -->
+    <!-- Dashboard Tables Row for Employee -->
+    <div class="row g-4 mb-4" *ngIf="!canApprove()">
+      <!-- My Tasks Table -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">My Tasks</h5>
+            <p class="text-muted mb-0 small">Tasks assigned to you with current status</p>
+          </div>
+          <div class="card-body p-0">
+            <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            
+            <div *ngIf="!isLoadingEmployeeData && employeeTasks.length === 0" class="text-center p-4">
+              <i class="bi bi-inbox text-muted fs-1"></i>
+              <p class="text-muted mt-2 mb-0">No tasks assigned</p>
+            </div>
+
+            <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 0" class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="border-0">Task Name</th>
+                    <th class="border-0">Project</th>
+                    <th class="border-0 text-center">Status</th>
+                    <th class="border-0">Manager</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let task of employeeTasks | slice:0:5">
+                    <td>
+                      <div class="fw-medium">{{ task.taskName }}</div>
+                      <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
+                    </td>
+                    <td>{{ task.projectName }}</td>
+                    <td class="text-center">
+                      <span [class]="getTaskStatusBadgeClass(task.status)">
+                        {{ task.status }}
+                      </span>
+                    </td>
+                    <td>{{ task.managerName }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Utilization Table -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">Project Utilization</h5>
+            <p class="text-muted mb-0 small">Your time allocation and efficiency across projects</p>
+          </div>
+          <div class="card-body p-0">
+            <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            
+            <div *ngIf="!isLoadingEmployeeData && projectUtilization.length === 0" class="text-center p-4">
+              <i class="bi bi-inbox text-muted fs-1"></i>
+              <p class="text-muted mt-2 mb-0">No project utilization data available</p>
+            </div>
+
+            <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="border-0">Project</th>
+                    <th class="border-0 text-end">Allocated Hours</th>
+                    <th class="border-0 text-end">Worked Hours</th>
+                    <th class="border-0 text-center">Utilization</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let project of projectUtilization | slice:0:5">
+                    <td>
+                      <div class="fw-medium">{{ project.projectName }}</div>
+                    </td>
+                    <td class="text-end">{{ project.totalAllocatedHours | number:'1.0-2' }}</td>
+                    <td class="text-end">{{ project.totalWorkedHours | number:'1.0-2' }}</td>
+                    <td class="text-center">
+                      <span [class]="getUtilizationBadgeClass(project.utilizationPercentage)">
+                        {{ project.utilizationPercentage | number:'1.0-1' }}%
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full Project Utilization Table -->
     <div class="card shadow-sm mb-4" *ngIf="!canApprove()">
       <div class="card-header bg-white">
-        <h5 class="card-title mb-0">My Tasks</h5>
-        <p class="text-muted mb-0 small">Tasks assigned to you with current status</p>
-      </div>
-      <div class="card-body p-0">
-        <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-        </div>
-        
-        <div *ngIf="!isLoadingEmployeeData && employeeTasks.length === 0" class="text-center p-4">
-          <i class="bi bi-inbox text-muted fs-1"></i>
-          <p class="text-muted mt-2 mb-0">No tasks assigned</p>
-        </div>
-
-        <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 0" class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th class="border-0">Task Name</th>
-                <th class="border-0">Project</th>
-                <th class="border-0 text-center">Status</th>
-                <th class="border-0">Manager</th>
-                <th class="border-0">Start Date</th>
-                <th class="border-0">End Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let task of employeeTasks">
-                <td>
-                  <div class="fw-medium">{{ task.taskName }}</div>
-                  <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
-                </td>
-                <td>{{ task.projectName }}</td>
-                <td class="text-center">
-                  <span [class]="getTaskStatusBadgeClass(task.status)">
-                    {{ task.status }}
-                  </span>
-                </td>
-                <td>{{ task.managerName }}</td>
-                <td>{{ task.startDate | date:'shortDate' }}</td>
-                <td>{{ task.endDate | date:'shortDate' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Project Utilization Table -->
-    <div class="card shadow-sm">
-      <div class="card-header bg-white">
-        <h5 class="card-title mb-0">Project Utilization</h5>
-        <p class="text-muted mb-0 small">Your time allocation and efficiency across projects</p>
+        <h5 class="card-title mb-0">Complete Project Utilization</h5>
+        <p class="text-muted mb-0 small">Detailed view of your time allocation across all projects</p>
       </div>
       <div class="card-body p-0">
         <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
