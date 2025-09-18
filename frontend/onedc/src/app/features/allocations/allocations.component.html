@@ -328,7 +328,7 @@
 <!-- Create/Edit Modal -->
 <div class="modal fade" [class.show]="showCreateModal()" [style.display]="showCreateModal() ? 'block' : 'none'" 
      tabindex="-1" role="dialog" [attr.aria-hidden]="!showCreateModal()">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
@@ -338,7 +338,8 @@
       </div>
       <form [formGroup]="allocationForm" (ngSubmit)="onSubmit()">
         <div class="modal-body">
-          <div class="row">
+          <!-- Project and Week Selection -->
+          <div class="row mb-4">
             <div class="col-md-6">
               <div class="mb-3">
                 <label class="form-label">Project *</label>
@@ -361,41 +362,6 @@
             
             <div class="col-md-6">
               <div class="mb-3">
-                <label class="form-label">Employee *</label>
-                <ng-select 
-                  formControlName="userId"
-                  [disabled]="!!editingAllocation()"
-                  placeholder="Search and select an employee..."
-                  [clearable]="false"
-                  [searchable]="true"
-                  bindLabel="userName"
-                  bindValue="userId"
-                  [items]="availableEmployees()">
-                </ng-select>
-                <div class="invalid-feedback d-block" 
-                     *ngIf="allocationForm.get('userId')?.invalid && allocationForm.get('userId')?.touched">
-                  Employee is required
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Allocated Hours *</label>
-                <input type="number" class="form-control" formControlName="allocatedHours" 
-                       min="1" max="67.5" step="0.5" placeholder="Enter hours">
-                <div class="form-text">Standard: 45 hours (9 hrs/day × 5 days). Max: 67.5 hours (reasonable overtime)</div>
-                <div class="invalid-feedback" 
-                     *ngIf="allocationForm.get('allocatedHours')?.invalid && allocationForm.get('allocatedHours')?.touched">
-                  Please enter valid hours (1-67.5)
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-md-6">
-              <div class="mb-3">
                 <label class="form-label">Week Start Date *</label>
                 <input 
                   type="date" 
@@ -403,7 +369,7 @@
                   formControlName="weekStartDate"
                   [disabled]="!!editingAllocation()">
                 <div class="form-text">
-                  Select the Monday that starts the work week
+                  Select the Sunday that starts the work week
                   <div *ngIf="allocationForm.get('weekStartDate')?.value" class="mt-1">
                     <small class="text-primary">
                       Week: {{ allocationForm.get('weekStartDate')?.value | date:'mediumDate' }} - 
@@ -418,12 +384,110 @@
               </div>
             </div>
           </div>
+
+          <!-- Employee Selection Section -->
+          <div *ngIf="!editingAllocation()" class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0">Employee Allocations</h6>
+              <div class="d-flex align-items-center gap-3">
+                <ng-select 
+                  [ngModel]="selectedEmployeeForDropdown()"
+                  (ngModelChange)="onEmployeeAdd($event)"
+                  [ngModelOptions]="{standalone: true}"
+                  placeholder="Search and select an employee to add..."
+                  [clearable]="true"
+                  [searchable]="true"
+                  bindLabel="userName"
+                  bindValue="userId"
+                  [items]="availableEmployeesForSelection()"
+                  style="width: 300px;">
+                  <ng-option *ngFor="let employee of availableEmployeesForSelection()" [value]="employee.userId">
+                    <span>{{ employee.userName }} <small class="text-muted">({{ employee.role }})</small></span>
+                  </ng-option>
+                </ng-select>
+              </div>
+            </div>
+
+            <!-- Selected Employees Table -->
+            <div *ngIf="selectedEmployeeAllocations().length > 0" class="table-responsive">
+              <table class="table table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>Employee Name</th>
+                    <th style="width: 200px;">Allocated Hours</th>
+                    <th style="width: 100px;" class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let employee of selectedEmployeeAllocations(); trackBy: trackByUserId">
+                    <td>
+                      <div class="fw-medium">{{ employee.userName }}</div>
+                    </td>
+                    <td>
+                      <input 
+                        type="number" 
+                        class="form-control" 
+                        [value]="employee.allocatedHours"
+                        (input)="updateEmployeeHours(employee.userId, +$any($event.target).value)"
+                        min="0" 
+                        placeholder="Hours">
+                      <!-- <div class="form-text small">Min: 0h</div> -->
+                    </td>
+                    <td class="text-center">
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-outline-danger"
+                        (click)="removeEmployeeAllocation(employee.userId)"
+                        title="Remove employee">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- No employees selected message -->
+            <div *ngIf="selectedEmployeeAllocations().length === 0" class="text-center p-4 border border-dashed rounded">
+              <i class="bi bi-person-plus fs-1 text-muted"></i>
+              <p class="text-muted mt-2 mb-0">No employees selected. Use the dropdown above to add employees for allocation.</p>
+            </div>
+          </div>
+
+          <!-- Edit Mode: Single Employee -->
+          <div *ngIf="editingAllocation() && selectedEmployeeAllocations().length > 0" class="mb-4">
+            <h6 class="mb-3">Employee Allocation</h6>
+            <div class="card">
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-md-6">
+                    <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
+                    <small class="text-muted">Employee</small>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Allocated Hours</label>
+                    <input 
+                      type="number" 
+                      class="form-control" 
+                      [value]="selectedEmployeeAllocations()[0].allocatedHours"
+                      (input)="updateEmployeeHours(selectedEmployeeAllocations()[0].userId, +$any($event.target).value)"
+                      min="0" 
+                      placeholder="Hours">
+                    <div class="form-text">Enter allocation hours for this employee</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="allocationForm.invalid">
-            {{ editingAllocation() ? 'Update Allocation' : 'Create Allocation' }}
+          <button 
+            type="submit" 
+            class="btn btn-primary" 
+            [disabled]="allocationForm.invalid || selectedEmployeeAllocations().length === 0">
+            {{ editingAllocation() ? 'Update Allocation' : 'Create Allocation(s)' }}
           </button>
         </div>
       </form>

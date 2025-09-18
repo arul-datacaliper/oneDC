@@ -104,19 +104,19 @@ export class AllocationService {
     return this.http.get<{userId: string, userName: string, role: string}[]>(`${this.apiUrl}/available-employees`);
   }
 
-  // Helper method to get week start date
+  // Helper method to get week start date (Sunday)
   getWeekStartDate(date: Date): string {
     const startOfWeek = new Date(date);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-    startOfWeek.setDate(diff);
+    const day = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    // Calculate days to go back to reach Sunday
+    startOfWeek.setDate(startOfWeek.getDate() - day);
     return startOfWeek.toISOString().split('T')[0];
   }
 
-  // Helper method to get week end date
+  // Helper method to get week end date (Saturday, 6 days after Sunday)
   getWeekEndDate(weekStartDate: string): string {
     const endDate = new Date(weekStartDate);
-    endDate.setDate(endDate.getDate() + 6);
+    endDate.setDate(endDate.getDate() + 6); // Sunday + 6 = Saturday
     return endDate.toISOString().split('T')[0];
   }
 }
