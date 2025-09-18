@@ -11,6 +11,7 @@ public class Project
   public Guid? DefaultApprover { get; set; }
   public DateOnly? StartDate { get; set; }
   public DateOnly? EndDate { get; set; }
+  public DateOnly? PlannedReleaseDate { get; set; }
   public decimal? BudgetHours { get; set; }
   public decimal? BudgetCost { get; set; }
   public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

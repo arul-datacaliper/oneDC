@@ -452,4 +452,19 @@ export class EmployeesComponent implements OnInit {
     parts.push(address.zipCode);
     return parts.join(', ');
   }
+
+  // Format flattened address fields from API
+  formatFlatAddress(
+    line1?: string, 
+    line2?: string, 
+    city?: string, 
+    state?: string, 
+    country?: string, 
+    zipCode?: string
+  ): string {
+    const parts = [line1, line2, city, state, country, zipCode]
+      .filter(part => part && part.trim());
+    
+    return parts.length > 0 ? parts.join(', ') : 'No address on file';
+  }
 }

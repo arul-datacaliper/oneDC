@@ -37,6 +37,12 @@ public class ProjectsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] Project project)
     {
+        // Debug logging to see what data is received
+        Console.WriteLine($"Update Project - ID: {id}");
+        Console.WriteLine($"Project Data - Code: {project.Code}, Name: {project.Name}");
+        Console.WriteLine($"Project Data - StartDate: {project.StartDate}, EndDate: {project.EndDate}");
+        Console.WriteLine($"Project Data - PlannedReleaseDate: {project.PlannedReleaseDate}");
+        
         project.ProjectId = id; // Ensure the ID matches the route
         var updated = await _svc.UpdateAsync(project);
         return updated is null ? NotFound() : Ok(updated);

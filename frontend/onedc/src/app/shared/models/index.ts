@@ -58,8 +58,22 @@ export interface Employee {
   workEmail: string;
   contactNumber?: string;
   emergencyContactNumber?: string;
+  // Nested address objects (for form compatibility)
   presentAddress?: Address;
   permanentAddress?: Address;
+  // Flattened address fields (from API)
+  presentAddressLine1?: string;
+  presentAddressLine2?: string;
+  presentCity?: string;
+  presentState?: string;
+  presentCountry?: string;
+  presentZipCode?: string;
+  permanentAddressLine1?: string;
+  permanentAddressLine2?: string;
+  permanentCity?: string;
+  permanentState?: string;
+  permanentCountry?: string;
+  permanentZipCode?: string;
   isActive: boolean;
   managerId?: string;
   lastLoginAt?: string;
@@ -76,6 +90,7 @@ export interface Project {
   defaultApprover?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
+  plannedReleaseDate?: string; // YYYY-MM-DD
   budgetHours?: number;
   budgetCost?: number;
   createdAt?: string;

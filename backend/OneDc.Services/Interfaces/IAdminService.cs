@@ -6,6 +6,7 @@ public interface IAdminService
 {
     Task<AdminDashboardMetrics> GetDashboardMetricsAsync();
     Task<IEnumerable<TopProjectMetrics>> GetTopProjectsWithHighTasksAsync(int limit = 10);
+    Task<IEnumerable<ProjectReleaseInfo>> GetProjectsWithReleaseInfoAsync(int limit = 10);
 }
 
 public class AdminDashboardMetrics
@@ -28,5 +29,14 @@ public class TopProjectMetrics
     public int TotalTasksCount { get; set; }
     public double UtilizationPercentage { get; set; }
     public bool IsBillable { get; set; }
+    public string Status { get; set; } = string.Empty;
+}
+
+public class ProjectReleaseInfo
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string ManagerName { get; set; } = string.Empty;
+    public DateOnly? PlannedReleaseDate { get; set; }
     public string Status { get; set; } = string.Empty;
 }

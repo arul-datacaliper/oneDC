@@ -48,4 +48,23 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = "Error retrieving top projects", error = ex.Message });
         }
     }
+
+    [HttpGet("projects-release-info")]
+    public async Task<IActionResult> GetProjectsWithReleaseInfo([FromQuery] int limit = 10)
+    {
+        try
+        {
+            if (limit <= 0 || limit > 50)
+            {
+                limit = 10;
+            }
+
+            var projectsReleaseInfo = await _adminService.GetProjectsWithReleaseInfoAsync(limit);
+            return Ok(projectsReleaseInfo);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving projects release info", error = ex.Message });
+        }
+    }
 }

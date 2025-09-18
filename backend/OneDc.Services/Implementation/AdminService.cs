@@ -84,4 +84,29 @@ public class AdminService : IAdminService
 
         return projectMetrics;
     }
+
+    public async Task<IEnumerable<ProjectReleaseInfo>> GetProjectsWithReleaseInfoAsync(int limit = 10)
+    {
+        var projectsReleaseInfo = await _context.Projects
+            .Where(p => p.Status.ToLower() == "active")
+            .OrderBy(p => p.PlannedReleaseDate.HasValue ? p.PlannedReleaseDate : DateOnly.MaxValue)
+            .ThenBy(p => p.Name)
+            .Take(limit)
+            .Select(p => new ProjectReleaseInfo
+            {
+                ProjectId = p.ProjectId,
+                ProjectName = p.Name,
+                PlannedReleaseDate = p.PlannedReleaseDate,
+                Status = p.Status,
+                ManagerName = p.DefaultApprover.HasValue 
+                    ? _context.AppUsers
+                        .Where(u => u.UserId == p.DefaultApprover.Value)
+                        .Select(u => u.FirstName + " " + u.LastName)
+                        .FirstOrDefault() ?? "Not Assigned"
+                    : "Not Assigned"
+            })
+            .ToListAsync();
+
+        return projectsReleaseInfo;
+    }
 }

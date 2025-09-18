@@ -36,6 +36,7 @@ public class ProjectService : IProjectService
         existing.DefaultApprover = project.DefaultApprover;
         existing.StartDate = project.StartDate;
         existing.EndDate = project.EndDate;
+        existing.PlannedReleaseDate = project.PlannedReleaseDate;
         existing.BudgetHours = project.BudgetHours;
         existing.BudgetCost = project.BudgetCost;
 

@@ -58,6 +58,7 @@
             <th scope="col">Budget</th>
             <th scope="col">Start Date</th>
             <th scope="col">End Date</th>
+            <th scope="col">Planned Release</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -96,6 +97,9 @@
             </td>
             <td>
               {{ project.endDate || '-' }}
+            </td>
+            <td>
+              {{ project.plannedReleaseDate || '-' }}
             </td>
             <td>
               <div class="btn-group" role="group">
@@ -267,6 +271,15 @@
             <div class="col-md-6">
               <label class="form-label">End Date</label>
               <input type="date" class="form-control" formControlName="endDate">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Planned Release Date</label>
+              <input type="date" class="form-control" formControlName="plannedReleaseDate">
+            </div>
+
+            <div class="col-md-6">
+              <!-- Placeholder for alignment -->
             </div>
 
             <!-- Budget Information -->

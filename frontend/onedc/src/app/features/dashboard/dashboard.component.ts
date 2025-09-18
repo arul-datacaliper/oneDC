@@ -2,7 +2,7 @@ import { Component, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { AdminService, AdminDashboardMetrics, TopProjectMetrics } from '../../core/services/admin.service';
+import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
 
 export interface TimesheetEntry {
@@ -28,6 +28,7 @@ export class DashboardComponent implements OnInit {
   // Admin dashboard data
   adminMetrics: AdminDashboardMetrics | null = null;
   topProjects: TopProjectMetrics[] = [];
+  projectsWithReleaseInfo: ProjectReleaseInfo[] = [];
   
   // Employee dashboard data
   employeeMetrics: EmployeeDashboardMetrics | null = null;
@@ -41,6 +42,7 @@ export class DashboardComponent implements OnInit {
   // Loading states
   isLoadingAdminMetrics = false;
   isLoadingTopProjects = false;
+  isLoadingProjectsReleaseInfo = false;
   isLoadingEmployeeData = false;
 
   // Computed property to check if user is admin
@@ -66,6 +68,7 @@ export class DashboardComponent implements OnInit {
   private loadAdminDashboard() {
     this.loadAdminMetrics();
     this.loadTopProjects();
+    this.loadProjectsWithReleaseInfo();
   }
 
   private loadAdminMetrics() {
@@ -92,6 +95,20 @@ export class DashboardComponent implements OnInit {
       error: (error: any) => {
         console.error('Error loading top projects:', error);
         this.isLoadingTopProjects = false;
+      }
+    });
+  }
+
+  private loadProjectsWithReleaseInfo() {
+    this.isLoadingProjectsReleaseInfo = true;
+    this.adminService.getProjectsWithReleaseInfo().subscribe({
+      next: (projects: ProjectReleaseInfo[]) => {
+        this.projectsWithReleaseInfo = projects;
+        this.isLoadingProjectsReleaseInfo = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading projects with release info:', error);
+        this.isLoadingProjectsReleaseInfo = false;
       }
     });
   }
@@ -272,7 +289,7 @@ export class DashboardComponent implements OnInit {
 
   // Loading state for admin section
   adminLoading(): boolean {
-    return this.isLoadingAdminMetrics || this.isLoadingTopProjects;
+    return this.isLoadingAdminMetrics || this.isLoadingTopProjects || this.isLoadingProjectsReleaseInfo;
   }
 
   // Loading state for employee section
