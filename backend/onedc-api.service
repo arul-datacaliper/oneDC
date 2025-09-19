@@ -1,0 +1,20 @@
+[Unit]
+Description=OneDC API Service
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/opt/onedc-api/OneDc.Api
+Restart=always
+RestartSec=5
+TimeoutStopSec=90
+KillSignal=SIGINT
+SyslogIdentifier=onedc-api
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Staging
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+WorkingDirectory=/opt/onedc-api
+
+[Install]
+WantedBy=multi-user.target

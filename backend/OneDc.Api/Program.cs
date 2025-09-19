@@ -62,12 +62,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-
-
-
-
-
-
 // Controllers & Swagger
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
