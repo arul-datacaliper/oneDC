@@ -38,6 +38,16 @@ sudo chown -R $USER:$USER /var/www/onedc-frontend
 ```
 
 ### Step 3: Database Setup (Run on VM)
+
+**Note:** If your infra team provided a separate database host address, you can skip the local PostgreSQL installation and use the external database instead.
+
+#### Option A: Use External Database (Recommended if provided)
+If you have a separate database host, update your connection string in `appsettings.Production.json`:
+```json
+"OneDcDb": "Host=YOUR_DB_HOST_ADDRESS;Database=onedc_production;Username=your_db_user;Password=your_db_password;SSL Mode=Require"
+```
+
+#### Option B: Local PostgreSQL Setup
 ```bash
 # Switch to postgres user
 sudo -u postgres psql
@@ -61,7 +71,7 @@ On your **local machine**, create the production configuration files:
 ```json
 {
   "ConnectionStrings": {
-    "OneDcDb": "Host=localhost;Database=onedc_production;Username=onedc_user;Password=OneDC_Secure_2025!;SSL Mode=Prefer"
+    "OneDcDb": "Host=YOUR_DB_HOST_ADDRESS;Database=onedc_production;Username=onedc_user;Password=OneDC_Secure_2025!;SSL Mode=Prefer"
   },
   "Jwt": {
     "Key": "OneDC-Super-Secure-JWT-Key-256-Bit-Production-2025-Change-This-Key!",
@@ -79,12 +89,14 @@ On your **local machine**, create the production configuration files:
 }
 ```
 
+**IMPORTANT:** Replace `YOUR_DB_HOST_ADDRESS` with the actual database host address provided by your infra team.
+
 #### Update Frontend Environment
 Create `frontend/onedc/src/environments/environment.prod.ts`:
 ```typescript
 export const environment = {
   production: true,
-  apiUrl: 'http://135.233.176.35:5000/api',
+  apiUrl: '/api', // Relative path - Nginx will proxy API calls
   appName: 'OneDC - Time Tracking',
   version: '1.0.0'
 };
@@ -300,6 +312,90 @@ sudo netstat -tlnp | grep :80
 sudo systemctl restart onedc-api.service
 sudo systemctl restart nginx
 ```
+
+## Frontend Application Access
+
+### **How to Access Your Application:**
+
+1. **Main Application URL:**
+   ```
+   http://135.233.176.35
+   ```
+
+2. **What happens when you visit this URL:**
+   - Nginx serves your Angular frontend application
+   - API calls are automatically proxied to the backend
+   - Everything works seamlessly through a single URL
+
+3. **Application Flow:**
+   ```
+   User Browser → http://135.233.176.35 → Nginx → Angular App
+                                               ↓
+   API Calls → http://135.233.176.35/api → Nginx Proxy → Backend (port 5000)
+   ```
+
+4. **Default Login Credentials:**
+   - **Email:** `admin@yourcompany.com`
+   - **Password:** `YourSecurePassword123!`
+
+### **Testing Access:**
+
+```bash
+# Test frontend
+curl -I http://135.233.176.35
+# Should return 200 OK with HTML content
+
+# Test API through proxy
+curl http://135.233.176.35/api/health
+# Should return API health status
+
+# Test direct backend (for troubleshooting)
+curl http://135.233.176.35:5000/api/health
+# Should return same health status
+```
+
+### **Troubleshooting Access Issues:**
+
+If you can't access the application:
+
+1. **Check if services are running:**
+   ```bash
+   sudo systemctl status nginx
+   sudo systemctl status onedc-api.service
+   ```
+
+2. **Check firewall:**
+   ```bash
+   sudo ufw status
+   # Should show port 80 as allowed
+   ```
+
+3. **Check Nginx configuration:**
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. **Check logs:**
+   ```bash
+   sudo journalctl -u nginx.service -f
+   sudo journalctl -u onedc-api.service -f
+   ```
+
+### **Network Architecture:**
+
+```
+Internet → VM (135.233.176.35:80) → Nginx → Angular Frontend
+                                        ↓
+                         API Proxy → Backend (localhost:5000)
+                                        ↓
+                                   Database Host
+```
+
+### **URLs Summary:**
+- **Frontend Application:** `http://135.233.176.35`
+- **API Endpoints:** `http://135.233.176.35/api/*`
+- **Direct Backend (for troubleshooting):** `http://135.233.176.35:5000/api/*`
 
 ## Default Login Credentials
 

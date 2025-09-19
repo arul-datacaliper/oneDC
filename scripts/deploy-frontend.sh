@@ -18,7 +18,7 @@ if [ ! -f "src/environments/environment.prod.ts" ]; then
     cat > src/environments/environment.prod.ts << EOF
 export const environment = {
   production: true,
-  apiUrl: 'http://$VM_IP:5000/api',
+  apiUrl: '/api', // Relative path - Nginx will proxy API calls
   appName: 'OneDC - Time Tracking',
   version: '1.0.0'
 };
