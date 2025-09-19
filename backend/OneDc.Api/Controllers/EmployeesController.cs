@@ -335,9 +335,9 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            // Get assigned tasks count - using WeeklyAllocations as proxy for tasks
-            var allocations = await _context.WeeklyAllocations
-                .Where(wa => wa.UserId == userId && wa.Status == "ACTIVE")
+            // Get assigned tasks count from ProjectTasks table
+            var assignedTasksCount = await _context.ProjectTasks
+                .Where(pt => pt.AssignedUserId == userId)
                 .CountAsync();
 
             // Get timesheet data for hours calculation
@@ -352,7 +352,7 @@ public class EmployeesController : ControllerBase
 
             var metrics = new
             {
-                TotalAssignedTasks = allocations,
+                TotalAssignedTasks = assignedTasksCount,
                 TotalSubmittedHours = totalSubmittedHours,
                 TotalApprovedHours = totalApprovedHours
             };
@@ -370,27 +370,26 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            // Get weekly allocations as proxy for tasks
-            var allocations = await _context.WeeklyAllocations
-                .Include(wa => wa.Project)
-                .Include(wa => wa.User)
-                .Where(wa => wa.UserId == userId && wa.Status == "ACTIVE")
-                .OrderByDescending(wa => wa.WeekStartDate)
+            // Get actual assigned tasks from ProjectTasks table
+            var tasks = await _context.ProjectTasks
+                .Include(pt => pt.Project)
+                .Include(pt => pt.AssignedUser)
+                .Where(pt => pt.AssignedUserId == userId)
+                .OrderByDescending(pt => pt.CreatedAt)
                 .ToListAsync();
 
-            var result = allocations.Select(allocation => new
+            var result = tasks.Select(task => new
             {
-                TaskId = allocation.AllocationId.ToString(),
-                TaskName = $"Work on {allocation.Project?.Name ?? "Unknown Project"}",
-                ProjectName = allocation.Project?.Name ?? "Unknown Project",
-                Status = allocation.Status,
-                ManagerName = GetManagerName(allocation.Project?.DefaultApprover),
-                StartDate = allocation.WeekStartDate.ToString("yyyy-MM-dd"),
-                EndDate = allocation.WeekEndDate.ToString("yyyy-MM-dd"),
-                Description = $"Allocated {allocation.AllocatedHours} hours to work on {allocation.Project?.Name ?? "Unknown Project"}",
-                Priority = "Medium",
-                AllocatedHours = allocation.AllocatedHours,
-                UtilizationPercentage = allocation.UtilizationPercentage
+                TaskId = task.TaskId.ToString(),
+                TaskName = task.Title,
+                ProjectName = task.Project?.Name ?? "Unknown Project",
+                Status = task.Status.ToString(),
+                ManagerName = GetManagerName(task.Project?.DefaultApprover),
+                StartDate = task.StartDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.ToString("yyyy-MM-dd"),
+                EndDate = task.EndDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.AddDays(7).ToString("yyyy-MM-dd"),
+                Description = task.Description,
+                Priority = "Medium", // Default priority, can be enhanced later
+                EstimatedHours = task.EstimatedHours
             });
 
             return Ok(result);

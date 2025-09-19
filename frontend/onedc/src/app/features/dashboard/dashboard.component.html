@@ -421,9 +421,9 @@
               <p class="text-muted mt-2 mb-0">No tasks assigned</p>
             </div>
 
-            <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 0" class="table-responsive">
+            <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 0" class="table-responsive" style="max-height: 300px; overflow-y: auto;">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light sticky-top">
                   <tr>
                     <th class="border-0">Task Name</th>
                     <th class="border-0">Project</th>
@@ -432,7 +432,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let task of employeeTasks | slice:0:5">
+                  <tr *ngFor="let task of employeeTasks">
                     <td>
                       <div class="fw-medium">{{ task.taskName }}</div>
                       <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
@@ -447,6 +447,14 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+            
+            <!-- Task count indicator -->
+            <div *ngIf="!isLoadingEmployeeData && employeeTasks.length > 5" class="px-3 py-2 bg-light border-top">
+              <small class="text-muted">
+                <i class="bi bi-arrow-down-circle me-1"></i>
+                Showing {{ employeeTasks.length }} tasks - scroll to view all
+              </small>
             </div>
           </div>
         </div>
@@ -471,9 +479,9 @@
               <p class="text-muted mt-2 mb-0">No project utilization data available</p>
             </div>
 
-            <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive">
+            <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive" style="max-height: 300px; overflow-y: auto;">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light sticky-top">
                   <tr>
                     <th class="border-0">Project</th>
                     <th class="border-0 text-end">Allocated Hours</th>
@@ -482,7 +490,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let project of projectUtilization | slice:0:5">
+                  <tr *ngFor="let project of projectUtilization">
                     <td>
                       <div class="fw-medium">{{ project.projectName }}</div>
                     </td>
@@ -496,6 +504,14 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+            
+            <!-- Project count indicator -->
+            <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 5" class="px-3 py-2 bg-light border-top">
+              <small class="text-muted">
+                <i class="bi bi-arrow-down-circle me-1"></i>
+                Showing {{ projectUtilization.length }} projects - scroll to view all
+              </small>
             </div>
           </div>
         </div>
@@ -520,9 +536,9 @@
           <p class="text-muted mt-2 mb-0">No project utilization data available</p>
         </div>
 
-        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive">
+        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
           <table class="table table-hover mb-0">
-            <thead class="table-light">
+            <thead class="table-light sticky-top">
               <tr>
                 <th class="border-0">Project</th>
                 <th class="border-0 text-end">Allocated Hours</th>
@@ -559,6 +575,14 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        
+        <!-- Project count indicator for detailed table -->
+        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 6" class="px-3 py-2 bg-light border-top">
+          <small class="text-muted">
+            <i class="bi bi-arrow-down-circle me-1"></i>
+            Showing {{ projectUtilization.length }} projects - scroll to view all
+          </small>
         </div>
       </div>
     </div>

@@ -1,9 +1,10 @@
-import { Component, computed, OnInit, inject } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
+import { Subscription, filter } from 'rxjs';
 
 export interface TimesheetEntry {
   date: string;
@@ -19,11 +20,12 @@ export interface TimesheetEntry {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private adminService = inject(AdminService);
   private employeeService = inject(EmployeeService);
   private router = inject(Router);
+  private routerSubscription?: Subscription;
 
   // Admin dashboard data
   adminMetrics: AdminDashboardMetrics | null = null;
@@ -63,6 +65,31 @@ export class DashboardComponent implements OnInit {
   });
 
   ngOnInit() {
+    // Subscribe to router events to refresh dashboard when navigating back
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        if (event.url === '/dashboard' || event.url === '/') {
+          this.loadDashboardData();
+        }
+      });
+
+    this.loadDashboardData();
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+  }
+
+  @HostListener('window:focus', ['$event'])
+  onWindowFocus(event: any): void {
+    // Refresh dashboard data when window regains focus
+    this.refresh();
+  }
+
+  private loadDashboardData() {
     if (this.isAdmin()) {
       this.loadAdminDashboard();
     } else {
@@ -318,7 +345,19 @@ export class DashboardComponent implements OnInit {
 
   // Refresh data
   refresh(): void {
-    this.ngOnInit();
+    // Clear current data to show loading state
+    if (this.isAdmin()) {
+      this.adminMetrics = null;
+      this.topProjects = [];
+      this.projectsWithReleaseInfo = [];
+    } else {
+      this.employeeMetrics = null;
+      this.employeeTasks = [];
+      this.timesheetSummary = null;
+      this.projectUtilization = [];
+    }
+    
+    this.loadDashboardData();
   }
 
   // Navigation methods

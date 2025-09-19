@@ -2,6 +2,9 @@
 bin/
 obj/
 out/
+deploy/
+*.dll
+*.pdb
 *.user
 *.suo
 *.cache

@@ -15,4 +15,10 @@ public interface IComplianceRepository
     // Holiday and compliance methods
     Task<List<Holiday>> GetHolidaysAsync(DateOnly from, DateOnly to, string? region = null);
     Task<List<(Guid userId, DateOnly day, decimal hours)>> GetDailyTotalsAsync(DateOnly from, DateOnly to);
+    
+    // Holiday management methods
+    Task AddHolidayAsync(Holiday holiday);
+    Task<bool> UpdateHolidayAsync(Holiday holiday);
+    Task<bool> DeleteHolidayAsync(DateOnly date, string? region = null);
+    Task<int> BulkAddHolidaysAsync(List<Holiday> holidays);
 }

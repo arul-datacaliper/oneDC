@@ -8,6 +8,11 @@ export const ADMIN_ROUTES: Routes = [
     component: AdminComponent,
     canActivate: [adminGuard],
     children: [
+      // Holiday Management
+      { 
+        path: 'holidays', 
+        loadComponent: () => import('./holiday-management/holiday-management.component').then(m => m.HolidayManagementComponent)
+      },
       // Navigation aliases for dashboard KPI cards
       { path: 'projects', redirectTo: '/projects', pathMatch: 'full' },
       { path: 'clients', redirectTo: '/clients', pathMatch: 'full' },

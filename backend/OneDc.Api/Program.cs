@@ -597,12 +597,16 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         var demoProjectId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var internalProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333"); 
         var remapProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-        var employeeUser = users.First(u => u.Role == OneDc.Domain.Entities.UserRole.EMPLOYEE);
-        var employeeUserId = employeeUser.UserId;
+        // Get specific user IDs for task assignment
+        var adminUserId = Guid.Parse("59bd99db-9be0-4a55-a062-ecf8636896ad");
+        var approverUserId = Guid.Parse("f6f173b6-ac51-4944-9082-e670533438e9");
+        var developerUserId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+        var qaUserId = Guid.Parse("b2c3d4e5-f637-8901-bcde-f23456789012");
+        var uxUserId = Guid.Parse("c3d4e5f6-a7b8-9012-cdef-345678901234");
 
         var sampleTasks = new[]
         {
-            // DEMO Project Tasks
+            // DEMO Project Tasks - Assigned to different users
             new OneDc.Domain.Entities.ProjectTask
             {
                 TaskId = Guid.NewGuid(),
@@ -612,8 +616,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Frontend",
                 EstimatedHours = 16,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                AssignedUserId = employeeUserId,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = developerUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(7))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -623,9 +629,11 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Description = "Integrate with backend APIs",
                 Label = "Backend",
                 EstimatedHours = 12,
-                Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                AssignedUserId = employeeUserId,
-                CreatedAt = DateTimeOffset.UtcNow
+                Status = OneDc.Domain.Entities.TaskStatus.IN_PROGRESS,
+                AssignedUserId = developerUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(5))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -636,7 +644,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Database",
                 EstimatedHours = 8,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = adminUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(3))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -647,7 +658,24 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "QA",
                 EstimatedHours = 20,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = qaUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(5)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(12))
+            },
+            new OneDc.Domain.Entities.ProjectTask
+            {
+                TaskId = Guid.NewGuid(),
+                ProjectId = demoProjectId,
+                Title = "UX Design Review",
+                Description = "Review and improve user experience design",
+                Label = "UX",
+                EstimatedHours = 6,
+                Status = OneDc.Domain.Entities.TaskStatus.NEW,
+                AssignedUserId = uxUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(2))
             },
 
             // INTERNAL Project Tasks
@@ -659,8 +687,11 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Description = "Weekly team sync and planning",
                 Label = "Meeting",
                 EstimatedHours = 2,
-                Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                Status = OneDc.Domain.Entities.TaskStatus.COMPLETED,
+                AssignedUserId = approverUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-2)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(-1))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -670,8 +701,11 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Description = "Review and approve code changes",
                 Label = "Review",
                 EstimatedHours = 4,
-                Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                Status = OneDc.Domain.Entities.TaskStatus.IN_PROGRESS,
+                AssignedUserId = approverUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(2))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -682,7 +716,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Docs",
                 EstimatedHours = 6,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = developerUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(4))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -693,7 +730,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Process",
                 EstimatedHours = 10,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = adminUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(3)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(10))
             },
 
             // Remap Project Tasks
@@ -706,8 +746,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Migration",
                 EstimatedHours = 24,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                AssignedUserId = employeeUserId,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = developerUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(14))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -718,7 +760,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Design",
                 EstimatedHours = 18,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = uxUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(10))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -729,7 +774,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Performance",
                 EstimatedHours = 14,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = developerUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(2)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(9))
             },
             new OneDc.Domain.Entities.ProjectTask
             {
@@ -740,7 +788,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
                 Label = "Bug",
                 EstimatedHours = 16,
                 Status = OneDc.Domain.Entities.TaskStatus.NEW,
-                CreatedAt = DateTimeOffset.UtcNow
+                AssignedUserId = qaUserId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                StartDate = DateOnly.FromDateTime(DateTime.Now.AddDays(1)),
+                EndDate = DateOnly.FromDateTime(DateTime.Now.AddDays(8))
             }
         };
 
