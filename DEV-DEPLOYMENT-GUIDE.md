@@ -7,11 +7,11 @@
 
 Update the database host address in the development configuration:
 
-**File: `backend/OneDc.Api/appsettings.Development.Server.json`**
+**File: `backend/OneDc.Api/appsettings.Staging.json`**
 ```json
 {
   "ConnectionStrings": {
-    "OneDcDb": "Host=YOUR_ACTUAL_DB_HOST_ADDRESS;Database=onedc_development;Username=onedc_user;Password=OneDC_Dev_2025!;SSL Mode=Prefer"
+    "OneDcDb": "Host=YOUR_ACTUAL_DB_HOST_ADDRESS;Database=onedc_staging;Username=onedc_user;Password=OneDC_Staging_2025!;SSL Mode=Prefer"
   }
 }
 ```
@@ -24,7 +24,7 @@ Replace `YOUR_ACTUAL_DB_HOST_ADDRESS` with the database host provided by your in
 # Navigate to your project
 cd /Users/arul/oneDC/oneDC
 
-# 1. Update database host in appsettings.Development.Server.json
+# 1. Update database host in appsettings.Staging.json
 # 2. Build backend for development server
 cd backend && ../scripts/deploy-backend-dev.sh
 
@@ -81,7 +81,7 @@ RestartSec=10
 KillSignal=SIGINT
 SyslogIdentifier=onedc-api-dev
 User=www-data
-Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_ENVIRONMENT=Staging
 Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
 WorkingDirectory=/var/www/onedc-api
 

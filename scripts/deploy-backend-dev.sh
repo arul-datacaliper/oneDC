@@ -26,14 +26,14 @@ dotnet restore
 echo "Building and publishing application..."
 dotnet publish $PROJECT_NAME -c $BUILD_CONFIGURATION -o $PUBLISH_DIR
 
-# Use development server configuration
-echo "Copying development server configuration..."
-if [ -f "$PROJECT_NAME/appsettings.Development.Server.json" ]; then
-    cp $PROJECT_NAME/appsettings.Development.Server.json $PUBLISH_DIR/appsettings.Production.json
-    echo "✅ Development server config copied"
+# Use staging configuration for development server
+echo "Copying staging configuration..."
+if [ -f "$PROJECT_NAME/appsettings.Staging.json" ]; then
+    cp $PROJECT_NAME/appsettings.Staging.json $PUBLISH_DIR/
+    echo "✅ Staging config copied"
 else
-    echo "❌ ERROR: appsettings.Development.Server.json not found!"
-    echo "Please update the database host address in appsettings.Development.Server.json"
+    echo "❌ ERROR: appsettings.Staging.json not found!"
+    echo "Please update the database host address in appsettings.Staging.json"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ cd ..
 echo "✅ Backend deployment package ready: onedc-backend-dev.tar.gz"
 echo ""
 echo "🚀 Next steps for DEVELOPMENT deployment:"
-echo "1. Update DB host in appsettings.Development.Server.json"
+echo "1. Update DB host in appsettings.Staging.json"
 echo "2. Upload to VM: scp onedc-backend-dev.tar.gz username@$VM_IP:~/"
 echo "3. SSH to VM: ssh username@$VM_IP"
 echo "4. Extract: tar -xzf onedc-backend-dev.tar.gz -C /var/www/onedc-api/"

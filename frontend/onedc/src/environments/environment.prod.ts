@@ -1,6 +1,6 @@
 export const environment = {
-  production: true,
-  apiUrl: '/api', // Using relative path since Nginx will proxy API calls
-  appName: 'OneDC - Time Tracking', 
-  version: '1.0.0'
+  production: false,
+  apiUrl: '/api',
+  appName: 'OneDC - Time Tracking (Development)',
+  version: '1.0.0-dev'
 };
