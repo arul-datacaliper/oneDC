@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
+using OneDc.Services.Interfaces;
 
 namespace OneDc.Api.Controllers;
 
@@ -12,7 +13,13 @@ namespace OneDc.Api.Controllers;
 public class TasksController : ControllerBase
 {
     private readonly OneDcDbContext _db;
-    public TasksController(OneDcDbContext db) => _db = db;
+    private readonly IEmailService _emailService;
+    
+    public TasksController(OneDcDbContext db, IEmailService emailService)
+    {
+        _db = db;
+        _emailService = emailService;
+    }
 
     // GET /api/projects/{projectId}/tasks
     [HttpGet("projects/{projectId:guid}/tasks")] 
@@ -86,6 +93,36 @@ public class TasksController : ControllerBase
         };
         _db.ProjectTasks.Add(entity);
         await _db.SaveChangesAsync();
+
+        // Send email notification if task is assigned to someone
+        if (req.AssignedUserId.HasValue)
+        {
+            try
+            {
+                var assignee = await _db.AppUsers.FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+                var project = await _db.Projects.FirstOrDefaultAsync(p => p.ProjectId == projectId);
+                
+                if (assignee != null && project != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                {
+                    var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
+                    await _emailService.SendTaskAssignmentNotificationAsync(
+                        assignee.WorkEmail,
+                        assigneeName,
+                        entity.Title,
+                        entity.Description ?? "",
+                        project.Name,
+                        entity.StartDate,
+                        entity.EndDate
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the task creation
+                Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+            }
+        }
+
         return CreatedAtAction(nameof(Get), new { taskId = entity.TaskId }, new { entity.TaskId });
     }
 
@@ -93,10 +130,17 @@ public class TasksController : ControllerBase
     [HttpPut("tasks/{taskId:guid}")]
     public async Task<IActionResult> Update(Guid taskId, UpdateTaskRequest req)
     {
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        var t = await _db.ProjectTasks
+            .Include(x => x.Project)
+            .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
             return BadRequest("EndDate must be after StartDate");
+
+        // Check if assignee changed
+        var previousAssigneeId = t.AssignedUserId;
+        var newAssigneeId = req.AssignedUserId;
+        var assigneeChanged = previousAssigneeId != newAssigneeId;
 
         t.Title = req.Title.Trim();
         t.Description = req.Description?.Trim();
@@ -108,6 +152,35 @@ public class TasksController : ControllerBase
         t.Status = req.Status;
         t.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Send email notification if task assignee changed and is now assigned to someone
+        if (assigneeChanged && req.AssignedUserId.HasValue)
+        {
+            try
+            {
+                var assignee = await _db.AppUsers.FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+                
+                if (assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                {
+                    var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
+                    await _emailService.SendTaskAssignmentNotificationAsync(
+                        assignee.WorkEmail,
+                        assigneeName,
+                        t.Title,
+                        t.Description ?? "",
+                        t.Project?.Name ?? "Unknown Project",
+                        t.StartDate,
+                        t.EndDate
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the task update
+                Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+            }
+        }
+
         return NoContent();
     }
 

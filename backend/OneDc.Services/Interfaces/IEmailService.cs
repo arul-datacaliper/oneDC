@@ -7,5 +7,6 @@ public interface IEmailService
     Task<bool> SendPasswordChangedNotificationAsync(string toEmail, string userName);
     Task<bool> SendManagerAssignmentNotificationAsync(string toEmail, string employeeName, string managerName, string managerEmail);
     Task<bool> SendNewTeamMemberNotificationAsync(string managerEmail, string managerName, string employeeName, string employeeEmail);
+    Task<bool> SendTaskAssignmentNotificationAsync(string assigneeEmail, string assigneeName, string taskTitle, string taskDescription, string projectName, DateOnly? startDate, DateOnly? endDate);
     Task<bool> SendEmailAsync(string toEmail, string subject, string htmlContent, string? plainTextContent = null);
 }

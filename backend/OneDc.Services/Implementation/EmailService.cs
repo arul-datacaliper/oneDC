@@ -444,4 +444,122 @@ If you have questions, contact your system administrator.
 
         return await SendEmailAsync(managerEmail, subject, htmlContent, plainTextContent);
     }
+
+    public async Task<bool> SendTaskAssignmentNotificationAsync(string assigneeEmail, string assigneeName, string taskTitle, string taskDescription, string projectName, DateOnly? startDate, DateOnly? endDate)
+    {
+        var subject = "New Task Assigned - OneDC";
+        
+        var formatDate = (DateOnly? date) => date?.ToString("MMMM dd, yyyy") ?? "Not specified";
+        var startDateStr = formatDate(startDate);
+        var endDateStr = formatDate(endDate);
+        
+        var htmlContent = $@"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>New Task Assignment</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 30px; background-color: #f9f9f9; }}
+                .task-details {{ background-color: #e3f2fd; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #007bff; }}
+                .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
+                .button {{ display: inline-block; padding: 12px 25px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }}
+                h2 {{ color: #007bff; }}
+                .task-title {{ font-size: 18px; font-weight: bold; color: #007bff; margin-bottom: 10px; }}
+                .detail-row {{ margin: 8px 0; }}
+                .detail-label {{ font-weight: bold; color: #555; }}
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>OneDC - New Task Assignment</h1>
+                </div>
+                
+                <div class='content'>
+                    <h2>Hello {assigneeName},</h2>
+                    
+                    <p>You have been assigned a new task in the OneDC system. Please review the details below and begin work as appropriate.</p>
+                    
+                    <div class='task-details'>
+                        <div class='task-title'>{taskTitle}</div>
+                        
+                        <div class='detail-row'>
+                            <span class='detail-label'>Project:</span> {projectName}
+                        </div>
+                        
+                        {(string.IsNullOrEmpty(taskDescription) ? "" : $@"
+                        <div class='detail-row'>
+                            <span class='detail-label'>Description:</span><br>
+                            <div style='margin-top: 5px; padding: 10px; background-color: white; border-radius: 3px;'>
+                                {taskDescription.Replace("\n", "<br>")}
+                            </div>
+                        </div>")}
+                        
+                        <div class='detail-row'>
+                            <span class='detail-label'>Start Date:</span> {startDateStr}
+                        </div>
+                        
+                        <div class='detail-row'>
+                            <span class='detail-label'>End Date:</span> {endDateStr}
+                        </div>
+                    </div>
+                    
+                    <p>Next steps:</p>
+                    <ul>
+                        <li>Review the task details and requirements</li>
+                        <li>Update the task status as you make progress</li>
+                        <li>Log your time using the timesheet feature</li>
+                        <li>Reach out to your project manager if you have questions</li>
+                        <li>Set the task to 'Completed' when finished</li>
+                    </ul>
+                    
+                    <a href='{_emailConfig.BaseUrl}' class='button'>View Task in OneDC</a>
+                    
+                    <p>Best regards,<br>
+                    The OneDC Team</p>
+                </div>
+                
+                <div class='footer'>
+                    <p>This is an automated notification from OneDC. Please do not reply to this email.</p>
+                    <p>If you have questions about this task, contact your project manager or system administrator.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
+
+        var plainTextContent = $@"
+Hello {assigneeName},
+
+You have been assigned a new task in the OneDC system. Please review the details below and begin work as appropriate.
+
+Task Details:
+Title: {taskTitle}
+Project: {projectName}
+{(string.IsNullOrEmpty(taskDescription) ? "" : $"Description: {taskDescription}")}
+Start Date: {startDateStr}
+End Date: {endDateStr}
+
+Next steps:
+- Review the task details and requirements
+- Update the task status as you make progress
+- Log your time using the timesheet feature
+- Reach out to your project manager if you have questions
+- Set the task to 'Completed' when finished
+
+View Task in OneDC: {_emailConfig.BaseUrl}
+
+Best regards,
+The OneDC Team
+
+This is an automated notification from OneDC. Please do not reply to this email.
+If you have questions about this task, contact your project manager or system administrator.
+        ";
+
+        return await SendEmailAsync(assigneeEmail, subject, htmlContent, plainTextContent);
+    }
 }
