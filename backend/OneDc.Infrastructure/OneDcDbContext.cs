@@ -19,6 +19,7 @@ public class OneDcDbContext : DbContext
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserSkill> UserSkills => Set<UserSkill>();
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
+    public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -278,6 +279,51 @@ public class OneDcDbContext : DbContext
              .WithMany()
              .HasForeignKey(wa => wa.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ===== PasswordReset =====
+        b.Entity<PasswordReset>(entity =>
+        {
+            entity.ToTable("password_reset", "ts");
+            entity.HasKey(e => e.ResetId);
+            
+            entity.Property(e => e.ResetId)
+                .HasColumnName("reset_id");
+                
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id")
+                .IsRequired();
+                
+            entity.Property(e => e.Otp)
+                .HasColumnName("otp")
+                .HasMaxLength(6)
+                .IsRequired();
+                
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("created_at")
+                .IsRequired();
+                
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnName("expires_at")
+                .IsRequired();
+                
+            entity.Property(e => e.UsedAt)
+                .HasColumnName("used_at");
+                
+            entity.Property(e => e.IsUsed)
+                .HasColumnName("is_used")
+                .HasDefaultValue(false);
+            
+            // Foreign key relationship
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.Otp, e.UserId });
+            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 }

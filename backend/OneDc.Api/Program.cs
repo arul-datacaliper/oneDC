@@ -4,6 +4,8 @@ using OneDc.Repository.Interfaces;
 using OneDc.Repository.Implementation;
 using OneDc.Services.Interfaces;
 using OneDc.Services.Implementation;
+using OneDc.Infrastructure.Repositories.Interfaces;
+using OneDc.Infrastructure.Repositories.Implementation;
 using Microsoft.OpenApi.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -13,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using OneDc.Api.JsonConverters;
 using System.Security.Cryptography;
+using SendGrid.Extensions.DependencyInjection;
 
 
 
@@ -44,6 +47,18 @@ builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+
+// Password Reset Services
+builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IPasswordResetRepository, OneDc.Infrastructure.Repositories.Implementation.PasswordResetRepository>();
+builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IUserRepository, OneDc.Infrastructure.Repositories.Implementation.UserRepository>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+// SendGrid Email Service
+builder.Services.AddSendGrid(options =>
+{
+    options.ApiKey = builder.Configuration["SendGrid:ApiKey"] ?? "";
+});
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -416,109 +431,13 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
         },
         
         // Developer user
-        new OneDc.Domain.Entities.AppUser
-        {
-            UserId = Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"),
-            Email = "developer@onedc.local",
-            WorkEmail = "developer@onedc.local",
-            FirstName = "John",
-            LastName = "Developer",
-            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
-            JobTitle = "Senior Software Developer",
-            Department = "Engineering",
-            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
-            Gender = OneDc.Domain.Entities.Gender.MALE,
-            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddYears(-1)),
-            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-28)),
-            ContactNumber = "+1-555-0301",
-            EmergencyContactNumber = "+1-555-0302",
-            PersonalEmail = "john.dev@gmail.com",
-            PresentAddressLine1 = "789 Developer Drive",
-            PresentAddressLine2 = "Unit 5B",
-            PresentCity = "Austin",
-            PresentState = "TX",
-            PresentCountry = "USA",
-            PresentZipCode = "73301",
-            PermanentAddressLine1 = "789 Developer Drive",
-            PermanentAddressLine2 = "Unit 5B",
-            PermanentCity = "Austin",
-            PermanentState = "TX",
-            PermanentCountry = "USA",
-            PermanentZipCode = "73301",
-            IsActive = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-            PasswordHash = HashPassword("password123")
-        },
+       
         
         // QA user
-        new OneDc.Domain.Entities.AppUser
-        {
-            UserId = Guid.Parse("b2c3d4e5-f637-8901-bcde-f23456789012"),
-            Email = "qa@onedc.local",
-            WorkEmail = "qa@onedc.local",
-            FirstName = "Jane",
-            LastName = "Tester",
-            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
-            JobTitle = "Quality Assurance Engineer",
-            Department = "Engineering",
-            EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
-            Gender = OneDc.Domain.Entities.Gender.FEMALE,
-            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-8)),
-            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-26)),
-            ContactNumber = "+1-555-0401",
-            EmergencyContactNumber = "+1-555-0402",
-            PersonalEmail = "jane.tester@gmail.com",
-            PresentAddressLine1 = "321 Quality Street",
-            PresentAddressLine2 = "",
-            PresentCity = "Seattle",
-            PresentState = "WA",
-            PresentCountry = "USA",
-            PresentZipCode = "98101",
-            PermanentAddressLine1 = "654 Testing Boulevard",
-            PermanentAddressLine2 = "Apt 12C",
-            PermanentCity = "Portland",
-            PermanentState = "OR",
-            PermanentCountry = "USA",
-            PermanentZipCode = "97201",
-            IsActive = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-            PasswordHash = HashPassword("password123")
-        },
+       
         
         // UX user
-        new OneDc.Domain.Entities.AppUser
-        {
-            UserId = Guid.Parse("c3d4e5f6-a7b8-9012-cdef-345678901234"),
-            Email = "ux@onedc.local",
-            WorkEmail = "ux@onedc.local",
-            FirstName = "Alex",
-            LastName = "Designer",
-            Role = OneDc.Domain.Entities.UserRole.EMPLOYEE,
-            JobTitle = "UX/UI Designer",
-            Department = "Design",
-            EmployeeType = OneDc.Domain.Entities.EmployeeType.CONTRACT,
-            Gender = OneDc.Domain.Entities.Gender.OTHER,
-            DateOfJoining = DateOnly.FromDateTime(DateTime.Now.AddMonths(-6)),
-            DateOfBirth = DateOnly.FromDateTime(DateTime.Now.AddYears(-29)),
-            ContactNumber = "+1-555-0501",
-            EmergencyContactNumber = "+1-555-0502",
-            PersonalEmail = "alex.designer@gmail.com",
-            PresentAddressLine1 = "987 Design Plaza",
-            PresentAddressLine2 = "Floor 15",
-            PresentCity = "Chicago",
-            PresentState = "IL",
-            PresentCountry = "USA",
-            PresentZipCode = "60601",
-            PermanentAddressLine1 = "987 Design Plaza",
-            PermanentAddressLine2 = "Floor 15",
-            PermanentCity = "Chicago",
-            PermanentState = "IL",
-            PermanentCountry = "USA",
-            PermanentZipCode = "60601",
-            IsActive = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-            PasswordHash = HashPassword("password123")
-        }
+       
     };
     
     // Add all users
