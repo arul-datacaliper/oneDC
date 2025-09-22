@@ -19,6 +19,7 @@ public class OneDcDbContext : DbContext
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserSkill> UserSkills => Set<UserSkill>();
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
+    public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -30,10 +31,38 @@ public class OneDcDbContext : DbContext
         {
             e.ToTable("app_user");
             e.HasKey(x => x.UserId);
+            e.Property(x => x.EmployeeId).HasMaxLength(20);
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.FirstName).HasMaxLength(80).IsRequired();
             e.Property(x => x.LastName).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Gender);
+            e.Property(x => x.DateOfBirth);
+            e.Property(x => x.DateOfJoining);
+            e.Property(x => x.JobTitle).HasMaxLength(100);
             e.Property(x => x.Role).IsRequired();
+            e.Property(x => x.Department).HasMaxLength(100);
+            e.Property(x => x.EmployeeType).IsRequired();
+            e.Property(x => x.PersonalEmail).HasMaxLength(150);
+            e.Property(x => x.WorkEmail).HasMaxLength(150).IsRequired();
+            e.Property(x => x.ContactNumber).HasMaxLength(30);
+            e.Property(x => x.EmergencyContactNumber).HasMaxLength(30);
+            
+            // Present Address
+            e.Property(x => x.PresentAddressLine1).HasMaxLength(200);
+            e.Property(x => x.PresentAddressLine2).HasMaxLength(200);
+            e.Property(x => x.PresentCity).HasMaxLength(80);
+            e.Property(x => x.PresentState).HasMaxLength(80);
+            e.Property(x => x.PresentCountry).HasMaxLength(80);
+            e.Property(x => x.PresentZipCode).HasMaxLength(20);
+            
+            // Permanent Address
+            e.Property(x => x.PermanentAddressLine1).HasMaxLength(200);
+            e.Property(x => x.PermanentAddressLine2).HasMaxLength(200);
+            e.Property(x => x.PermanentCity).HasMaxLength(80);
+            e.Property(x => x.PermanentState).HasMaxLength(80);
+            e.Property(x => x.PermanentCountry).HasMaxLength(80);
+            e.Property(x => x.PermanentZipCode).HasMaxLength(20);
+            
             e.Property(x => x.IsActive).IsRequired();
             e.Property(x => x.CreatedAt).IsRequired();
             e.Property(x => x.PasswordHash).HasMaxLength(600);
@@ -49,6 +78,13 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
             e.Property(x => x.Code).HasMaxLength(30);
             e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.ContactPerson).HasMaxLength(100);
+            e.Property(x => x.Email).HasMaxLength(150);
+            e.Property(x => x.ContactNumber).HasMaxLength(30);
+            e.Property(x => x.Country).HasMaxLength(80);
+            e.Property(x => x.State).HasMaxLength(80);
+            e.Property(x => x.City).HasMaxLength(80);
+            e.Property(x => x.ZipCode).HasMaxLength(20);
             e.HasIndex(x => x.Code).IsUnique();
         });
 
@@ -105,7 +141,7 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Hours).HasPrecision(4, 2);
             e.Property(x => x.Status).IsRequired();
             e.Property(x => x.TaskType).IsRequired();
-            e.Property<Guid?>("TaskId"); // shadow property if not added to entity yet
+            e.Property(x => x.TaskId).HasColumnName("task_id"); // Map TaskId to task_id column
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -121,6 +157,12 @@ public class OneDcDbContext : DbContext
              .WithMany()
              .HasForeignKey(t => t.UserId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            // 🔗 Timesheet → Task (optional)
+            e.HasOne(t => t.Task)
+             .WithMany()
+             .HasForeignKey(t => t.TaskId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         // ===== Holiday =====
@@ -237,6 +279,51 @@ public class OneDcDbContext : DbContext
              .WithMany()
              .HasForeignKey(wa => wa.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ===== PasswordReset =====
+        b.Entity<PasswordReset>(entity =>
+        {
+            entity.ToTable("password_reset", "ts");
+            entity.HasKey(e => e.ResetId);
+            
+            entity.Property(e => e.ResetId)
+                .HasColumnName("reset_id");
+                
+            entity.Property(e => e.UserId)
+                .HasColumnName("user_id")
+                .IsRequired();
+                
+            entity.Property(e => e.Otp)
+                .HasColumnName("otp")
+                .HasMaxLength(6)
+                .IsRequired();
+                
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("created_at")
+                .IsRequired();
+                
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnName("expires_at")
+                .IsRequired();
+                
+            entity.Property(e => e.UsedAt)
+                .HasColumnName("used_at");
+                
+            entity.Property(e => e.IsUsed)
+                .HasColumnName("is_used")
+                .HasDefaultValue(false);
+            
+            // Foreign key relationship
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.Otp, e.UserId });
+            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 }

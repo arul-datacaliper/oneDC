@@ -36,7 +36,7 @@
 }
 
 .stat-card {
-  border: 1px solid #e3e6f0;
+  border: 0px solid #e3e6f0 !important;
   border-radius: 0.5rem;
   box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
   transition: all 0.3s ease;
@@ -99,14 +99,58 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #e0f2fe;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #0277bd;
+  padding: 10px;
   font-weight: 600;
   font-size: 0.875rem;
   text-transform: uppercase;
+  border: 1px solid #b3e5fc;
+}
+
+// Make all avatar elements circular
+.avatar, .avatar-initials {
+  border-radius: 50% !important;
+  overflow: hidden;
+  background: #f3e5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7b1fa2;
+  padding: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid #e1bee7;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #ede7f6;
+    color: #512da8;
+  }
+}
+
+// Additional avatar styling for different sizes
+.avatar {
+  &.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+  }
+  
+  &.avatar-md {
+    width: 40px;
+    height: 40px;
+    font-size: 0.875rem;
+  }
+  
+  &.avatar-lg {
+    width: 60px;
+    height: 60px;
+    font-size: 1.25rem;
+  }
 }
 
 .table-hover tbody tr:hover {

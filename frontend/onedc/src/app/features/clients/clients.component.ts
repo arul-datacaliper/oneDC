@@ -53,6 +53,13 @@ export class ClientsComponent implements OnInit {
     this.clientForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       code: ['', [Validators.maxLength(20)]],
+      contactPerson: ['', [Validators.maxLength(100)]],
+      email: ['', [Validators.email, Validators.maxLength(150)]],
+      contactNumber: ['', [Validators.maxLength(30)]],
+      country: ['', [Validators.maxLength(80)]],
+      state: ['', [Validators.maxLength(80)]],
+      city: ['', [Validators.maxLength(80)]],
+      zipCode: ['', [Validators.maxLength(20)]],
       status: ['ACTIVE', Validators.required]
     });
   }
@@ -85,7 +92,13 @@ export class ClientsComponent implements OnInit {
       const term = this.searchTerm().toLowerCase();
       filtered = filtered.filter(c => 
         c.name.toLowerCase().includes(term) || 
-        (c.code && c.code.toLowerCase().includes(term))
+        (c.code && c.code.toLowerCase().includes(term)) ||
+        (c.contactPerson && c.contactPerson.toLowerCase().includes(term)) ||
+        (c.email && c.email.toLowerCase().includes(term)) ||
+        (c.contactNumber && c.contactNumber.toLowerCase().includes(term)) ||
+        (c.country && c.country.toLowerCase().includes(term)) ||
+        (c.state && c.state.toLowerCase().includes(term)) ||
+        (c.city && c.city.toLowerCase().includes(term))
       );
     }
     
@@ -122,6 +135,13 @@ export class ClientsComponent implements OnInit {
     this.clientForm.patchValue({
       name: client.name,
       code: client.code || '',
+      contactPerson: client.contactPerson || '',
+      email: client.email || '',
+      contactNumber: client.contactNumber || '',
+      country: client.country || '',
+      state: client.state || '',
+      city: client.city || '',
+      zipCode: client.zipCode || '',
       status: client.status
     });
     this.showModal.set(true);
@@ -142,6 +162,13 @@ export class ClientsComponent implements OnInit {
         const clientData = {
           name: formData.name,
           code: formData.code || undefined,
+          contactPerson: formData.contactPerson || undefined,
+          email: formData.email || undefined,
+          contactNumber: formData.contactNumber || undefined,
+          country: formData.country || undefined,
+          state: formData.state || undefined,
+          city: formData.city || undefined,
+          zipCode: formData.zipCode || undefined,
           status: formData.status
         };
 
@@ -162,6 +189,13 @@ export class ClientsComponent implements OnInit {
         const clientData = {
           name: formData.name,
           code: formData.code || undefined,
+          contactPerson: formData.contactPerson || undefined,
+          email: formData.email || undefined,
+          contactNumber: formData.contactNumber || undefined,
+          country: formData.country || undefined,
+          state: formData.state || undefined,
+          city: formData.city || undefined,
+          zipCode: formData.zipCode || undefined,
           status: formData.status
         };
 

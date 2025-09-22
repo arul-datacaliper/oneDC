@@ -2,7 +2,82 @@ export interface Client {
   clientId: string;
   name: string;
   code?: string;
+  contactPerson?: string;
+  email?: string;
+  contactNumber?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  zipCode?: string;
   status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface Address {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY'
+}
+
+export enum EmployeeType {
+  FULL_TIME = 'FULL_TIME',
+  PART_TIME = 'PART_TIME',
+  CONTRACT = 'CONTRACT',
+  INTERN = 'INTERN',
+  CONSULTANT = 'CONSULTANT'
+}
+
+export enum UserRole {
+  EMPLOYEE = 'EMPLOYEE',
+  APPROVER = 'APPROVER', 
+  ADMIN = 'ADMIN'
+}
+
+export interface Employee {
+  userId: string;
+  employeeId?: string;
+  firstName: string;
+  lastName: string;
+  gender?: Gender;
+  dateOfBirth?: string; // YYYY-MM-DD
+  dateOfJoining?: string; // YYYY-MM-DD
+  jobTitle?: string;
+  role: UserRole;
+  department?: string;
+  employeeType?: EmployeeType;
+  personalEmail?: string;
+  workEmail: string;
+  contactNumber?: string;
+  emergencyContactNumber?: string;
+  // Nested address objects (for form compatibility)
+  presentAddress?: Address;
+  permanentAddress?: Address;
+  // Flattened address fields (from API)
+  presentAddressLine1?: string;
+  presentAddressLine2?: string;
+  presentCity?: string;
+  presentState?: string;
+  presentCountry?: string;
+  presentZipCode?: string;
+  permanentAddressLine1?: string;
+  permanentAddressLine2?: string;
+  permanentCity?: string;
+  permanentState?: string;
+  permanentCountry?: string;
+  permanentZipCode?: string;
+  isActive: boolean;
+  managerId?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }
 
 export interface Project {
@@ -15,6 +90,7 @@ export interface Project {
   defaultApprover?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
+  plannedReleaseDate?: string; // YYYY-MM-DD
   budgetHours?: number;
   budgetCost?: number;
   createdAt?: string;
@@ -80,10 +156,25 @@ export interface TimesheetEntry {
   entryId: string;
   userId: string;
   projectId: string;
+  taskId?: string; // Added missing taskId property
   workDate: string; // YYYY-MM-DD
   hours: number;
   description?: string;
   ticketRef?: string;
   taskType: TaskType;
   status: TimesheetStatus;
+}
+
+// Legacy AppUser interface for backward compatibility
+export interface AppUser {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole | string;
+  isActive: boolean;
+  passwordHash?: string;
+  managerId?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }

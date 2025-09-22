@@ -72,27 +72,30 @@ public class AuthService : IAuthService
 
         return hash.SequenceEqual(testHash);
     }
+private string GenerateJwtToken(OneDc.Domain.Entities.AppUser user)
+{
+    var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _config["Jwt:Key"] ?? "your-256-bit-secret";
+    var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _config["Jwt:Issuer"];
+    var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? _config["Jwt:Audience"];
+    
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-    private string GenerateJwtToken(OneDc.Domain.Entities.AppUser user)
+    var claims = new[]
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "your-256-bit-secret"));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+        new Claim(ClaimTypes.Role, user.Role.ToString())
+    };
 
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-            new Claim(ClaimTypes.Role, user.Role.ToString())
-        };
+    var token = new JwtSecurityToken(
+        issuer: jwtIssuer,
+        audience: jwtAudience,
+        claims: claims,
+        expires: DateTime.Now.AddDays(7),
+        signingCredentials: creds);
 
-        var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.Now.AddDays(7),
-            signingCredentials: creds);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
 }

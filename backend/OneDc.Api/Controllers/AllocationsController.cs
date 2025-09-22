@@ -103,6 +103,7 @@ public class AllocationsController : ControllerBase
                 UserId = userId,
                 AllocatedHours = request.AllocatedHours,
                 WeekStartDate = weekStartDate,
+                WeekEndDate = weekStartDate.AddDays(6), // Sunday + 6 = Saturday
                 UtilizationPercentage = Math.Round((decimal)request.AllocatedHours / 45 * 100, 2),
                 Status = "ACTIVE"
             };

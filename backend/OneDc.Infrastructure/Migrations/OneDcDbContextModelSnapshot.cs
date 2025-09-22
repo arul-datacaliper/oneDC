@@ -30,9 +30,27 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<string>("ContactNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("contact_number");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date")
+                        .HasColumnName("date_of_birth");
+
+                    b.Property<DateOnly?>("DateOfJoining")
+                        .HasColumnType("date")
+                        .HasColumnName("date_of_joining");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("department");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -40,15 +58,38 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("email");
 
+                    b.Property<string>("EmergencyContactNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("emergency_contact_number");
+
+                    b.Property<string>("EmployeeId")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("employee_id");
+
+                    b.Property<int>("EmployeeType")
+                        .HasColumnType("integer")
+                        .HasColumnName("employee_type");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("first_name");
 
+                    b.Property<int?>("Gender")
+                        .HasColumnType("integer")
+                        .HasColumnName("gender");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
+
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("job_title");
 
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone")
@@ -69,9 +110,80 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(600)")
                         .HasColumnName("password_hash");
 
+                    b.Property<string>("PermanentAddressLine1")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("permanent_address_line1");
+
+                    b.Property<string>("PermanentAddressLine2")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("permanent_address_line2");
+
+                    b.Property<string>("PermanentCity")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("permanent_city");
+
+                    b.Property<string>("PermanentCountry")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("permanent_country");
+
+                    b.Property<string>("PermanentState")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("permanent_state");
+
+                    b.Property<string>("PermanentZipCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("permanent_zip_code");
+
+                    b.Property<string>("PersonalEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("personal_email");
+
+                    b.Property<string>("PresentAddressLine1")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("present_address_line1");
+
+                    b.Property<string>("PresentAddressLine2")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("present_address_line2");
+
+                    b.Property<string>("PresentCity")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("present_city");
+
+                    b.Property<string>("PresentCountry")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("present_country");
+
+                    b.Property<string>("PresentState")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("present_state");
+
+                    b.Property<string>("PresentZipCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("present_zip_code");
+
                     b.Property<int>("Role")
                         .HasColumnType("integer")
                         .HasColumnName("role");
+
+                    b.Property<string>("WorkEmail")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("work_email");
 
                     b.HasKey("UserId")
                         .HasName("pk_app_user");
@@ -136,10 +248,35 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("client_id");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("city");
+
                     b.Property<string>("Code")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("code");
+
+                    b.Property<string>("ContactNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("contact_number");
+
+                    b.Property<string>("ContactPerson")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("contact_person");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("country");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("email");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -147,11 +284,21 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
+                    b.Property<string>("State")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("state");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
+
+                    b.Property<string>("ZipCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("zip_code");
 
                     b.HasKey("ClientId")
                         .HasName("pk_client");
@@ -187,6 +334,56 @@ namespace OneDc.Infrastructure.Migrations
                         .HasName("pk_holiday");
 
                     b.ToTable("holiday", "ts");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.PasswordReset", b =>
+                {
+                    b.Property<Guid>("ResetId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("reset_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_used");
+
+                    b.Property<string>("Otp")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasColumnName("otp");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("ResetId")
+                        .HasName("pk_password_reset");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_password_reset_expires_at");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_password_reset_user_id");
+
+                    b.HasIndex("Otp", "UserId")
+                        .HasDatabaseName("ix_password_reset_otp_user_id");
+
+                    b.ToTable("password_reset", "ts");
                 });
 
             modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
@@ -239,6 +436,10 @@ namespace OneDc.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
                         .HasColumnName("name");
+
+                    b.Property<DateOnly?>("PlannedReleaseDate")
+                        .HasColumnType("date")
+                        .HasColumnName("planned_release_date");
 
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date")
@@ -679,6 +880,18 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("weekly_allocation", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.PasswordReset", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_reset_app_user_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.Client", "Client")
@@ -744,6 +957,7 @@ namespace OneDc.Infrastructure.Migrations
                     b.HasOne("OneDc.Domain.Entities.ProjectTask", "Task")
                         .WithMany()
                         .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_timesheet_entry_task_task_id");
 
                     b.HasOne("OneDc.Domain.Entities.AppUser", "User")

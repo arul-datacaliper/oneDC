@@ -104,19 +104,34 @@ export class AllocationService {
     return this.http.get<{userId: string, userName: string, role: string}[]>(`${this.apiUrl}/available-employees`);
   }
 
-  // Helper method to get week start date
+  // Helper method to get week start date (Sunday)
   getWeekStartDate(date: Date): string {
     const startOfWeek = new Date(date);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-    startOfWeek.setDate(diff);
-    return startOfWeek.toISOString().split('T')[0];
+    const day = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    // Calculate days to go back to reach Sunday
+    startOfWeek.setDate(startOfWeek.getDate() - day);
+    
+    // Use local date to avoid timezone issues
+    const year = startOfWeek.getFullYear();
+    const month = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(startOfWeek.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dayOfMonth}`;
   }
 
-  // Helper method to get week end date
+  // Helper method to get week end date (Saturday, 6 days after Sunday)
   getWeekEndDate(weekStartDate: string): string {
-    const endDate = new Date(weekStartDate);
-    endDate.setDate(endDate.getDate() + 6);
-    return endDate.toISOString().split('T')[0];
+    // Parse the date string directly without timezone conversion
+    const [year, month, day] = weekStartDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+    
+    // Add 6 days for Saturday
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    
+    // Format as YYYY-MM-DD
+    const endYear = endDate.getFullYear();
+    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+    const endDay = String(endDate.getDate()).padStart(2, '0');
+    return `${endYear}-${endMonth}-${endDay}`;
   }
 }

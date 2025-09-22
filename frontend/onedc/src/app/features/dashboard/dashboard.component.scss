@@ -230,3 +230,54 @@
     }
   }
 }
+
+// Custom scrollable table styles
+.table-responsive {
+  &[style*="overflow-y: auto"] {
+    // Custom scrollbar styles for webkit browsers
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+      
+      &:hover {
+        background: #a8a8a8;
+      }
+    }
+
+    // For Firefox
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+
+    // Ensure sticky header works properly
+    .sticky-top {
+      background-color: var(--bs-light) !important;
+      z-index: 10;
+    }
+
+    // Add subtle border to separate header from body when scrolling
+    .table thead th {
+      border-bottom: 2px solid #dee2e6;
+    }
+  }
+}
+
+// Task count indicator styling
+.px-3.py-2.bg-light.border-top {
+  font-size: 0.75rem;
+  color: #6c757d;
+  background-color: #f8f9fa !important;
+  
+  .bi {
+    color: #007bff;
+    opacity: 0.7;
+  }
+}

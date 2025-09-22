@@ -16,6 +16,31 @@ export interface LoginRequest {
   password: string;
 }
 
+// Forgot Password Interfaces
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ValidateOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface ResendOtpRequest {
+  email: string;
+}
+
+export interface ApiResponse {
+  message: string;
+  isValid?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http = inject(HttpClient);
@@ -240,5 +265,22 @@ export class AuthService {
     }
     console.log('Current user:', this.getCurrentUser());
     console.log('========================');
+  }
+
+  // Forgot Password Methods
+  forgotPassword(request: ForgotPasswordRequest): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/forgot-password`, request);
+  }
+
+  validateOtp(request: ValidateOtpRequest): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/validate-otp`, request);
+  }
+
+  resetPassword(request: ResetPasswordRequest): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/reset-password`, request);
+  }
+
+  resendOtp(request: ResendOtpRequest): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/resend-otp`, request);
   }
 }

@@ -19,6 +19,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -55,6 +56,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("set-password")]
+    [AllowAnonymous]
     public async Task<IActionResult> SetPassword([FromBody] SetPasswordRequest request)
     {
         try

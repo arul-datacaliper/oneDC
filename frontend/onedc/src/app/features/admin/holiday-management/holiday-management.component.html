@@ -1,0 +1,281 @@
+<div class="holiday-management-container">
+  <!-- Header -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h4 class="card-title mb-2">
+            <i class="bi bi-calendar-event-fill"></i> Holiday Management
+          </h4>
+          <p class="text-muted mb-0">
+            Manage company holidays and leave calendar
+          </p>
+        </div>
+        <div class="col-md-4 text-end">
+          <button type="button" class="btn btn-primary me-2" (click)="openCreateModal()">
+            <i class="bi bi-plus-circle"></i> Add Holiday
+          </button>
+          <button type="button" class="btn btn-outline-success" (click)="bulkAddDefaultHolidays()">
+            <i class="bi bi-calendar-plus"></i> Add Defaults
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Year Filter -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <h6 class="mb-0">Holiday Calendar for:</h6>
+        </div>
+        <div class="col-md-6">
+          <select class="form-select" [value]="selectedYear()" (change)="onYearSelectionChange($event)">
+            <option *ngFor="let year of availableYears()" [value]="year">{{ year }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card stat-card border-start border-4 border-primary">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-subtitle mb-1 text-muted">Total Holidays</h6>
+              <h4 class="mb-0 text-primary">{{ filteredHolidays().length }}</h4>
+            </div>
+            <div class="stat-icon">
+              <i class="bi bi-calendar-event fs-2 text-primary"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card stat-card border-start border-4 border-success">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-subtitle mb-1 text-muted">Next Holiday</h6>
+              <p class="mb-0 fw-medium text-success">
+                {{ getNextHoliday() || 'None upcoming' }}
+              </p>
+            </div>
+            <div class="stat-icon">
+              <i class="bi bi-calendar-check fs-2 text-success"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card stat-card border-start border-4 border-info">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-subtitle mb-1 text-muted">Region</h6>
+              <h6 class="mb-0 text-info">India (IN)</h6>
+            </div>
+            <div class="stat-icon">
+              <i class="bi bi-globe fs-2 text-info"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holidays List -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="bi bi-list-ul"></i> Holidays for {{ selectedYear() }}
+      </h5>
+    </div>
+    <div class="card-body">
+      <div *ngIf="loading()" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Loading holidays...</p>
+      </div>
+
+      <div *ngIf="!loading() && filteredHolidays().length === 0" class="text-center py-5">
+        <i class="bi bi-calendar-x fs-1 text-muted mb-3"></i>
+        <h5 class="text-muted">No holidays found for {{ selectedYear() }}</h5>
+        <p class="text-muted">Add some holidays to get started.</p>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+          <i class="bi bi-plus-circle"></i> Add Holiday
+        </button>
+      </div>
+
+      <div *ngIf="!loading() && filteredHolidays().length > 0" class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Day</th>
+              <th>Holiday Name</th>
+              <th>Region</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let holiday of filteredHolidays(); let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <div class="fw-medium">{{ holiday.holidayDate | date:'dd-MMM-yy' }}</div>
+                <small class="text-muted">{{ holiday.holidayDate | date:'mediumDate' }}</small>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark">{{ getDayOfWeek(holiday.holidayDate) }}</span>
+              </td>
+              <td>
+                <div class="fw-medium">{{ holiday.name }}</div>
+              </td>
+              <td>
+                <span class="badge bg-primary">{{ holiday.region }}</span>
+              </td>
+              <td>
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-sm btn-outline-primary" 
+                          (click)="openEditModal(holiday)">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" 
+                          (click)="deleteHoliday(holiday)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Holiday Modal -->
+<div class="modal fade" [class.show]="showCreateModal()" [style.display]="showCreateModal() ? 'block' : 'none'" 
+     tabindex="-1" *ngIf="showCreateModal()">
+  <div class="modal-backdrop fade show" (click)="closeCreateModal()"></div>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-plus-circle"></i> Add New Holiday
+        </h5>
+        <button type="button" class="btn-close" (click)="closeCreateModal()"></button>
+      </div>
+      <form [formGroup]="holidayForm" (ngSubmit)="createHoliday()">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" formControlName="holidayDate"
+                   [class.is-invalid]="isFieldInvalid('holidayDate')">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('holidayDate')">
+              {{ getFieldError('holidayDate') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Holiday Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="name"
+                   [class.is-invalid]="isFieldInvalid('name')"
+                   placeholder="Enter holiday name">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('name')">
+              {{ getFieldError('name') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Region <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="region"
+                    [class.is-invalid]="isFieldInvalid('region')">
+              <option value="IN">India (IN)</option>
+              <option value="US">United States (US)</option>
+              <option value="UK">United Kingdom (UK)</option>
+            </select>
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('region')">
+              {{ getFieldError('region') }}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="holidayForm.invalid || loading()">
+            <span *ngIf="loading()" class="spinner-border spinner-border-sm me-2"></span>
+            <i *ngIf="!loading()" class="bi bi-plus-circle me-2"></i>
+            Add Holiday
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Holiday Modal -->
+<div class="modal fade" [class.show]="showEditModal()" [style.display]="showEditModal() ? 'block' : 'none'" 
+     tabindex="-1" *ngIf="showEditModal()">
+  <div class="modal-backdrop fade show" (click)="closeEditModal()"></div>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-pencil"></i> Edit Holiday
+        </h5>
+        <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+      </div>
+      <form [formGroup]="holidayForm" (ngSubmit)="updateHoliday()">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" formControlName="holidayDate"
+                   [class.is-invalid]="isFieldInvalid('holidayDate')">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('holidayDate')">
+              {{ getFieldError('holidayDate') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Holiday Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" formControlName="name"
+                   [class.is-invalid]="isFieldInvalid('name')"
+                   placeholder="Enter holiday name">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('name')">
+              {{ getFieldError('name') }}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Region <span class="text-danger">*</span></label>
+            <select class="form-select" formControlName="region"
+                    [class.is-invalid]="isFieldInvalid('region')">
+              <option value="IN">India (IN)</option>
+              <option value="US">United States (US)</option>
+              <option value="UK">United Kingdom (UK)</option>
+            </select>
+            <div class="invalid-feedback" *ngIf="isFieldInvalid('region')">
+              {{ getFieldError('region') }}
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="holidayForm.invalid || loading()">
+            <span *ngIf="loading()" class="spinner-border spinner-border-sm me-2"></span>
+            <i *ngIf="!loading()" class="bi bi-check-circle me-2"></i>
+            Update Holiday
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

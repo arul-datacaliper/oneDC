@@ -1,9 +1,10 @@
-import { Component, computed, OnInit, inject } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { AdminService, AdminDashboardMetrics, TopProjectMetrics } from '../../core/services/admin.service';
+import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
+import { Subscription, filter } from 'rxjs';
 
 export interface TimesheetEntry {
   date: string;
@@ -19,15 +20,17 @@ export interface TimesheetEntry {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private adminService = inject(AdminService);
   private employeeService = inject(EmployeeService);
   private router = inject(Router);
+  private routerSubscription?: Subscription;
 
   // Admin dashboard data
   adminMetrics: AdminDashboardMetrics | null = null;
   topProjects: TopProjectMetrics[] = [];
+  projectsWithReleaseInfo: ProjectReleaseInfo[] = [];
   
   // Employee dashboard data
   employeeMetrics: EmployeeDashboardMetrics | null = null;
@@ -41,7 +44,13 @@ export class DashboardComponent implements OnInit {
   // Loading states
   isLoadingAdminMetrics = false;
   isLoadingTopProjects = false;
+  isLoadingProjectsReleaseInfo = false;
   isLoadingEmployeeData = false;
+
+  // Computed property to get current user data
+  currentUser = computed(() => {
+    return this.authService.getCurrentUser();
+  });
 
   // Computed property to check if user is admin
   isAdmin = computed(() => {
@@ -56,6 +65,31 @@ export class DashboardComponent implements OnInit {
   });
 
   ngOnInit() {
+    // Subscribe to router events to refresh dashboard when navigating back
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        if (event.url === '/dashboard' || event.url === '/') {
+          this.loadDashboardData();
+        }
+      });
+
+    this.loadDashboardData();
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+  }
+
+  @HostListener('window:focus', ['$event'])
+  onWindowFocus(event: any): void {
+    // Refresh dashboard data when window regains focus
+    this.refresh();
+  }
+
+  private loadDashboardData() {
     if (this.isAdmin()) {
       this.loadAdminDashboard();
     } else {
@@ -66,6 +100,7 @@ export class DashboardComponent implements OnInit {
   private loadAdminDashboard() {
     this.loadAdminMetrics();
     this.loadTopProjects();
+    this.loadProjectsWithReleaseInfo();
   }
 
   private loadAdminMetrics() {
@@ -92,6 +127,20 @@ export class DashboardComponent implements OnInit {
       error: (error: any) => {
         console.error('Error loading top projects:', error);
         this.isLoadingTopProjects = false;
+      }
+    });
+  }
+
+  private loadProjectsWithReleaseInfo() {
+    this.isLoadingProjectsReleaseInfo = true;
+    this.adminService.getProjectsWithReleaseInfo().subscribe({
+      next: (projects: ProjectReleaseInfo[]) => {
+        this.projectsWithReleaseInfo = projects;
+        this.isLoadingProjectsReleaseInfo = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading projects with release info:', error);
+        this.isLoadingProjectsReleaseInfo = false;
       }
     });
   }
@@ -272,7 +321,7 @@ export class DashboardComponent implements OnInit {
 
   // Loading state for admin section
   adminLoading(): boolean {
-    return this.isLoadingAdminMetrics || this.isLoadingTopProjects;
+    return this.isLoadingAdminMetrics || this.isLoadingTopProjects || this.isLoadingProjectsReleaseInfo;
   }
 
   // Loading state for employee section
@@ -296,12 +345,24 @@ export class DashboardComponent implements OnInit {
 
   // Refresh data
   refresh(): void {
-    this.ngOnInit();
+    // Clear current data to show loading state
+    if (this.isAdmin()) {
+      this.adminMetrics = null;
+      this.topProjects = [];
+      this.projectsWithReleaseInfo = [];
+    } else {
+      this.employeeMetrics = null;
+      this.employeeTasks = [];
+      this.timesheetSummary = null;
+      this.projectUtilization = [];
+    }
+    
+    this.loadDashboardData();
   }
 
   // Navigation methods
   navigateToEmployeeManagement(): void {
-    this.router.navigate(['/admin/employees']).catch(err => {
+    this.router.navigate(['/employees']).catch(err => {
       console.error('Navigation error:', err);
     });
   }
@@ -334,5 +395,68 @@ export class DashboardComponent implements OnInit {
     }).catch(err => {
       console.error('Navigation error:', err);
     });
+  }
+
+  // User profile helper methods
+  getCurrentUserName(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.name || 'User';
+  }
+
+  getCurrentUserEmail(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.email || 'user@onedc.local';
+  }
+
+  getCurrentUserRole(): string {
+    const currentUser = this.authService.getCurrentUser();
+    const role = currentUser?.role || 'EMPLOYEE';
+    
+    // Convert role to display format
+    switch (role) {
+      case 'ADMIN':
+        return 'Administrator';
+      case 'APPROVER':
+        return 'Approver';
+      case 'EMPLOYEE':
+      default:
+        return 'Employee';
+    }
+  }
+
+  getCurrentUserId(): string {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.userId || '';
+  }
+
+  // Check if profile and dashboard data are in sync
+  isProfileDataSynced(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !this.employeeMetrics) {
+      return true; // If no data to compare, assume synced
+    }
+    
+    // Here you can add more validation if needed
+    // For example, checking if the user ID matches between auth and employee data
+    return true;
+  }
+
+  // Get profile completeness percentage (can be enhanced later)
+  getProfileCompleteness(): number {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) return 0;
+    
+    let completeness = 0;
+    if (currentUser.name) completeness += 25;
+    if (currentUser.email) completeness += 25;
+    if (currentUser.role) completeness += 25;
+    if (currentUser.userId) completeness += 25;
+    
+    return completeness;
+  }
+
+  // Navigate to user profile page
+  navigateToProfile(): void {
+    this.router.navigate(['/profile']);
   }
 }

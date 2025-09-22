@@ -46,7 +46,7 @@ public class ComplianceRepository : IComplianceRepository
 
     public async Task<List<(Guid userId, DateOnly day, decimal hours)>> GetDailyTotalsAsync(DateOnly from, DateOnly to)
     {
-        // Sum ALL statuses for missing-timesheets view? We only need presence (>=0) to know “has entry”.
+        // Sum ALL statuses for missing-timesheets view? We only need presence (>=0) to know "has entry".
         // For overtime, policy usually counts ANY hours (draft/submitted/approved); adjust if you want approved only.
         var rows = await _db.TimesheetEntries
             .Where(t => t.WorkDate >= from && t.WorkDate <= to)
@@ -55,5 +55,63 @@ public class ComplianceRepository : IComplianceRepository
             .ToListAsync();
 
         return rows.Select(r => (r.UserId, r.Day, r.Hours)).ToList();
+    }
+
+    // Holiday management methods
+    public async Task AddHolidayAsync(Holiday holiday)
+    {
+        _db.Holidays.Add(holiday);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<bool> UpdateHolidayAsync(Holiday holiday)
+    {
+        var existing = await _db.Holidays.FindAsync(holiday.HolidayDate);
+        if (existing == null)
+        {
+            return false;
+        }
+
+        existing.Name = holiday.Name;
+        existing.Region = holiday.Region;
+        
+        _db.Holidays.Update(existing);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteHolidayAsync(DateOnly date, string? region = null)
+    {
+        var holiday = await _db.Holidays
+            .Where(h => h.HolidayDate == date && (region == null || h.Region == region))
+            .FirstOrDefaultAsync();
+            
+        if (holiday == null)
+        {
+            return false;
+        }
+
+        _db.Holidays.Remove(holiday);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkAddHolidaysAsync(List<Holiday> holidays)
+    {
+        // Remove duplicates and existing holidays
+        var existingDates = await _db.Holidays
+            .Where(h => holidays.Select(hol => hol.HolidayDate).Contains(h.HolidayDate))
+            .Select(h => h.HolidayDate)
+            .ToListAsync();
+
+        var newHolidays = holidays.Where(h => !existingDates.Contains(h.HolidayDate)).ToList();
+        
+        if (newHolidays.Count > 0)
+        {
+            _db.Holidays.AddRange(newHolidays);
+            await _db.SaveChangesAsync();
+        }
+
+        return newHolidays.Count;
     }
 }

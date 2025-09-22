@@ -62,6 +62,7 @@ export class ProjectsComponent implements OnInit {
       defaultApprover: [''],
       startDate: [''],
       endDate: [''],
+      plannedReleaseDate: [''],
       budgetHours: ['', [Validators.min(0)]],
       budgetCost: ['', [Validators.min(0)]]
     });
@@ -174,6 +175,7 @@ export class ProjectsComponent implements OnInit {
       defaultApprover: project.defaultApprover || '',
       startDate: project.startDate || '',
       endDate: project.endDate || '',
+      plannedReleaseDate: project.plannedReleaseDate || '',
       budgetHours: project.budgetHours || '',
       budgetCost: project.budgetCost || ''
     });
@@ -202,6 +204,7 @@ export class ProjectsComponent implements OnInit {
           defaultApprover: formData.defaultApprover || undefined,
           startDate: formData.startDate || undefined,
           endDate: formData.endDate || undefined,
+          plannedReleaseDate: formData.plannedReleaseDate || undefined,
           budgetHours: formData.budgetHours ? parseFloat(formData.budgetHours) : undefined,
           budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined
         };
@@ -230,6 +233,7 @@ export class ProjectsComponent implements OnInit {
           defaultApprover: formData.defaultApprover || undefined,
           startDate: formData.startDate || undefined,
           endDate: formData.endDate || undefined,
+          plannedReleaseDate: formData.plannedReleaseDate || undefined,
           budgetHours: formData.budgetHours ? parseFloat(formData.budgetHours) : undefined,
           budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined
         };

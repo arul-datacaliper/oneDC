@@ -1,14 +1,14 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   standalone: true,
   selector: 'app-login',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss']
 })
@@ -17,8 +17,8 @@ export class LoginComponent {
   private toastr = inject(ToastrService);
   private authService = inject(AuthService);
 
-  email = signal('admin@onedc.local');
-  password = signal('password123');
+  email = signal('');
+  password = signal('');
   loading = signal(false);
   showPassword = false;
 

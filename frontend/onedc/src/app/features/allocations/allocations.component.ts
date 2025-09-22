@@ -1,12 +1,19 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UserManagementService, AppUser } from '../../core/services/user-management.service';
 import { Project } from '../../shared/models';
+
+// Interface for multiple employee allocation
+export interface EmployeeAllocation {
+  userId: string;
+  userName: string;
+  allocatedHours: number;
+}
 
 @Component({
   selector: 'app-allocations',
@@ -27,6 +34,7 @@ export class AllocationsComponent implements OnInit {
   viewMode = signal<'overview' | 'project' | 'employee'>('overview');
   selectedProjectId = signal<string>('');
   selectedUserId = signal<string>('');
+  formWeekStartDate = signal<string>(''); // Track form week start date
   
   // Data signals
   allocations = signal<WeeklyAllocation[]>([]);
@@ -39,6 +47,9 @@ export class AllocationsComponent implements OnInit {
   isLoading = signal(false);
   showCreateModal = signal(false);
   editingAllocation = signal<WeeklyAllocation | null>(null);
+  selectedEmployeeAllocations = signal<EmployeeAllocation[]>([]);
+  availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
+  selectedEmployeeForDropdown = signal<string | null>(null);
 
   // Form
   allocationForm: FormGroup;
@@ -61,12 +72,21 @@ export class AllocationsComponent implements OnInit {
 
   // Computed property for selected week end date
   selectedWeekEndDate = computed(() => {
-    const weekStartDate = this.allocationForm?.get('weekStartDate')?.value;
+    const weekStartDate = this.formWeekStartDate();
     if (weekStartDate) {
-      const startDate = new Date(weekStartDate);
+      // Parse the date string directly without timezone conversion
+      const [year, month, day] = weekStartDate.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+      
+      // Add 6 days for Saturday
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 6);
-      return endDate.toISOString().split('T')[0];
+      
+      // Format as YYYY-MM-DD
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      return `${endYear}-${endMonth}-${endDay}`;
     }
     return '';
   });
@@ -83,7 +103,7 @@ export class AllocationsComponent implements OnInit {
   formatCurrentWeekStart(): string {
     const weekStart = this.currentWeekStart();
     if (weekStart) {
-      return new Date(weekStart).toISOString().split('T')[0];
+      return weekStart; // weekStart is already in YYYY-MM-DD format
     }
     return '';
   }
@@ -92,23 +112,19 @@ export class AllocationsComponent implements OnInit {
   formatCurrentWeekEnd(): string {
     const weekStart = this.currentWeekStart();
     if (weekStart) {
-      const startDate = new Date(weekStart);
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6);
-      return endDate.toISOString().split('T')[0];
+      return this.allocationService.getWeekEndDate(weekStart);
     }
     return '';
   }  constructor() {
-    // Form validation with realistic work hour limits
-    // Business Rules:
-    // - Standard work week: 45 hours (9 hours/day × 5 working days)
-    // - Maximum allowed: 67.5 hours (150% utilization, includes reasonable overtime)
-    // - Minimum: 1 hour (for partial allocations)
+    // Form validation for multiple employee allocation
     this.allocationForm = this.fb.group({
       projectId: ['', Validators.required],
-      userId: ['', Validators.required],
-      allocatedHours: [45, [Validators.required, Validators.min(1), Validators.max(67.5)]],
       weekStartDate: ['', Validators.required]
+    });
+
+    // Track form weekStartDate changes and update signal
+    this.allocationForm.get('weekStartDate')?.valueChanges.subscribe(value => {
+      this.formWeekStartDate.set(value || '');
     });
 
     // Initialize with current week
@@ -141,21 +157,38 @@ export class AllocationsComponent implements OnInit {
   private loadAllocations() {
     return this.allocationService.getAllocationsForWeek(this.currentWeekStart()).subscribe({
       next: (allocations) => this.allocations.set(allocations),
-      error: (error) => console.error('Error loading allocations:', error)
+      error: (error) => {
+        console.error('Error loading allocations:', error);
+        if (error.status === 401) {
+          this.toastr.error('Please log in to view allocations');
+        } else {
+          this.toastr.error('Error loading allocations');
+        }
+      }
     });
   }
 
   private loadProjectSummary() {
     return this.allocationService.getProjectAllocationSummary(this.currentWeekStart()).subscribe({
       next: (summary) => this.projectSummary.set(summary),
-      error: (error) => console.error('Error loading project summary:', error)
+      error: (error) => {
+        console.error('Error loading project summary:', error);
+        if (error.status === 401) {
+          this.toastr.error('Please log in to view project summaries');
+        }
+      }
     });
   }
 
   private loadEmployeeSummary() {
     return this.allocationService.getEmployeeAllocationSummary(this.currentWeekStart()).subscribe({
       next: (summary) => this.employeeSummary.set(summary),
-      error: (error) => console.error('Error loading employee summary:', error)
+      error: (error) => {
+        console.error('Error loading employee summary:', error);
+        if (error.status === 401) {
+          this.toastr.error('Please log in to view employee summaries');
+        }
+      }
     });
   }
 
@@ -168,7 +201,10 @@ export class AllocationsComponent implements OnInit {
 
   private loadAvailableEmployees() {
     return this.allocationService.getAvailableEmployees().subscribe({
-      next: (employees) => this.availableEmployees.set(employees),
+      next: (employees) => {
+        this.availableEmployees.set(employees);
+        this.updateAvailableEmployeesForSelection();
+      },
       error: (error) => console.error('Error loading employees:', error)
     });
   }
@@ -186,7 +222,7 @@ export class AllocationsComponent implements OnInit {
 
   onWeekDateChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    const selectedDate = new Date(input.value);
+    const selectedDate = new Date(input.value + 'T00:00:00'); // Add time to avoid timezone issues
     if (!isNaN(selectedDate.getTime())) {
       this.currentWeekStart.set(this.allocationService.getWeekStartDate(selectedDate));
       this.loadInitialData();
@@ -210,22 +246,35 @@ export class AllocationsComponent implements OnInit {
   }
 
   openCreateModal() {
+    console.log('openCreateModal called');
     this.allocationForm.reset();
+    const currentWeek = this.currentWeekStart();
     this.allocationForm.patchValue({
-      allocatedHours: 45,
-      weekStartDate: this.currentWeekStart()
+      weekStartDate: currentWeek
     });
+    this.formWeekStartDate.set(currentWeek); // Update signal manually for initial value
+    this.selectedEmployeeAllocations.set([]);
+    this.selectedEmployeeForDropdown.set(null);
+    this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
     this.showCreateModal.set(true);
+    console.log('Modal opened - availableEmployees:', this.availableEmployees());
+    console.log('Modal opened - availableEmployeesForSelection:', this.availableEmployeesForSelection());
   }
 
   openEditModal(allocation: WeeklyAllocation) {
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
-      userId: allocation.userId,
-      allocatedHours: allocation.allocatedHours,
       weekStartDate: allocation.weekStartDate
     });
+    this.formWeekStartDate.set(allocation.weekStartDate); // Update signal manually
+    // For edit mode, set single employee allocation
+    this.selectedEmployeeAllocations.set([{
+      userId: allocation.userId,
+      userName: allocation.userName,
+      allocatedHours: allocation.allocatedHours
+    }]);
+    this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(allocation);
     this.showCreateModal.set(true);
   }
@@ -233,17 +282,91 @@ export class AllocationsComponent implements OnInit {
   closeModal() {
     this.showCreateModal.set(false);
     this.editingAllocation.set(null);
+    this.selectedEmployeeAllocations.set([]);
+    this.formWeekStartDate.set(''); // Clear the signal
     this.allocationForm.reset();
   }
 
+  // Update available employees for selection (exclude already selected ones)
+  updateAvailableEmployeesForSelection() {
+    const allEmployees = this.availableEmployees();
+    const selectedIds = this.selectedEmployeeAllocations().map(emp => emp.userId);
+    const availableEmployees = allEmployees.filter(emp => !selectedIds.includes(emp.userId));
+    console.log('updateAvailableEmployeesForSelection:');
+    console.log('- allEmployees:', allEmployees);
+    console.log('- selectedIds:', selectedIds);
+    console.log('- availableEmployees:', availableEmployees);
+    this.availableEmployeesForSelection.set(availableEmployees);
+  }
+
+  // Add employee to allocation list
+  addEmployeeAllocation(userId: string) {
+    console.log('addEmployeeAllocation called with userId:', userId);
+    const employee = this.availableEmployees().find(emp => emp.userId === userId);
+    console.log('Found employee:', employee);
+    if (employee) {
+      const newEmployeeAllocation: EmployeeAllocation = {
+        userId: employee.userId,
+        userName: employee.userName,
+        allocatedHours: 0 // No default hours - user must enter value
+      };
+      console.log('Adding employee allocation:', newEmployeeAllocation);
+      this.selectedEmployeeAllocations.update(current => [...current, newEmployeeAllocation]);
+      this.updateAvailableEmployeesForSelection();
+      console.log('Updated selectedEmployeeAllocations:', this.selectedEmployeeAllocations());
+    }
+  }
+
+  // Handle employee selection from dropdown
+  onEmployeeAdd(userId: string) {
+    console.log('onEmployeeAdd called with userId:', userId);
+    if (userId && userId !== '') {
+      this.addEmployeeAllocation(userId);
+      // Clear the dropdown selection immediately
+      this.selectedEmployeeForDropdown.set(null);
+    }
+  }
+
+  // Remove employee from allocation list
+  removeEmployeeAllocation(userId: string) {
+    this.selectedEmployeeAllocations.update(current => 
+      current.filter(emp => emp.userId !== userId)
+    );
+    this.updateAvailableEmployeesForSelection();
+  }
+
+  // Update employee's allocated hours
+  updateEmployeeHours(userId: string, hours: number) {
+    // Basic validation - only check for negative values
+    if (hours < 0) {
+      this.toastr.warning('Allocated hours cannot be negative');
+      return;
+    }
+
+    this.selectedEmployeeAllocations.update(current =>
+      current.map(emp => 
+        emp.userId === userId ? { ...emp, allocatedHours: hours } : emp
+      )
+    );
+  }
+
   onSubmit() {
-    if (this.allocationForm.valid) {
+    if (this.allocationForm.valid && this.selectedEmployeeAllocations().length > 0) {
       const formValue = this.allocationForm.value;
       
+      // Check for employees with zero hours
+      const employeesWithZeroHours = this.selectedEmployeeAllocations().filter(emp => emp.allocatedHours <= 0);
+      if (employeesWithZeroHours.length > 0) {
+        const employeeNames = employeesWithZeroHours.map(emp => emp.userName).join(', ');
+        this.toastr.warning(`Please enter allocation hours for: ${employeeNames}`);
+        return;
+      }
+      
       if (this.editingAllocation()) {
-        // Update existing allocation
+        // Update existing allocation (single employee only)
+        const employeeAllocation = this.selectedEmployeeAllocations()[0];
         const updateRequest = {
-          allocatedHours: formValue.allocatedHours
+          allocatedHours: employeeAllocation.allocatedHours
         };
         
         this.allocationService.updateAllocation(this.editingAllocation()!.allocationId, updateRequest).subscribe({
@@ -258,30 +381,52 @@ export class AllocationsComponent implements OnInit {
           }
         });
       } else {
-        // Create new allocation
-        const createRequest: CreateAllocationRequest = {
+        // Check for existing allocations before creating new ones
+        const existingAllocations = this.allocations();
+        const createRequests: CreateAllocationRequest[] = this.selectedEmployeeAllocations().map(emp => ({
           projectId: formValue.projectId,
-          userId: formValue.userId,
+          userId: emp.userId,
           weekStartDate: formValue.weekStartDate,
-          allocatedHours: formValue.allocatedHours
-        };
+          allocatedHours: emp.allocatedHours
+        }));
 
-        this.allocationService.createAllocation(createRequest).subscribe({
-          next: () => {
-            this.toastr.success('Allocation created successfully');
-            this.closeModal();
-            this.loadInitialData();
-          },
-          error: (error) => {
-            if (error.status === 409) {
-              this.toastr.error('Allocation already exists for this project, user, and week. Please choose a different week or update the existing allocation.');
-            } else {
-              this.toastr.error('Error creating allocation: ' + (error.error?.message || error.message || 'Unknown error'));
-            }
-            console.error('Error creating allocation:', error);
+        // Check for duplicates
+        const duplicates = createRequests.filter(request => 
+          existingAllocations.some(existing => 
+            existing.projectId === request.projectId && 
+            existing.userId === request.userId && 
+            existing.weekStartDate === request.weekStartDate
+          )
+        );
+
+        if (duplicates.length > 0) {
+          const duplicateEmployees = duplicates.map(dup => 
+            this.selectedEmployeeAllocations().find(emp => emp.userId === dup.userId)?.userName
+          ).join(', ');
+          this.toastr.warning(`Allocation already exists for: ${duplicateEmployees}. Please check existing allocations.`);
+          return;
+        }
+
+        // Create all allocations
+        const allocationPromises = createRequests.map(request => 
+          this.allocationService.createAllocation(request).toPromise()
+        );
+
+        Promise.all(allocationPromises).then(() => {
+          this.toastr.success(`${createRequests.length} allocation(s) created successfully`);
+          this.closeModal();
+          this.loadInitialData();
+        }).catch((error) => {
+          if (error.status === 409) {
+            this.toastr.error('One or more allocations already exist for this project and week. Please check existing allocations.');
+          } else {
+            this.toastr.error('Error creating allocations: ' + (error.error?.message || error.message || 'Unknown error'));
           }
+          console.error('Error creating allocations:', error);
         });
       }
+    } else if (this.selectedEmployeeAllocations().length === 0) {
+      this.toastr.warning('Please select at least one employee for allocation');
     }
   }
 
@@ -319,5 +464,10 @@ export class AllocationsComponent implements OnInit {
 
   getTotalAllocatedHours(): number {
     return this.allocations().reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+  }
+
+  // TrackBy function for employee list
+  trackByUserId(index: number, employee: EmployeeAllocation): string {
+    return employee.userId;
   }
 }

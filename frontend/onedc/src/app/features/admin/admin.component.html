@@ -6,14 +6,14 @@
         <i class="bi bi-gear-fill"></i> Administration
       </h4>
       <nav class="nav nav-pills">
-        <a class="nav-link" routerLink="users" routerLinkActive="active">
-          <i class="bi bi-people"></i> User Management
+        <a class="nav-link" routerLink="holidays" routerLinkActive="active">
+          <i class="bi bi-calendar-event"></i> Holiday Management
         </a>
         <a class="nav-link disabled" aria-disabled="true">
-          <i class="bi bi-shield"></i> Permissions (Coming Soon)
+          <i class="bi bi-shield"></i> Asset Management (Coming Soon)
         </a>
         <a class="nav-link disabled" aria-disabled="true">
-          <i class="bi bi-gear"></i> System Settings (Coming Soon)
+          <i class="bi bi-gear"></i> Infrastructure Settings (Coming Soon)
         </a>
       </nav>
     </div>
@@ -21,4 +21,13 @@
 
   <!-- Content Area -->
   <router-outlet></router-outlet>
+  
+  <!-- Default content when no child route is active -->
+  <div class="card" *ngIf="!hasActiveChildRoute()">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-gear-wide-connected fs-1 text-muted mb-3"></i>
+      <h4 class="text-muted">Administration Panel</h4>
+      <p class="text-muted mb-0">Select an administrative function from the navigation above.</p>
+    </div>
+  </div>
 </div>
