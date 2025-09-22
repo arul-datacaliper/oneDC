@@ -30,9 +30,12 @@ builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-// DbContext
+// DbContext  
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING") ?? 
+                       builder.Configuration.GetConnectionString("OneDcDb");
+
 builder.Services.AddDbContext<OneDcDbContext>(opt =>
-    opt.UseNpgsql(Environment.GetEnvironmentVariable("ONEDC_DB_CONNECTION") ?? builder.Configuration.GetConnectionString("OneDcDb"))
+    opt.UseNpgsql(connectionString)
        .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
