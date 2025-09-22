@@ -17,22 +17,16 @@ using OneDc.Api.JsonConverters;
 using System.Security.Cryptography;
 using SendGrid.Extensions.DependencyInjection;
 
-using DotNetEnv;
-
-// Load environment variables from .env file
-Env.Load();
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure configuration to use environment variables
-builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 // DbContext
 builder.Services.AddDbContext<OneDcDbContext>(opt =>
-    opt.UseNpgsql(Environment.GetEnvironmentVariable("ONEDC_DB_CONNECTION") ?? builder.Configuration.GetConnectionString("OneDcDb"))
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("OneDcDb"))
        .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
@@ -63,7 +57,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // SendGrid Email Service
 builder.Services.AddSendGrid(options =>
 {
-    options.ApiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY") ?? builder.Configuration["SendGrid:ApiKey"] ?? "";
+    options.ApiKey = builder.Configuration["SendGrid:ApiKey"] ?? "";
 });
 
 // JWT Authentication
@@ -76,9 +70,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? builder.Configuration["Jwt:Issuer"],
-            ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:Key"] ?? "your-256-bit-secret"))
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "your-256-bit-secret"))
         };
     });
 

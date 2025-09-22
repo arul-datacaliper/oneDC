@@ -20,10 +20,10 @@ public class EmailService : IEmailService
         
         _emailConfig = new EmailConfiguration
         {
-            SendGridApiKey = configuration["SendGrid:ApiKey"] ?? "",
-            FromEmail = configuration["SendGrid:FromEmail"] ?? "noreply@onedc.local",
-            FromName = configuration["SendGrid:FromName"] ?? "OneDC System",
-            BaseUrl = configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
+            SendGridApiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY") ?? configuration["SendGrid:ApiKey"] ?? "",
+            FromEmail = Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL") ?? configuration["SendGrid:FromEmail"] ?? "noreply@onedc.local",
+            FromName = Environment.GetEnvironmentVariable("SENDGRID_FROM_NAME") ?? configuration["SendGrid:FromName"] ?? "OneDC System",
+            BaseUrl = Environment.GetEnvironmentVariable("BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
         };
     }
 
