@@ -258,4 +258,190 @@ public class EmailService : IEmailService
             return false;
         }
     }
+
+    public async Task<bool> SendManagerAssignmentNotificationAsync(string toEmail, string employeeName, string managerName, string managerEmail)
+    {
+        var subject = "New Reporting Manager Assigned - OneDC";
+        
+        var htmlContent = $@"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Manager Assignment Notification</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 30px; background-color: #f9f9f9; }}
+                .manager-info {{ background-color: #e9ecef; padding: 20px; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
+                .button {{ display: inline-block; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }}
+                h2 {{ color: #28a745; }}
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>OneDC - Manager Assignment</h1>
+                </div>
+                
+                <div class='content'>
+                    <h2>Hello {employeeName},</h2>
+                    
+                    <p>We're writing to inform you that a new reporting manager has been assigned to you in the OneDC system.</p>
+                    
+                    <div class='manager-info'>
+                        <h3>Your New Reporting Manager:</h3>
+                        <p><strong>Name:</strong> {managerName}</p>
+                        <p><strong>Email:</strong> <a href='mailto:{managerEmail}'>{managerEmail}</a></p>
+                    </div>
+                    
+                    <p>Your new manager will be able to:</p>
+                    <ul>
+                        <li>Review and approve your timesheets</li>
+                        <li>Assign projects and tasks</li>
+                        <li>Provide guidance and support</li>
+                        <li>Monitor your professional development</li>
+                    </ul>
+                    
+                    <p>If you have any questions about this change or need assistance, please don't hesitate to reach out to your HR department or contact your new manager directly.</p>
+                    
+                    <a href='{_emailConfig.BaseUrl}' class='button'>Access OneDC System</a>
+                    
+                    <p>Best regards,<br>
+                    The OneDC Team</p>
+                </div>
+                
+                <div class='footer'>
+                    <p>This is an automated notification from OneDC. Please do not reply to this email.</p>
+                    <p>If you have questions, contact your system administrator.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
+
+        var plainTextContent = $@"
+Hello {employeeName},
+
+We're writing to inform you that a new reporting manager has been assigned to you in the OneDC system.
+
+Your New Reporting Manager:
+Name: {managerName}
+Email: {managerEmail}
+
+Your new manager will be able to:
+- Review and approve your timesheets
+- Assign projects and tasks  
+- Provide guidance and support
+- Monitor your professional development
+
+If you have any questions about this change or need assistance, please don't hesitate to reach out to your HR department or contact your new manager directly.
+
+Access OneDC System: {_emailConfig.BaseUrl}
+
+Best regards,
+The OneDC Team
+
+This is an automated notification from OneDC. Please do not reply to this email.
+If you have questions, contact your system administrator.
+        ";
+
+        return await SendEmailAsync(toEmail, subject, htmlContent, plainTextContent);
+    }
+
+    public async Task<bool> SendNewTeamMemberNotificationAsync(string managerEmail, string managerName, string employeeName, string employeeEmail)
+    {
+        var subject = "New Team Member Assigned - OneDC";
+        
+        var htmlContent = $@"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>New Team Member Notification</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 30px; background-color: #f9f9f9; }}
+                .employee-info {{ background-color: #e9ecef; padding: 20px; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; font-size: 12px; color: #666; }}
+                .button {{ display: inline-block; padding: 12px 25px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 15px 0; }}
+                h2 {{ color: #007bff; }}
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>OneDC - New Team Member</h1>
+                </div>
+                
+                <div class='content'>
+                    <h2>Hello {managerName},</h2>
+                    
+                    <p>We're writing to inform you that a new team member has been assigned to report to you in the OneDC system.</p>
+                    
+                    <div class='employee-info'>
+                        <h3>Your New Team Member:</h3>
+                        <p><strong>Name:</strong> {employeeName}</p>
+                        <p><strong>Email:</strong> <a href='mailto:{employeeEmail}'>{employeeEmail}</a></p>
+                    </div>
+                    
+                    <p>As their reporting manager, you will now be able to:</p>
+                    <ul>
+                        <li>Review and approve their timesheets</li>
+                        <li>Assign projects and tasks</li>
+                        <li>Provide guidance and support</li>
+                        <li>Monitor their professional development</li>
+                        <li>Conduct performance reviews</li>
+                    </ul>
+                    
+                    <p>We recommend reaching out to {employeeName} to introduce yourself and discuss expectations, goals, and any ongoing projects.</p>
+                    
+                    <a href='{_emailConfig.BaseUrl}' class='button'>Access OneDC System</a>
+                    
+                    <p>Best regards,<br>
+                    The OneDC Team</p>
+                </div>
+                
+                <div class='footer'>
+                    <p>This is an automated notification from OneDC. Please do not reply to this email.</p>
+                    <p>If you have questions, contact your system administrator.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
+
+        var plainTextContent = $@"
+Hello {managerName},
+
+We're writing to inform you that a new team member has been assigned to report to you in the OneDC system.
+
+Your New Team Member:
+Name: {employeeName}
+Email: {employeeEmail}
+
+As their reporting manager, you will now be able to:
+- Review and approve their timesheets
+- Assign projects and tasks
+- Provide guidance and support  
+- Monitor their professional development
+- Conduct performance reviews
+
+We recommend reaching out to {employeeName} to introduce yourself and discuss expectations, goals, and any ongoing projects.
+
+Access OneDC System: {_emailConfig.BaseUrl}
+
+Best regards,
+The OneDC Team
+
+This is an automated notification from OneDC. Please do not reply to this email.
+If you have questions, contact your system administrator.
+        ";
+
+        return await SendEmailAsync(managerEmail, subject, htmlContent, plainTextContent);
+    }
 }

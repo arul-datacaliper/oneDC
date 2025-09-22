@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
+using OneDc.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
@@ -109,10 +110,12 @@ public class UpdateEmployeeRequest
 public class EmployeesController : ControllerBase
 {
     private readonly OneDcDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public EmployeesController(OneDcDbContext context)
+    public EmployeesController(OneDcDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     // Helper method to generate next employee ID
@@ -240,6 +243,36 @@ public class EmployeesController : ControllerBase
             _context.AppUsers.Add(newEmployee);
             await _context.SaveChangesAsync();
 
+            // Send manager assignment notification if a manager is assigned
+            if (request.ManagerId.HasValue)
+            {
+                var manager = await _context.AppUsers
+                    .FirstOrDefaultAsync(u => u.UserId == request.ManagerId.Value);
+                
+                if (manager != null)
+                {
+                    var employeeEmail = request.WorkEmail;
+                    var employeeName = $"{request.FirstName} {request.LastName}";
+                    var managerName = $"{manager.FirstName} {manager.LastName}";
+                    var managerEmail = manager.WorkEmail ?? manager.Email;
+                    
+                    // Send notification email (don't await to avoid blocking the response)
+                    _ = Task.Run(async () => 
+                    {
+                        try
+                        {
+                            await _emailService.SendManagerAssignmentNotificationAsync(
+                                employeeEmail, employeeName, managerName, managerEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log the error but don't fail the employee creation
+                            Console.WriteLine($"Failed to send manager assignment email: {emailEx.Message}");
+                        }
+                    });
+                }
+            }
+
             return CreatedAtAction(nameof(GetEmployeeById), new { id = newEmployee.UserId }, newEmployee);
         }
         catch (Exception ex)
@@ -266,6 +299,11 @@ public class EmployeesController : ControllerBase
             {
                 return NotFound($"Employee with ID {id} not found");
             }
+
+            // Check if manager has changed
+            var oldManagerId = existingEmployee.ManagerId;
+            var newManagerId = request.ManagerId;
+            var managerChanged = oldManagerId != newManagerId;
 
             // Update employee properties
             existingEmployee.FirstName = request.FirstName;
@@ -303,6 +341,36 @@ public class EmployeesController : ControllerBase
             }
 
             await _context.SaveChangesAsync();
+
+            // Send manager assignment notification if manager changed and new manager assigned
+            if (managerChanged && newManagerId.HasValue)
+            {
+                var newManager = await _context.AppUsers
+                    .FirstOrDefaultAsync(u => u.UserId == newManagerId.Value);
+                
+                if (newManager != null)
+                {
+                    var employeeEmail = existingEmployee.WorkEmail ?? existingEmployee.Email;
+                    var employeeName = $"{existingEmployee.FirstName} {existingEmployee.LastName}";
+                    var managerName = $"{newManager.FirstName} {newManager.LastName}";
+                    var managerEmail = newManager.WorkEmail ?? newManager.Email;
+                    
+                    // Send notification email (don't await to avoid blocking the response)
+                    _ = Task.Run(async () => 
+                    {
+                        try
+                        {
+                            await _emailService.SendManagerAssignmentNotificationAsync(
+                                employeeEmail, employeeName, managerName, managerEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log the error but don't fail the employee update
+                            Console.WriteLine($"Failed to send manager assignment email: {emailEx.Message}");
+                        }
+                    });
+                }
+            }
 
             return Ok(existingEmployee);
         }
