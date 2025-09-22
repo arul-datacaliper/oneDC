@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using OneDc.Repository.Interfaces;
 using OneDc.Domain.Entities;
+using OneDc.Services.Interfaces;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 
 namespace OneDc.Api.Controllers;
 
@@ -48,10 +50,14 @@ public class UpdateUserRequest
 public class UsersController : ControllerBase
 {
     private readonly IComplianceRepository _repo;
+    private readonly IEmailService _emailService;
+    private const int IterationCount = 10000;
+    private const string DefaultPassword = "changeme@123";
 
-    public UsersController(IComplianceRepository repo)
+    public UsersController(IComplianceRepository repo, IEmailService emailService)
     {
         _repo = repo;
+        _emailService = emailService;
     }
 
     // GET api/users
@@ -110,15 +116,34 @@ public class UsersController : ControllerBase
             {
                 UserId = Guid.NewGuid(),
                 Email = request.Email,
+                WorkEmail = request.Email, // Set work email same as email
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Role = request.Role,
                 ManagerId = request.ManagerId,
                 IsActive = true,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
+                PasswordHash = HashPassword(DefaultPassword) // Set default password
             };
 
             var createdUser = await _repo.CreateUserAsync(newUser);
+
+            // Send welcome email with default password
+            try
+            {
+                var userName = $"{createdUser.FirstName} {createdUser.LastName}";
+                await _emailService.SendWelcomeEmailAsync(
+                    createdUser.Email, 
+                    userName, 
+                    DefaultPassword
+                );
+            }
+            catch (Exception emailEx)
+            {
+                // Log email error but don't fail user creation
+                Console.WriteLine($"Failed to send welcome email: {emailEx.Message}");
+            }
+
             return CreatedAtAction(nameof(GetUserById), new { userId = createdUser.UserId }, createdUser);
         }
         catch (Exception ex)
@@ -203,5 +228,17 @@ public class UsersController : ControllerBase
         {
             return BadRequest($"Failed to delete user: {ex.Message}");
         }
+    }
+
+    private string HashPassword(string password)
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var salt = new byte[32];
+        rng.GetBytes(salt);
+
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, IterationCount, HashAlgorithmName.SHA256);
+        var hash = pbkdf2.GetBytes(32);
+
+        return $"{IterationCount}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 }
