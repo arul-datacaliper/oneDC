@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OneDc.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7edc08a063a28b2830adebc736ff7042720bf4e9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b2f8c24b3f96fcbe11a97fc3ea27d5eb19ba2f66")]
 [assembly: System.Reflection.AssemblyProductAttribute("OneDc.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OneDc.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
