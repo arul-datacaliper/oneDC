@@ -651,11 +651,16 @@
           </div>
 
           <!-- Professional Information -->
-          <div class="col-12 mt-4" *ngIf="selectedEmployeeProfile()">
+          <div class="col-12 mt-4" *ngIf="selectedEmployeeProfile() || employee.managerId">
             <h6 class="text-muted mb-3">Professional Information</h6>
             <div class="row">
               <div class="col-md-6">
-                <div class="mb-3" *ngIf="selectedEmployeeProfile()?.reportingManager">
+                <!-- Show manager from employee data if available -->
+                <div class="mb-3" *ngIf="employee.managerId">
+                  <strong>Reporting Manager:</strong> {{ getManagerName(employee.managerId) }}
+                </div>
+                <!-- Fallback to profile data if available -->
+                <div class="mb-3" *ngIf="!employee.managerId && selectedEmployeeProfile()?.reportingManager">
                   <strong>Reporting Manager:</strong> {{ selectedEmployeeProfile()?.reportingManager }}
                 </div>
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.totalExperienceYears">

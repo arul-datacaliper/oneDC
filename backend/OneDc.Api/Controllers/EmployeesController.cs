@@ -34,6 +34,9 @@ public class CreateEmployeeRequest
     public string? ContactNumber { get; set; }
     public string? EmergencyContactNumber { get; set; }
     
+    // Manager assignment
+    public Guid? ManagerId { get; set; }
+    
     // Present Address
     public string? PresentAddressLine1 { get; set; }
     public string? PresentAddressLine2 { get; set; }
@@ -77,6 +80,9 @@ public class UpdateEmployeeRequest
     public string? WorkEmail { get; set; }
     public string? ContactNumber { get; set; }
     public string? EmergencyContactNumber { get; set; }
+    
+    // Manager assignment
+    public Guid? ManagerId { get; set; }
     
     // Present Address
     public string? PresentAddressLine1 { get; set; }
@@ -214,6 +220,7 @@ public class EmployeesController : ControllerBase
                 PersonalEmail = request.PersonalEmail,
                 ContactNumber = request.ContactNumber,
                 EmergencyContactNumber = request.EmergencyContactNumber,
+                ManagerId = request.ManagerId, // Add manager assignment
                 PresentAddressLine1 = request.PresentAddressLine1,
                 PresentAddressLine2 = request.PresentAddressLine2,
                 PresentCity = request.PresentCity,
@@ -273,6 +280,7 @@ public class EmployeesController : ControllerBase
             existingEmployee.PersonalEmail = request.PersonalEmail;
             existingEmployee.ContactNumber = request.ContactNumber;
             existingEmployee.EmergencyContactNumber = request.EmergencyContactNumber;
+            existingEmployee.ManagerId = request.ManagerId; // Update manager assignment
             existingEmployee.PresentAddressLine1 = request.PresentAddressLine1;
             existingEmployee.PresentAddressLine2 = request.PresentAddressLine2;
             existingEmployee.PresentCity = request.PresentCity;
