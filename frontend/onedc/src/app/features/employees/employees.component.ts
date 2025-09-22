@@ -95,6 +95,21 @@ export class EmployeesComponent implements OnInit {
     'Data Science'
   ];
 
+  // Computed property for available managers (employees who can manage others)
+  availableManagers = computed(() => {
+    const currentEditingId = this.editingEmployee()?.userId;
+    return this.employees()
+      .filter(emp => 
+        emp.userId !== currentEditingId && // Can't be their own manager
+        emp.isActive && // Must be active
+        (emp.role === UserRole.ADMIN || emp.role === UserRole.APPROVER) // Must be admin or approver
+      )
+      .map(emp => ({
+        value: emp.userId,
+        label: `${emp.firstName} ${emp.lastName} - ${emp.jobTitle || 'N/A'}`
+      }));
+  });
+
   // Form
   employeeForm: FormGroup;
 
@@ -114,6 +129,7 @@ export class EmployeesComponent implements OnInit {
       employeeType: [EmployeeType.FULL_TIME],
       contactNumber: ['', [Validators.required]],
       emergencyContactNumber: [''],
+      managerId: [''], // Add reporting manager field
       presentAddress: this.fb.group({
         addressLine1: ['', [Validators.required]],
         addressLine2: [''],
@@ -302,6 +318,7 @@ export class EmployeesComponent implements OnInit {
       employeeType: employee.employeeType,
       contactNumber: employee.contactNumber,
       emergencyContactNumber: employee.emergencyContactNumber,
+      managerId: employee.managerId || '', // Add reporting manager
       presentAddress: employee.presentAddress || {},
       permanentAddress: employee.permanentAddress || {}
     });
@@ -379,6 +396,7 @@ export class EmployeesComponent implements OnInit {
           employeeType: formValue.employeeType,
           contactNumber: formValue.contactNumber,
           emergencyContactNumber: formValue.emergencyContactNumber,
+          managerId: formValue.managerId || null, // Add reporting manager
           // Flatten present address
           presentAddressLine1: formValue.presentAddress?.addressLine1 || '',
           presentAddressLine2: formValue.presentAddress?.addressLine2 || '',
@@ -429,6 +447,7 @@ export class EmployeesComponent implements OnInit {
           employeeType: formValue.employeeType,
           contactNumber: formValue.contactNumber,
           emergencyContactNumber: formValue.emergencyContactNumber,
+          managerId: formValue.managerId || null, // Add reporting manager
           // Flatten present address
           presentAddressLine1: formValue.presentAddress?.addressLine1 || '',
           presentAddressLine2: formValue.presentAddress?.addressLine2 || '',
@@ -627,5 +646,12 @@ export class EmployeesComponent implements OnInit {
       case 4: return 'Expert';
       default: return 'Unknown';
     }
+  }
+
+  // Get manager name by ID
+  getManagerName(managerId: string | undefined): string {
+    if (!managerId) return 'No Manager';
+    const manager = this.employees().find(emp => emp.userId === managerId);
+    return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
   }
 }

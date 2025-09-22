@@ -10,155 +10,161 @@ import { AuthService } from '../../core/services/auth.service';
   selector: 'app-reset-password',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-md w-full space-y-8">
-        <div>
-          <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-green-100">
-            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+    <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4">
+      <div class="w-full max-w-md mx-auto">
+        <!-- Main Card -->
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-200">
+          <!-- Header Section -->
+          <div class="px-8 pt-10 pb-6 text-center">
+            <h1 class="text-2xl font-bold text-gray-900 mb-3">Reset Password</h1>
+            <p class="text-gray-600 text-sm leading-relaxed">
+              Enter the 6-digit OTP sent to {{ email }} and your new password.
+            </p>
           </div>
-          <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Reset Password
-          </h2>
-          <p class="mt-2 text-center text-sm text-gray-600">
-            Enter the 6-digit OTP sent to {{ email }} and your new password.
-          </p>
-        </div>
-        
-        <div class="mt-8 space-y-6">
-          <div class="space-y-4">
-            <!-- OTP Input -->
-            <div>
-              <label for="otp" class="block text-sm font-medium text-gray-700">
-                6-Digit OTP
-              </label>
-              <input
-                id="otp"
-                name="otp"
-                type="text"
-                [(ngModel)]="otp"
-                maxlength="6"
-                pattern="[0-9]{6}"
-                required
-                class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm text-center text-2xl tracking-widest"
-                placeholder="000000"
-                [disabled]="loading()"
-                (input)="onOtpInput($event)"
-              />
-            </div>
 
-            <!-- New Password -->
-            <div>
-              <label for="newPassword" class="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <div class="mt-1 relative">
+          <!-- Form Section -->
+          <div class="px-8 py-6">
+            <div class="space-y-6">
+              <!-- OTP Input -->
+              <div>
+                <label for="otp" class="block text-sm font-medium text-gray-700 mb-2">
+                  6-Digit OTP
+                </label>
                 <input
-                  id="newPassword"
-                  name="newPassword"
-                  [type]="showPassword ? 'text' : 'password'"
-                  [(ngModel)]="newPassword"
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  [(ngModel)]="otp"
+                  maxlength="6"
+                  pattern="[0-9]{6}"
                   required
-                  minlength="8"
-                  class="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Enter new password"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition-all duration-200 text-sm text-center tracking-wider"
+                  placeholder="000000"
+                  [disabled]="loading()"
+                  (input)="onOtpInput($event)"
+                />
+              </div>
+
+              <!-- New Password -->
+              <div>
+                <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div class="relative">
+                  <input
+                    id="newPassword"
+                    name="newPassword"
+                    [type]="showPassword ? 'text' : 'password'"
+                    [(ngModel)]="newPassword"
+                    required
+                    minlength="8"
+                    class="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition-all duration-200 text-sm"
+                    placeholder="Enter new password"
+                    [disabled]="loading()"
+                  />
+                  <button
+                    type="button"
+                    class="absolute inset-y-0 right-0 pr-4 flex items-center"
+                    (click)="showPassword = !showPassword"
+                  >
+                    <span class="text-gray-400 text-xs font-medium">{{ showPassword ? 'Hide' : 'Show' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Confirm Password -->
+              <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  [type]="showPassword ? 'text' : 'password'"
+                  [(ngModel)]="confirmPassword"
+                  required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition-all duration-200 text-sm"
+                  placeholder="Confirm new password"
                   [disabled]="loading()"
                 />
+              </div>
+
+              <!-- Error Messages -->
+              <div class="space-y-2">
+                @if (submitted && (!otp || !newPassword || !confirmPassword)) {
+                  <div class="text-red-600 text-sm">
+                    All fields are required
+                  </div>
+                }
+
+                @if (submitted && newPassword && confirmPassword && newPassword !== confirmPassword) {
+                  <div class="text-red-600 text-sm">
+                    Passwords do not match
+                  </div>
+                }
+
+                @if (submitted && newPassword && newPassword.length < 8) {
+                  <div class="text-red-600 text-sm">
+                    Password must be at least 8 characters long
+                  </div>
+                }
+              </div>
+
+              <!-- Submit Button -->
+              <div class="space-y-4">
                 <button
                   type="button"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  (click)="showPassword = !showPassword"
+                  (click)="onSubmit()"
+                  [disabled]="loading() || !isFormValid()"
+                  class="w-full py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
                 >
-                  <svg
-                    class="h-5 w-5 text-gray-400"
-                    [attr.fill]="showPassword ? 'currentColor' : 'none'"
-                    [attr.stroke]="showPassword ? 'none' : 'currentColor'"
-                    viewBox="0 0 24 24"
-                  >
-                    @if (showPassword) {
-                      <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                      <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                    } @else {
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/>
-                    }
-                  </svg>
+                  @if (loading()) {
+                    <span>Resetting Password...</span>
+                  } @else {
+                    <span>Reset Password</span>
+                  }
+                </button>
+
+                <!-- Resend OTP Button -->
+                <button
+                  type="button"
+                  (click)="resendOtp()"
+                  [disabled]="resendLoading() || resendCooldown() > 0"
+                  class="w-full py-3 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  @if (resendLoading()) {
+                    <span>Sending OTP...</span>
+                  } @else if (resendCooldown() > 0) {
+                    <span>Resend OTP ({{ resendCooldown() }}s)</span>
+                  } @else {
+                    <span>Resend OTP</span>
+                  }
                 </button>
               </div>
             </div>
-
-            <!-- Confirm Password -->
-            <div>
-              <label for="confirmPassword" class="block text-sm font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                [type]="showPassword ? 'text' : 'password'"
-                [(ngModel)]="confirmPassword"
-                required
-                class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm new password"
-                [disabled]="loading()"
-              />
-            </div>
           </div>
 
-          @if (submitted && (!otp || !newPassword || !confirmPassword)) {
-            <div class="text-red-600 text-sm">
-              All fields are required
+          <!-- Footer -->
+          <div class="px-8 py-6 bg-gray-50 border-t border-gray-100">
+            <div class="text-center">
+              <a 
+                routerLink="/login" 
+                class="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors duration-200"
+              >
+                ← Back to login
+              </a>
             </div>
-          }
-
-          @if (submitted && newPassword && confirmPassword && newPassword !== confirmPassword) {
-            <div class="text-red-600 text-sm">
-              Passwords do not match
-            </div>
-          }
-
-          @if (submitted && newPassword && newPassword.length < 8) {
-            <div class="text-red-600 text-sm">
-              Password must be at least 8 characters long
-            </div>
-          }
-
-          <!-- Buttons -->
-          <div class="space-y-3">
-            <button
-              type="submit"
-              (click)="onSubmit()"
-              [disabled]="loading() || !isFormValid()"
-              class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              @if (loading()) {
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              }
-              Reset Password
-            </button>
-
-            <button
-              type="button"
-              (click)="resendOtp()"
-              [disabled]="resendLoading() || resendCooldown() > 0"
-              class="w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              @if (resendLoading()) {
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-2"></div>
-              }
-              @if (resendCooldown() > 0) {
-                Resend OTP ({{ resendCooldown() }}s)
-              } @else {
-                Resend OTP
-              }
-            </button>
           </div>
+        </div>
 
-          <div class="text-center">
-            <a routerLink="/login" class="font-medium text-blue-600 hover:text-blue-500">
-              ← Back to login
+        <!-- Additional Help -->
+        <div class="mt-6 text-center">
+          <p class="text-xs text-gray-500">
+            Having trouble? 
+            <a href="mailto:support@onedc.com" class="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200">
+              Contact support
             </a>
-          </div>
+          </p>
         </div>
       </div>
     </div>

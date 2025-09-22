@@ -103,6 +103,21 @@ export class EmployeesComponent implements OnInit {
     'Quality Assurance',
     'DevOps'
   ];
+  
+  // Computed property for available managers (employees who can manage others)
+  availableManagers = computed(() => {
+    const currentEditingId = this.editingEmployee()?.userId;
+    return this.employees()
+      .filter(emp => 
+        emp.userId !== currentEditingId && // Can't be their own manager
+        emp.isActive && // Must be active
+        (emp.role === UserRole.ADMIN || emp.role === UserRole.APPROVER) // Must be admin or approver
+      )
+      .map(emp => ({
+        value: emp.userId,
+        label: `${emp.firstName} ${emp.lastName} - ${emp.jobTitle || 'N/A'}`
+      }));
+  });
 
   constructor() {
     this.employeeForm = this.fb.group({
@@ -120,6 +135,7 @@ export class EmployeesComponent implements OnInit {
       workEmail: ['', [Validators.required, Validators.email, Validators.maxLength(150)]],
       contactNumber: ['', [Validators.required, Validators.maxLength(30)]],
       emergencyContactNumber: ['', [Validators.maxLength(30)]],
+      managerId: [''], // Add reporting manager field
       presentAddress: this.fb.group({
         addressLine1: ['', [Validators.required, Validators.maxLength(200)]],
         addressLine2: ['', [Validators.maxLength(200)]],
@@ -249,6 +265,7 @@ export class EmployeesComponent implements OnInit {
       workEmail: employee.workEmail,
       contactNumber: employee.contactNumber,
       emergencyContactNumber: employee.emergencyContactNumber || '',
+      managerId: employee.managerId || '',
       presentAddress: {
         addressLine1: employee.presentAddress?.addressLine1 || '',
         addressLine2: employee.presentAddress?.addressLine2 || '',
@@ -347,6 +364,7 @@ export class EmployeesComponent implements OnInit {
         workEmail: formData.workEmail,
         contactNumber: formData.contactNumber,
         emergencyContactNumber: formData.emergencyContactNumber || undefined,
+        managerId: formData.managerId || undefined,
         presentAddress: formData.presentAddress,
         permanentAddress: formData.permanentAddress,
         isActive: formData.isActive
@@ -525,5 +543,12 @@ export class EmployeesComponent implements OnInit {
       case 4: return 'Expert';
       default: return 'Unknown';
     }
+  }
+
+  // Get manager name by ID
+  getManagerName(managerId: string | undefined): string {
+    if (!managerId) return 'No Manager';
+    const manager = this.employees().find(emp => emp.userId === managerId);
+    return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
   }
 }
