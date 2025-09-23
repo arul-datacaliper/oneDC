@@ -34,7 +34,7 @@ public class AuthService : IAuthService
         await _context.SaveChangesAsync();
 
         var token = GenerateJwtToken(user);
-        return new AuthResult(token, user.UserId, user.Email, $"{user.FirstName} {user.LastName}", user.Role.ToString());
+        return new AuthResult(token, user.UserId, user.Email, $"{user.FirstName} {user.LastName}", user.Role.ToString(), user.MustChangePassword);
     }
 
     public async Task SetPasswordAsync(Guid userId, string newPassword)
@@ -43,6 +43,7 @@ public class AuthService : IAuthService
         if (user == null) throw new InvalidOperationException("User not found");
 
         user.PasswordHash = HashPassword(newPassword);
+        user.MustChangePassword = false; // Clear the flag when user sets a new password
         await _context.SaveChangesAsync();
     }
 

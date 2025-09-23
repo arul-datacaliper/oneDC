@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneDc.Infrastructure;
@@ -11,9 +12,11 @@ using OneDc.Infrastructure;
 namespace OneDc.Infrastructure.Migrations
 {
     [DbContext(typeof(OneDcDbContext))]
-    partial class OneDcDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250923071835_AddMustChangePasswordFlag")]
+    partial class AddMustChangePasswordFlag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -5,6 +5,7 @@ using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 
 namespace OneDc.Api.Controllers;
 
@@ -204,6 +205,10 @@ public class EmployeesController : ControllerBase
         {
             // Generate the next employee ID
             var employeeId = await GenerateNextEmployeeIdAsync();
+            
+            // Generate temporary password for new employee
+            var temporaryPassword = GenerateTemporaryPassword();
+            var hashedPassword = HashPassword(temporaryPassword);
 
             var newEmployee = new AppUser
             {
@@ -236,6 +241,8 @@ public class EmployeesController : ControllerBase
                 PermanentState = request.PermanentState,
                 PermanentCountry = request.PermanentCountry,
                 PermanentZipCode = request.PermanentZipCode,
+                PasswordHash = hashedPassword, // Set the hashed password
+                MustChangePassword = true, // Force password change on first login
                 IsActive = request.IsActive,
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -272,6 +279,22 @@ public class EmployeesController : ControllerBase
                     });
                 }
             }
+
+            // Send welcome email with temporary password (don't await to avoid blocking the response)
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    var employeeName = $"{request.FirstName} {request.LastName}";
+                    await _emailService.SendWelcomeEmailAsync(
+                        request.WorkEmail, employeeName, temporaryPassword);
+                }
+                catch (Exception emailEx)
+                {
+                    // Log the error but don't fail the employee creation
+                    Console.WriteLine($"Failed to send welcome email: {emailEx.Message}");
+                }
+            });
 
             return CreatedAtAction(nameof(GetEmployeeById), new { id = newEmployee.UserId }, newEmployee);
         }
@@ -579,5 +602,65 @@ public class EmployeesController : ControllerBase
         {
             return "No Manager";
         }
+    }
+
+    // Helper method to generate a temporary password
+    private static string GenerateTemporaryPassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        const string specialChars = "!@#$%";
+        
+        using var rng = RandomNumberGenerator.Create();
+        
+        // Generate 6 alphanumeric characters
+        var alphanumeric = new char[6];
+        for (int i = 0; i < 6; i++)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            alphanumeric[i] = chars[(int)(randomInt % chars.Length)];
+        }
+        
+        // Add 2 special characters
+        var special = new char[2];
+        for (int i = 0; i < 2; i++)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            special[i] = specialChars[(int)(randomInt % specialChars.Length)];
+        }
+        
+        // Combine and shuffle
+        var password = new string(alphanumeric) + new string(special);
+        var passwordArray = password.ToCharArray();
+        
+        // Shuffle the password
+        for (int i = passwordArray.Length - 1; i > 0; i--)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            var j = (int)(randomInt % (i + 1));
+            (passwordArray[i], passwordArray[j]) = (passwordArray[j], passwordArray[i]);
+        }
+        
+        return new string(passwordArray);
+    }
+
+    // Helper method to hash password (same as AuthService)
+    private static string HashPassword(string password)
+    {
+        const int iterations = 10000;
+        
+        using var rng = RandomNumberGenerator.Create();
+        var salt = new byte[32];
+        rng.GetBytes(salt);
+
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
+        var hash = pbkdf2.GetBytes(32);
+
+        return $"{iterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 }

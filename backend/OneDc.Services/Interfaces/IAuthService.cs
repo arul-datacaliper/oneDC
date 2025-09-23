@@ -1,6 +1,6 @@
 namespace OneDc.Services.Interfaces;
 
-public record AuthResult(string Token, Guid UserId, string Email, string Name, string Role);
+public record AuthResult(string Token, Guid UserId, string Email, string Name, string Role, bool MustChangePassword = false);
 
 public interface IAuthService
 {

@@ -147,8 +147,9 @@ public class PasswordResetService : IPasswordResetService
             // Hash the new password
             var hashedPassword = HashPassword(newPassword);
             
-            // Update user password
+            // Update user password and clear password change requirement
             user.PasswordHash = hashedPassword;
+            user.MustChangePassword = false; // Clear the flag when password is reset
             
             await _userRepository.UpdateAsync(user);
 
@@ -197,20 +198,14 @@ public class PasswordResetService : IPasswordResetService
     private static string HashPassword(string password)
     {
         const int iterations = 10000;
-        const int hashSize = 20;
-        const int saltSize = 16;
-
+        
         using var rng = RandomNumberGenerator.Create();
-        var salt = new byte[saltSize];
+        var salt = new byte[32];
         rng.GetBytes(salt);
 
         using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
-        var hash = pbkdf2.GetBytes(hashSize);
+        var hash = pbkdf2.GetBytes(32);
 
-        var result = new byte[saltSize + hashSize];
-        Array.Copy(salt, 0, result, 0, saltSize);
-        Array.Copy(hash, 0, result, saltSize, hashSize);
-
-        return Convert.ToBase64String(result);
+        return $"{iterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 }
