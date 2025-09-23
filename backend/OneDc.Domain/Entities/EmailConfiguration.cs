@@ -2,7 +2,7 @@ namespace OneDc.Domain.Entities;
 
 public class EmailConfiguration
 {
-    public string SendGridApiKey { get; set; } = string.Empty;
+    public string AzureEmailConnectionString { get; set; } = string.Empty;
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = string.Empty;
