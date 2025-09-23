@@ -36,11 +36,27 @@ public class TimesheetsController : ControllerBase
 
     // GET api/timesheets?from=2025-09-08&to=2025-09-14
     [HttpGet]
-    public async Task<IActionResult> GetMine([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> GetMine([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
     {
-        var userId = GetCurrentUserId();
-        var items = await _svc.GetMineAsync(userId, from, to);
-        return Ok(items);
+        try
+        {
+            var userId = GetCurrentUserId();
+            
+            // Convert DateTime to DateOnly, with defaults
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.FromDateTime(DateTime.Today);
+            
+            var items = await _svc.GetMineAsync(userId, fromDate, toDate);
+            return Ok(items);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
     }
 
     public record CreateReq(Guid ProjectId, DateOnly WorkDate, decimal Hours, string? Description, string? TicketRef, Guid? TaskId);
@@ -50,28 +66,61 @@ public class TimesheetsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateReq body)
     {
-        var userId = GetCurrentUserId();
-        var created = await _svc.CreateDraftAsync(userId,
-            new TimesheetCreateDto(body.ProjectId, body.WorkDate, body.Hours, body.Description, body.TicketRef, body.TaskId));
-        return CreatedAtAction(nameof(GetMine), new { from = created.WorkDate, to = created.WorkDate }, created);
+        try
+        {
+            var userId = GetCurrentUserId();
+            var created = await _svc.CreateDraftAsync(userId,
+                new TimesheetCreateDto(body.ProjectId, body.WorkDate, body.Hours, body.Description, body.TicketRef, body.TaskId));
+            return CreatedAtAction(nameof(GetMine), new { from = created.WorkDate, to = created.WorkDate }, created);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
     }
 
     // PUT api/timesheets/{id}  (edit DRAFT)
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReq body)
     {
-        var userId = GetCurrentUserId();
-        var updated = await _svc.UpdateDraftAsync(userId, id,
-            new TimesheetUpdateDto(body.Hours, body.Description, body.TicketRef, body.TaskId));
-        return Ok(updated);
+        try
+        {
+            var userId = GetCurrentUserId();
+            var updated = await _svc.UpdateDraftAsync(userId, id,
+                new TimesheetUpdateDto(body.Hours, body.Description, body.TicketRef, body.TaskId));
+            return Ok(updated);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
     }
 
     // POST api/timesheets/{id}/submit  (DRAFT -> SUBMITTED)
     [HttpPost("{id:guid}/submit")]
     public async Task<IActionResult> Submit(Guid id)
     {
-        var userId = GetCurrentUserId();
-        var submitted = await _svc.SubmitAsync(userId, id);
-        return Ok(submitted);
+        try
+        {
+            var userId = GetCurrentUserId();
+            var submitted = await _svc.SubmitAsync(userId, id);
+            return Ok(submitted);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
     }
 }
