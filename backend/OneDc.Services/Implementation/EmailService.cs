@@ -2,27 +2,26 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using Azure.Communication.Email;
 
 namespace OneDc.Services.Implementation;
 
 public class EmailService : IEmailService
 {
-    private readonly ISendGridClient _sendGridClient;
+    private readonly EmailClient _emailClient;
     private readonly EmailConfiguration _emailConfig;
     private readonly ILogger<EmailService> _logger;
 
-    public EmailService(ISendGridClient sendGridClient, IConfiguration configuration, ILogger<EmailService> logger)
+    public EmailService(EmailClient emailClient, IConfiguration configuration, ILogger<EmailService> logger)
     {
-        _sendGridClient = sendGridClient;
+        _emailClient = emailClient;
         _logger = logger;
         
         _emailConfig = new EmailConfiguration
         {
-            SendGridApiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY") ?? configuration["SendGrid:ApiKey"] ?? "",
-            FromEmail = Environment.GetEnvironmentVariable("SENDGRID_FROM_EMAIL") ?? configuration["SendGrid:FromEmail"] ?? "noreply@onedc.local",
-            FromName = Environment.GetEnvironmentVariable("SENDGRID_FROM_NAME") ?? configuration["SendGrid:FromName"] ?? "OneDC System",
+            AzureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? configuration["AzureEmail:ConnectionString"] ?? "",
+            FromEmail = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_EMAIL") ?? configuration["AzureEmail:FromEmail"] ?? "noreply@onedc.local",
+            FromName = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_NAME") ?? configuration["AzureEmail:FromName"] ?? "OneDC System",
             BaseUrl = Environment.GetEnvironmentVariable("BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
         };
     }
@@ -232,23 +231,31 @@ public class EmailService : IEmailService
     {
         try
         {
-            var from = new EmailAddress(_emailConfig.FromEmail, _emailConfig.FromName);
-            var to = new EmailAddress(toEmail);
+            var emailMessage = new EmailMessage(
+                senderAddress: _emailConfig.FromEmail,
+                content: new EmailContent(subject)
+                {
+                    PlainText = plainTextContent ?? "",
+                    Html = htmlContent
+                },
+                recipients: new EmailRecipients(new List<EmailAddress> { new EmailAddress(toEmail) }));
+
+            var operation = await _emailClient.SendAsync(Azure.WaitUntil.Completed, emailMessage);
             
-            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent ?? "", htmlContent);
-            
-            var response = await _sendGridClient.SendEmailAsync(msg);
-            
-            if (response.IsSuccessStatusCode)
+            if (operation.HasCompleted && !operation.HasValue)
             {
                 _logger.LogInformation("Email sent successfully to {Email} with subject '{Subject}'", toEmail, subject);
                 return true;
             }
+            else if (operation.HasValue)
+            {
+                var result = operation.Value;
+                _logger.LogInformation("Email operation completed. Status: {Status} for {Email}", result.Status, toEmail);
+                return result.Status == EmailSendStatus.Succeeded;
+            }
             else
             {
-                var body = await response.Body.ReadAsStringAsync();
-                _logger.LogError("Failed to send email to {Email}. Status: {StatusCode}, Body: {Body}", 
-                    toEmail, response.StatusCode, body);
+                _logger.LogError("Failed to send email to {Email}. Operation did not complete successfully", toEmail);
                 return false;
             }
         }

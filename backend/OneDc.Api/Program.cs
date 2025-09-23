@@ -15,7 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using OneDc.Api.JsonConverters;
 using System.Security.Cryptography;
-using SendGrid.Extensions.DependencyInjection;
+using Azure.Communication.Email;
 
 using DotNetEnv;
 
@@ -63,11 +63,10 @@ builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IUserRep
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// SendGrid Email Service
-builder.Services.AddSendGrid(options =>
-{
-    options.ApiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY") ?? builder.Configuration["SendGrid:ApiKey"] ?? "";
-});
+// Azure Email Communication Service
+var azureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? 
+                                builder.Configuration["AzureEmail:ConnectionString"] ?? "";
+builder.Services.AddSingleton(new EmailClient(azureEmailConnectionString));
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
