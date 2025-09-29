@@ -54,7 +54,7 @@
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
       <div class="col-md-2 text-end">
-        <button class="btn btn-primary btn-sm w-100" (click)="openCreate()" [disabled]="!projectId()"> <i class="bi bi-plus-circle"></i> New Task</button>
+        <button class="btn btn-primary btn-sm w-100" (click)="openCreate()" [disabled]="!projectId() || saving() || deletingTaskId() || updatingStatusTaskId()"> <i class="bi bi-plus-circle"></i> New Task</button>
       </div>
     </div>
   </div>
@@ -64,8 +64,13 @@
   <div class="card-body p-0">
     <div *ngIf="!projectId()" class="p-5 text-center text-muted">Select a project to view tasks.</div>
     <ng-container *ngIf="projectId()">
-      <div class="table-responsive" *ngIf="filtered().length > 0; else emptyState">
-        <table class="table table-hover mb-0">
+      <div class="table-responsive position-relative" *ngIf="filtered().length > 0; else emptyState">
+        <!-- Table Loading Overlay -->
+        <div *ngIf="loading()" class="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" 
+             style="background-color: rgba(255,255,255,0.8); z-index: 10;">
+          <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+        </div>
+        <table class="table table-hover mb-0" [class.opacity-50]="loading()">
           <thead class="table-light">
             <tr>
               <th>Title</th>
@@ -75,7 +80,7 @@
               <th>Start</th>
               <th>End</th>
               <th>Status</th>
-              <th style="width:160px">Actions</th>
+              <th style="width:200px">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -95,9 +100,16 @@
               <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-outline-primary" (click)="openEdit(t)"><i class="bi bi-pencil"></i></button>
-                  <button class="btn btn-outline-danger" (click)="delete(t)"><i class="bi bi-trash"></i></button>
-                  <button class="btn btn-outline-success" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed"><i class="bi bi-check2-circle"></i></button>
+                  <button class="btn btn-outline-primary" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
+                  <button class="btn btn-outline-info" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
+                  <button class="btn btn-outline-danger" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
+                    <span *ngIf="deletingTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <i *ngIf="deletingTaskId() !== t.taskId" class="bi bi-trash"></i>
+                  </button>
+                  <button class="btn btn-outline-success" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-check2-circle"></i>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -123,13 +135,29 @@
 <!-- Modal -->
 <div class="modal fade show" tabindex="-1" style="display:block; background:rgba(0,0,0,.35)" *ngIf="showModal()">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
+    <div class="modal-content position-relative">
+      <!-- Loading Overlay -->
+      <div *ngIf="saving()" class="modal-loading-overlay">
+        <div class="loading-content">
+          <div class="spinner-border text-primary mb-2" role="status" aria-hidden="true"></div>
+          <div class="fw-medium">Saving task...</div>
+        </div>
+      </div>
+      
       <div class="modal-header">
-        <h5 class="modal-title">{{ editMode() ? 'Edit Task' : 'New Task' }}</h5>
-        <button type="button" class="btn-close" (click)="closeModal()"></button>
+        <h5 class="modal-title">{{ editMode() ? 'Edit Task' : (duplicateMode() ? 'Duplicate Task' : 'New Task') }}</h5>
+        <button type="button" class="btn-close" (click)="closeModal()" [disabled]="saving()"></button>
       </div>
       <div class="modal-body">
-        <app-task-form [projectId]="projectId()" [mode]="editMode() ? 'edit':'create'" [task]="activeTask()" (saved)="onSaved()" (cancel)="closeModal()"></app-task-form>
+        <app-task-form 
+          [projectId]="projectId()" 
+          [mode]="editMode() ? 'edit' : (duplicateMode() ? 'duplicate' : 'create')" 
+          [task]="activeTask()" 
+          [saving]="saving()"
+          (saved)="onSaved()" 
+          (cancel)="closeModal()"
+          (loadingChange)="onLoadingChange($event)">
+        </app-task-form>
       </div>
     </div>
   </div>

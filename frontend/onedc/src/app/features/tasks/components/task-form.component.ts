@@ -60,8 +60,11 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
       </div>
     </div>
     <div class="mt-4 d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel.emit()">Cancel</button>
-      <button type="submit" class="btn btn-primary" [disabled]="form.invalid">{{ mode==='create' ? 'Create' : 'Update' }}</button>
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel.emit()" [disabled]="saving">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving">
+        <span *ngIf="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        {{ saving ? 'Saving...' : (mode==='create' || mode==='duplicate' ? 'Create' : 'Update') }}
+      </button>
     </div>
   </form>
   `,
@@ -75,10 +78,12 @@ export class TaskFormComponent implements OnChanges {
   private tasksSvc = inject(TasksService);
 
   @Input() projectId!: string;
-  @Input() mode: 'create'|'edit' = 'create';
+  @Input() mode: 'create'|'edit'|'duplicate' = 'create';
   @Input() task?: ProjectTask | null;
+  @Input() saving: boolean = false;
   @Output() saved = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
+  @Output() loadingChange = new EventEmitter<boolean>();
 
   users: AppUser[] = [];
   assigneeOptions: DropdownOption[] = [];
@@ -150,15 +155,18 @@ export class TaskFormComponent implements OnChanges {
       return date.toISOString().split('T')[0];
     };
     
+    // For duplicate mode, clear assignee and estimated hours to allow reassignment
+    const isDuplicate = this.mode === 'duplicate';
+    
     this.form.patchValue({
       title: this.task.title,
       description: this.task.description,
       label: this.task.label,
-      assignedUserId: this.task.assignedUserId || '',
-      estimatedHours: this.task.estimatedHours ?? null,
+      assignedUserId: isDuplicate ? '' : (this.task.assignedUserId || ''),
+      estimatedHours: isDuplicate ? null : (this.task.estimatedHours ?? null),
       startDate: formatDateForInput(this.task.startDate),
       endDate: formatDateForInput(this.task.endDate),
-      status: this.task.status
+      status: isDuplicate ? 'NEW' : this.task.status
     });
     
     console.log('Form values after patch:', this.form.value); // Debug log
@@ -172,7 +180,10 @@ export class TaskFormComponent implements OnChanges {
   }
 
   submit() {
-    if (this.form.invalid) return;
+    if (this.form.invalid || this.saving) return;
+    
+    this.loadingChange.emit(true);
+    
     const v = this.form.getRawValue();
     const payload: any = {
       title: (v.title || '').toString().trim(),
@@ -185,13 +196,19 @@ export class TaskFormComponent implements OnChanges {
     };
     if (this.mode === 'edit') payload.status = v.status;
 
-    const obs = this.mode === 'create'
+    const obs = (this.mode === 'create' || this.mode === 'duplicate')
       ? this.tasksSvc.create(this.projectId, payload)
       : this.tasksSvc.update(this.task!.taskId, payload);
 
     obs.subscribe({
-      next: () => this.saved.emit(),
-      error: err => console.error('Task save failed', err)
+      next: () => {
+        this.loadingChange.emit(false);
+        this.saved.emit();
+      },
+      error: err => {
+        this.loadingChange.emit(false);
+        console.error('Task save failed', err);
+      }
     });
   }
 

@@ -75,3 +75,28 @@
 .filter-card { border: 1px solid #eee; }
 .table-card { border: 1px solid #eee; }
 .modal .modal-content { box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15); }
+
+// Modal loading overlay styles
+.modal-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  border-radius: 0.375rem;
+  
+  .loading-content {
+    text-align: center;
+    color: #6c757d;
+    
+    .spinner-border {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+}

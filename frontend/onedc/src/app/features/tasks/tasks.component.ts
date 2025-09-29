@@ -43,6 +43,8 @@ export class TasksComponent implements OnInit, AfterViewInit {
 
   loading = signal<boolean>(false);
   tasks = signal<ProjectTask[]>([]);
+  deletingTaskId = signal<string>('');
+  updatingStatusTaskId = signal<string>('');
 
   // paging
   pageSize = signal<number>(10);
@@ -68,7 +70,9 @@ export class TasksComponent implements OnInit, AfterViewInit {
   // modal state
   showModal = signal<boolean>(false);
   editMode = signal<boolean>(false);
+  duplicateMode = signal<boolean>(false);
   activeTask = signal<ProjectTask|null>(null);
+  saving = signal<boolean>(false);
 
   ngAfterViewInit() {
     // After view init, if we have a projectId from query params, ensure dropdown is updated
@@ -153,11 +157,19 @@ export class TasksComponent implements OnInit, AfterViewInit {
   openCreate() {
     this.activeTask.set(null);
     this.editMode.set(false);
+    this.duplicateMode.set(false);
     this.showModal.set(true);
   }
   openEdit(t: ProjectTask) {
     this.activeTask.set(t);
     this.editMode.set(true);
+    this.duplicateMode.set(false);
+    this.showModal.set(true);
+  }
+  openDuplicate(t: ProjectTask) {
+    this.activeTask.set(t);
+    this.editMode.set(false);
+    this.duplicateMode.set(true);
     this.showModal.set(true);
   }
   closeModal() { this.showModal.set(false); }
@@ -165,23 +177,47 @@ export class TasksComponent implements OnInit, AfterViewInit {
   onSaved() {
     // gather form data from child via template reference / direct DOM would be messy; re-fetch for simplicity
     this.showModal.set(false);
+    this.saving.set(false);
     this.loadTasks();
-    this.toastr.success(this.editMode() ? 'Task updated' : 'Task created');
+    const message = this.editMode() ? 'Task updated' : 'Task created';
+    this.toastr.success(message);
+  }
+
+  onLoadingChange(loading: boolean) {
+    this.saving.set(loading);
   }
 
   delete(t: ProjectTask) {
-    if (!confirm('Delete this task?')) return;
-    this.tasksSvc.delete(t.taskId).subscribe(() => {
-      this.toastr.success('Task deleted');
-      this.tasks.set(this.tasks().filter(x => x.taskId !== t.taskId));
+    if (!confirm('Delete this task?') || this.deletingTaskId()) return;
+    
+    this.deletingTaskId.set(t.taskId);
+    this.tasksSvc.delete(t.taskId).subscribe({
+      next: () => {
+        this.toastr.success('Task deleted');
+        this.tasks.set(this.tasks().filter(x => x.taskId !== t.taskId));
+        this.deletingTaskId.set('');
+      },
+      error: (err) => {
+        console.error('Delete failed', err);
+        this.deletingTaskId.set('');
+      }
     });
   }
 
   changeStatus(t: ProjectTask, status: TaskStatus) {
-    if (t.status === status) return;
-    this.tasksSvc.updateStatus(t.taskId, status).subscribe(() => {
-      this.toastr.success('Status updated');
-      this.tasks.set(this.tasks().map(x => x.taskId === t.taskId ? { ...x, status } : x));
+    if (t.status === status || this.updatingStatusTaskId()) return;
+    
+    this.updatingStatusTaskId.set(t.taskId);
+    this.tasksSvc.updateStatus(t.taskId, status).subscribe({
+      next: () => {
+        this.toastr.success('Status updated');
+        this.tasks.set(this.tasks().map(x => x.taskId === t.taskId ? { ...x, status } : x));
+        this.updatingStatusTaskId.set('');
+      },
+      error: (err) => {
+        console.error('Status update failed', err);
+        this.updatingStatusTaskId.set('');
+      }
     });
   }
 
