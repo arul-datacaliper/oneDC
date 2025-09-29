@@ -271,4 +271,12 @@
 
 <!-- Modal backdrop -->
 <div class="modal-backdrop fade show" *ngIf="showModal()" (click)="closeModal()"></div>
+
+<!-- Confirmation Dialog -->
+<app-confirmation-dialog
+  [visible]="showConfirmDialog()"
+  [data]="confirmDialogData()"
+  (confirmed)="onDeleteConfirmed()"
+  (cancelled)="onDeleteCancelled()">
+</app-confirmation-dialog>
 </div>

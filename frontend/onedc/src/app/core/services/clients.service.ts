@@ -26,6 +26,17 @@ export class ClientsService {
     return this.http.put<Client>(`${this.base}/${id}`, client);
   }
 
+  checkDependencies(id: string) {
+    return this.http.get<{
+      canDelete: boolean;
+      dependencies: {
+        projectCount: number;
+        projects: Array<{ projectId: string; name: string; status: string }> | null;
+      };
+      message: string;
+    }>(`${this.base}/${id}/dependencies`);
+  }
+
   delete(id: string) {
     return this.http.delete(`${this.base}/${id}`);
   }
