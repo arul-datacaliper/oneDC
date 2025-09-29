@@ -10,44 +10,36 @@
   </button>
 </div>
 
-<!-- Statistics Cards and Search -->
+<!-- Employee Status Toggle and Search -->
 <div class="row g-3 mb-4">
-  <!-- KPI Cards -->
+  <!-- Employee Status Toggle Buttons -->
   <div class="col-auto">
-    <div class="card stat-card border-start border-4 border-primary">
-      <div class="card-body">
-        <div class="card-title d-flex align-items-center mb-2">
-          <i class="bi bi-people text-primary me-2"></i>
-          <span>Total Employees</span>
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <label class="form-label mb-2">View</label>
+        <div class="btn-group" role="group">
+          <button type="button" 
+                  class="btn btn-sm"
+                  [class.btn-primary]="currentStatusView() === 'active'"
+                  [class.btn-outline-primary]="currentStatusView() !== 'active'"
+                  (click)="showActiveEmployees()">
+            Active ({{ employeeCounts().active }})
+          </button>
+          <button type="button" 
+                  class="btn btn-sm"
+                  [class.btn-secondary]="currentStatusView() === 'inactive'"
+                  [class.btn-outline-secondary]="currentStatusView() !== 'inactive'"
+                  (click)="showInactiveEmployees()">
+            Inactive ({{ employeeCounts().inactive }})
+          </button>
+          <button type="button" 
+                  class="btn btn-sm"
+                  [class.btn-info]="currentStatusView() === 'all'"
+                  [class.btn-outline-info]="currentStatusView() !== 'all'"
+                  (click)="showAllEmployees()">
+            All ({{ employeeCounts().total }})
+          </button>
         </div>
-        <div class="stat-value text-primary">{{ totalEmployees() }}</div>
-        <div class="card-subtitle text-muted" style="margin-top: 5px;">All registered employees</div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col-auto">
-    <div class="card stat-card border-start border-4 border-success">
-      <div class="card-body">
-        <div class="card-title d-flex align-items-center mb-2">
-          <i class="bi bi-check-circle text-success me-2"></i>
-          <span>Active Employees</span>
-        </div>
-        <div class="stat-value text-success">{{ activeEmployees() }}</div>
-        <div class="card-subtitle text-muted" style="margin-top: 5px;">Currently active</div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="col-auto">
-    <div class="card stat-card border-start border-4 border-secondary">
-      <div class="card-body">
-        <div class="card-title d-flex align-items-center mb-2">
-          <i class="bi bi-pause-circle text-secondary me-2"></i>
-          <span>Inactive Employees</span>
-        </div>
-        <div class="stat-value text-secondary">{{ inactiveEmployees() }}</div>
-        <div class="card-subtitle text-muted" style="margin-top: 5px;">Inactive accounts</div>
       </div>
     </div>
   </div>
@@ -96,14 +88,14 @@
               <option *ngFor="let dept of availableDepartments" [value]="dept">{{ dept }}</option>
             </select>
           </div> -->
-          <div class="col-md-3">
+          <!-- <div class="col-md-3">
             <label class="form-label">Status</label>
             <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
             </select>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
@@ -177,12 +169,20 @@
                 </button>
                 <button class="btn btn-sm btn-outline-primary" 
                         (click)="openEditModal(employee)" 
-                        title="Edit employee">
+                        title="Edit employee"
+                        *ngIf="employee.isActive">
                   <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" 
+                        (click)="reactivateEmployee(employee)" 
+                        title="Reactivate employee"
+                        *ngIf="!employee.isActive">
+                  <i class="bi bi-arrow-clockwise"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-danger" 
                         (click)="deleteEmployee(employee)" 
-                        title="Delete employee">
+                        title="Delete employee"
+                        *ngIf="employee.isActive">
                   <i class="bi bi-trash"></i>
                 </button>
               </div>

@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Microsoft.Extensions.Configuration;
+using OneDc.Domain.Entities;
 
 namespace OneDc.Services.Implementation;
 
@@ -73,7 +74,7 @@ public class AuthService : IAuthService
 
         return hash.SequenceEqual(testHash);
     }
-private string GenerateJwtToken(OneDc.Domain.Entities.AppUser user)
+private string GenerateJwtToken(AppUser user)
 {
     var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _config["Jwt:Key"] ?? "your-256-bit-secret";
     var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? _config["Jwt:Issuer"];
@@ -87,7 +88,8 @@ private string GenerateJwtToken(OneDc.Domain.Entities.AppUser user)
         new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
         new Claim(ClaimTypes.Email, user.Email),
         new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-        new Claim(ClaimTypes.Role, user.Role.ToString())
+        new Claim(ClaimTypes.Role, user.Role.ToString()),
+        new Claim("mustChangePassword", user.MustChangePassword.ToString().ToLower())
     };
 
     var token = new JwtSecurityToken(
@@ -98,5 +100,15 @@ private string GenerateJwtToken(OneDc.Domain.Entities.AppUser user)
         signingCredentials: creds);
 
     return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
+public async Task<AppUser?> GetUserByIdAsync(Guid userId)
+{
+    return await _context.AppUsers.FirstOrDefaultAsync(u => u.UserId == userId && u.IsActive);
+}
+
+public Task<string> GenerateTokenForUserAsync(AppUser user)
+{
+    return Task.FromResult(GenerateJwtToken(user));
 }
 }

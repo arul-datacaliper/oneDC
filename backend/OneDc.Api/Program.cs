@@ -13,11 +13,10 @@ using OneDc.Domain.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using DotNetEnv;
 using OneDc.Api.JsonConverters;
 using System.Security.Cryptography;
 using Azure.Communication.Email;
-
-using DotNetEnv;
 
 // Load environment variables from .env file
 Env.Load();
@@ -65,8 +64,16 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Azure Email Communication Service
 var azureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? 
-                                builder.Configuration["AzureEmail:ConnectionString"] ?? "";
-builder.Services.AddSingleton(new EmailClient(azureEmailConnectionString));
+                                builder.Configuration["AzureEmail:ConnectionString"];
+
+if (!string.IsNullOrWhiteSpace(azureEmailConnectionString))
+{
+    builder.Services.AddSingleton(new EmailClient(azureEmailConnectionString));
+}
+else
+{
+    Console.WriteLine("Warning: Azure Email Connection String not configured. Email functionality will be disabled.");
+}
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

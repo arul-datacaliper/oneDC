@@ -3,18 +3,20 @@ using Microsoft.Extensions.Logging;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
 using Azure.Communication.Email;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace OneDc.Services.Implementation;
 
 public class EmailService : IEmailService
 {
-    private readonly EmailClient _emailClient;
+    private readonly EmailClient? _emailClient;
     private readonly EmailConfiguration _emailConfig;
     private readonly ILogger<EmailService> _logger;
 
-    public EmailService(EmailClient emailClient, IConfiguration configuration, ILogger<EmailService> logger)
+    public EmailService(IServiceProvider serviceProvider, IConfiguration configuration, ILogger<EmailService> logger)
     {
-        _emailClient = emailClient;
+        // Try to get EmailClient from DI, will be null if not registered
+        _emailClient = serviceProvider.GetService<EmailClient>();
         _logger = logger;
         
         _emailConfig = new EmailConfiguration
@@ -24,6 +26,12 @@ public class EmailService : IEmailService
             FromName = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_NAME") ?? configuration["AzureEmail:FromName"] ?? "OneDC System",
             BaseUrl = Environment.GetEnvironmentVariable("BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
         };
+        
+        // Log warning if email client is not configured
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("EmailClient is not configured. Email functionality will be disabled.");
+        }
     }
 
     public async Task<bool> SendPasswordResetEmailAsync(string toEmail, string userName, string otp)
@@ -231,6 +239,13 @@ public class EmailService : IEmailService
     {
         try
         {
+            // Check if email client is configured
+            if (_emailClient == null)
+            {
+                _logger.LogWarning("Email client not configured. Cannot send email to {Email} with subject '{Subject}'", toEmail, subject);
+                return false;
+            }
+
             var emailMessage = new EmailMessage(
                 senderAddress: _emailConfig.FromEmail,
                 content: new EmailContent(subject)

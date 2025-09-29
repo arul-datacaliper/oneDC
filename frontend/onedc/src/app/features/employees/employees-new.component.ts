@@ -42,6 +42,8 @@ export class EmployeesComponent implements OnInit {
   roleFilter = signal<string>('');
   statusFilter = signal<string>('');
   departmentFilter = signal<string>('');
+  currentStatusView = signal<string>('active'); // Status view filter (active, inactive, all)
+  employeeCounts = signal<{ active: number; inactive: number; total: number }>({ active: 0, inactive: 0, total: 0 }); // Employee counts from API
   
   // Form state
   sameAsPresentAddress = signal<boolean>(false);
@@ -58,13 +60,7 @@ export class EmployeesComponent implements OnInit {
     return this.filteredEmployees().slice(start, end);
   });
 
-  // Statistics
-  totalEmployees = computed(() => this.employees().length);
-  activeEmployees = computed(() => this.employees().filter(e => e.isActive).length);
-  inactiveEmployees = computed(() => this.employees().filter(e => !e.isActive).length);
-  adminEmployees = computed(() => this.employees().filter(e => e.role === UserRole.ADMIN).length);
-  approverEmployees = computed(() => this.employees().filter(e => e.role === UserRole.APPROVER).length);
-  employeeRoles = computed(() => this.employees().filter(e => e.role === UserRole.EMPLOYEE).length);
+  // Note: Employee counts now come from API via employeeCounts signal
 
   // Form
   employeeForm: FormGroup;
@@ -158,11 +154,58 @@ export class EmployeesComponent implements OnInit {
 
   ngOnInit() {
     this.loadEmployees();
+    this.loadEmployeeCounts();
+  }
+
+  private loadEmployeeCounts() {
+    this.employeesService.getCounts().subscribe({
+      next: (counts) => {
+        this.employeeCounts.set(counts);
+      },
+      error: (error) => {
+        console.error('Error loading employee counts:', error);
+      }
+    });
+  }
+
+  // Method to switch to active employees view
+  showActiveEmployees() {
+    this.currentStatusView.set('active');
+    this.loadEmployees();
+  }
+
+  // Method to switch to inactive employees view
+  showInactiveEmployees() {
+    this.currentStatusView.set('inactive');
+    this.loadEmployees();
+  }
+
+  // Method to show all employees
+  showAllEmployees() {
+    this.currentStatusView.set('all');
+    this.loadEmployees();
+  }
+
+  // Method to reactivate an employee
+  reactivateEmployee(employee: Employee) {
+    if (confirm(`Are you sure you want to reactivate ${employee.firstName} ${employee.lastName}?`)) {
+      this.employeesService.reactivate(employee.userId).subscribe({
+        next: () => {
+          this.toastr.success('Employee reactivated successfully');
+          this.loadEmployees();
+          this.loadEmployeeCounts();
+        },
+        error: (error) => {
+          console.error('Error reactivating employee:', error);
+          this.toastr.error('Error reactivating employee');
+        }
+      });
+    }
   }
 
   private loadEmployees() {
     this.loading.set(true);
-    this.employeesService.getAll().subscribe({
+    this.employeesService.getAll(this.currentStatusView()).subscribe({
       next: (employees) => {
         this.employees.set(employees);
         this.applyFilters();
