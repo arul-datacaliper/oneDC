@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -102,6 +102,21 @@ export class AllocationService {
   // Get available employees for allocation
   getAvailableEmployees(): Observable<{userId: string, userName: string, role: string}[]> {
     return this.http.get<{userId: string, userName: string, role: string}[]>(`${this.apiUrl}/available-employees`);
+  }
+
+  // Export allocations to CSV
+  exportToCsv(from: string, to: string, projectId?: string, userId?: string): Observable<Blob> {
+    let params = new HttpParams()
+      .set('from', from)
+      .set('to', to);
+    
+    if (projectId) params = params.set('projectId', projectId);
+    if (userId) params = params.set('userId', userId);
+
+    return this.http.get(`${this.apiUrl}/export/csv`, { 
+      params, 
+      responseType: 'blob' 
+    });
   }
 
   // Helper method to get week start date (Sunday)

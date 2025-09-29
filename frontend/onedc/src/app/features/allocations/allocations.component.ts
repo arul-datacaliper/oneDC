@@ -50,6 +50,11 @@ export class AllocationsComponent implements OnInit {
   selectedEmployeeAllocations = signal<EmployeeAllocation[]>([]);
   availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
   selectedEmployeeForDropdown = signal<string | null>(null);
+  
+  // Export functionality
+  exportFromDate = signal<string>('');
+  exportToDate = signal<string>('');
+  isExporting = signal<boolean>(false);
 
   // Form
   allocationForm: FormGroup;
@@ -130,6 +135,9 @@ export class AllocationsComponent implements OnInit {
     // Initialize with current week
     const today = new Date();
     this.currentWeekStart.set(this.allocationService.getWeekStartDate(today));
+    
+    // Initialize export dates with current month
+    this.setCurrentMonth();
   }
 
   ngOnInit() {
@@ -469,5 +477,97 @@ export class AllocationsComponent implements OnInit {
   // TrackBy function for employee list
   trackByUserId(index: number, employee: EmployeeAllocation): string {
     return employee.userId;
+  }
+
+  // Export functionality
+  exportToCsv() {
+    if (!this.exportFromDate() || !this.exportToDate()) {
+      this.toastr.error('Please select from and to dates for export');
+      return;
+    }
+
+    const fromDate = this.exportFromDate();
+    const toDate = this.exportToDate();
+    const projectId = this.selectedProjectId();
+    const userId = this.selectedUserId();
+
+    this.isExporting.set(true);
+
+    this.allocationService.exportToCsv(fromDate, toDate, projectId, userId).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename based on filters
+        let filename = `allocations-${fromDate}-to-${toDate}`;
+        if (projectId) {
+          const project = this.availableProjects().find(p => p.projectId === projectId);
+          filename += `-${project?.projectName || 'project'}`;
+        }
+        if (userId) {
+          const user = this.availableEmployees().find(u => u.userId === userId);
+          filename += `-${user?.userName || 'user'}`;
+        }
+        filename += '.csv';
+        
+        link.download = filename;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        this.toastr.success('Allocations exported successfully');
+        this.isExporting.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to export allocations:', err);
+        this.toastr.error('Failed to export allocations');
+        this.isExporting.set(false);
+      }
+    });
+  }
+
+  // Set export date range to current month
+  setCurrentMonth() {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
+    this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+  }
+
+  // Set export date range to previous month
+  setPreviousMonth() {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
+    this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+  }
+
+  // Set export date range to current quarter
+  setCurrentQuarter() {
+    const now = new Date();
+    const quarter = Math.floor(now.getMonth() / 3);
+    const firstDay = new Date(now.getFullYear(), quarter * 3, 1);
+    const lastDay = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+    
+    this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
+    this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+  }
+
+  // Helper methods for template
+  getSelectedProjectName(): string {
+    const projectId = this.selectedProjectId();
+    if (!projectId) return '';
+    const project = this.availableProjects().find(p => p.projectId === projectId);
+    return project?.projectName || '';
+  }
+
+  getSelectedEmployeeName(): string {
+    const userId = this.selectedUserId();
+    if (!userId) return '';
+    const employee = this.availableEmployees().find(e => e.userId === userId);
+    return employee?.userName || '';
   }
 }

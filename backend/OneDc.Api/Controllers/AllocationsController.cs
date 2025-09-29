@@ -308,6 +308,74 @@ public class AllocationsController : ControllerBase
 
         return Ok(exists);
     }
+
+    // GET: api/allocations/export/csv
+    [HttpGet("export/csv")]
+    public async Task<IActionResult> ExportToCsv(
+        [FromQuery] string from,
+        [FromQuery] string to,
+        [FromQuery] string? projectId = null,
+        [FromQuery] string? userId = null)
+    {
+        if (!DateOnly.TryParse(from, out var fromDate) || !DateOnly.TryParse(to, out var toDate))
+        {
+            return BadRequest("Invalid date format. Use YYYY-MM-DD.");
+        }
+
+        var query = _context.WeeklyAllocations
+            .Include(wa => wa.Project)
+            .Include(wa => wa.User)
+            .Where(wa => wa.WeekStartDate >= fromDate && wa.WeekStartDate <= toDate);
+
+        // Apply filters
+        if (!string.IsNullOrEmpty(projectId) && Guid.TryParse(projectId, out var projId))
+        {
+            query = query.Where(wa => wa.ProjectId == projId);
+        }
+
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var usrId))
+        {
+            query = query.Where(wa => wa.UserId == usrId);
+        }
+
+        var allocations = await query
+            .OrderBy(wa => wa.WeekStartDate)
+            .ThenBy(wa => wa.Project!.Name)
+            .ThenBy(wa => wa.User!.FirstName)
+            .Select(wa => new
+            {
+                ProjectCode = wa.Project!.Code,
+                ProjectName = wa.Project!.Name,
+                EmployeeName = wa.User!.FirstName + " " + wa.User.LastName,
+                EmployeeRole = wa.User.Role,
+                WeekStartDate = wa.WeekStartDate.ToString("yyyy-MM-dd"),
+                WeekEndDate = wa.WeekEndDate.ToString("yyyy-MM-dd"),
+                AllocatedHours = wa.AllocatedHours,
+                UtilizationPercentage = wa.UtilizationPercentage,
+                Status = wa.Status,
+                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            })
+            .ToListAsync();
+
+        // Generate CSV content
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Project Code,Project Name,Employee Name,Employee Role,Week Start Date,Week End Date,Allocated Hours,Utilization %,Status,Created At");
+
+        foreach (var allocation in allocations)
+        {
+            csv.AppendLine($"\"{allocation.ProjectCode}\",\"{allocation.ProjectName}\",\"{allocation.EmployeeName}\",\"{allocation.EmployeeRole}\",\"{allocation.WeekStartDate}\",\"{allocation.WeekEndDate}\",{allocation.AllocatedHours},{allocation.UtilizationPercentage},\"{allocation.Status}\",\"{allocation.CreatedAt}\"");
+        }
+
+        var fileName = $"allocations-{fromDate:yyyy-MM-dd}-to-{toDate:yyyy-MM-dd}";
+        if (!string.IsNullOrEmpty(projectId))
+        {
+            var project = await _context.Projects.FindAsync(Guid.Parse(projectId));
+            fileName += $"-{project?.Code ?? "project"}";
+        }
+        fileName += ".csv";
+
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
+    }
 }
 
 // DTOs
