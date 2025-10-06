@@ -54,7 +54,7 @@
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
       <div class="col-md-2 text-end">
-        <button class="btn btn-primary btn-sm w-100" (click)="openCreate()" [disabled]="!projectId() || saving() || deletingTaskId() || updatingStatusTaskId()"> <i class="bi bi-plus-circle"></i> New Task</button>
+        <button class="btn btn-primary w-100" (click)="openCreate()" [disabled]="!projectId() || saving() || deletingTaskId() || updatingStatusTaskId()"> <i class="bi bi-plus-circle me-1"></i> New Task</button>
       </div>
     </div>
   </div>
