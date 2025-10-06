@@ -8,11 +8,13 @@ namespace OneDc.Services.Implementation;
 public class OnboardingService : IOnboardingService
 {
     private readonly IOnboardingRepository _repository;
+    private readonly IFileStorageService _fileStorageService;
     private readonly string _photoUploadPath;
 
-    public OnboardingService(IOnboardingRepository repository, IConfiguration configuration)
+    public OnboardingService(IOnboardingRepository repository, IFileStorageService fileStorageService, IConfiguration configuration)
     {
         _repository = repository;
+        _fileStorageService = fileStorageService;
         _photoUploadPath = configuration["FileStorage:ProfilePhotosPath"] ?? "uploads/profile-photos";
     }
 
@@ -94,32 +96,17 @@ public class OnboardingService : IOnboardingService
         if (!allowedTypes.Contains(contentType.ToLower()))
             throw new ArgumentException("Invalid file type. Only JPEG, PNG, and GIF are allowed.");
 
-        // Create uploads directory if it doesn't exist
-        Directory.CreateDirectory(_photoUploadPath);
-
-        // Generate unique filename
-        var extension = Path.GetExtension(fileName);
-        var uniqueFileName = $"{userId}_{Guid.NewGuid()}{extension}";
-        var filePath = Path.Combine(_photoUploadPath, uniqueFileName);
-
-        // Save file
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await photoStream.CopyToAsync(fileStream);
-        }
-
         // Delete old photo if exists
         if (!string.IsNullOrEmpty(profile.ProfilePhotoUrl))
         {
-            var oldFilePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
-            if (File.Exists(oldFilePath))
-            {
-                File.Delete(oldFilePath);
-            }
+            await _fileStorageService.DeleteFileAsync(profile.ProfilePhotoUrl, "profile-photos");
         }
 
+        // Upload new photo using the file storage service
+        var uploadResult = await _fileStorageService.UploadFileAsync(photoStream, fileName, contentType, "profile-photos");
+
         // Update profile with new photo URL
-        profile.ProfilePhotoUrl = $"/uploads/profile-photos/{uniqueFileName}";
+        profile.ProfilePhotoUrl = uploadResult.FileUrl;
         await _repository.UpdateUserProfileAsync(profile);
 
         return profile.ProfilePhotoUrl;
@@ -130,11 +117,7 @@ public class OnboardingService : IOnboardingService
         var profile = await _repository.GetUserProfileAsync(userId);
         if (profile?.ProfilePhotoUrl != null)
         {
-            var filePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
+            await _fileStorageService.DeleteFileAsync(profile.ProfilePhotoUrl, "profile-photos");
 
             profile.ProfilePhotoUrl = null;
             await _repository.UpdateUserProfileAsync(profile);

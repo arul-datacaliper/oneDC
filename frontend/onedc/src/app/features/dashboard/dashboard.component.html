@@ -277,10 +277,18 @@
           <div class="card-body text-center text-white p-4">
             <!-- Avatar -->
             <div class="mb-3">
-              <div class="rounded-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center" 
-                   style="width: 80px; height: 80px;">
-                <i class="bi bi-person-fill fs-1 text-white"></i>
+              <div *ngIf="getProfilePhotoUrl(); else defaultAvatar">
+                <img [src]="getProfilePhotoUrl()" 
+                     alt="Profile Photo" 
+                     class="rounded-circle border border-white border-3"
+                     style="width: 80px; height: 80px; object-fit: cover;">
               </div>
+              <ng-template #defaultAvatar>
+                <div class="rounded-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center" 
+                     style="width: 80px; height: 80px;">
+                  <i class="bi bi-person-fill fs-1 text-white"></i>
+                </div>
+              </ng-template>
             </div>
             
             <!-- User Info -->

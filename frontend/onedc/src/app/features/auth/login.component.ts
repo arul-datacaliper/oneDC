@@ -31,6 +31,11 @@ export class LoginComponent {
     this.loading.set(true);
     this.authService.login({ email: this.email(), password: this.password() }).subscribe({
       next: (result) => {
+        if (result.mustChangePassword) {
+          this.toastr.info('Please set a new password to continue');
+          this.router.navigate(['/change-password']);
+          return;
+        }
         this.toastr.success(`Welcome, ${result.name}!`);
         const returnUrl = new URLSearchParams(window.location.search).get('returnUrl') || '/dashboard';
         this.router.navigateByUrl(returnUrl);

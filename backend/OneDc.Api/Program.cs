@@ -23,11 +23,7 @@ Env.Load();
 
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Configure configuration to use environment variables
 builder.Configuration.AddEnvironmentVariables();
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 // DbContext  
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING") ?? 
@@ -55,7 +51,8 @@ builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
-
+// File Storage Services - Database blob storage for both dev and prod
+builder.Services.AddScoped<IFileStorageService, DatabaseBlobStorageService>();
 // Password Reset Services
 builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IPasswordResetRepository, OneDc.Infrastructure.Repositories.Implementation.PasswordResetRepository>();
 builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IUserRepository, OneDc.Infrastructure.Repositories.Implementation.UserRepository>();

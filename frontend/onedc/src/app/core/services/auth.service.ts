@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Observable, BehaviorSubject, tap } from 'rxjs';
+import { Observable, BehaviorSubject, tap, map } from 'rxjs';
 
 export interface AuthResult {
   token: string;
@@ -9,6 +9,7 @@ export interface AuthResult {
   email: string;
   name: string;
   role: string;
+  mustChangePassword: boolean;
 }
 
 export interface LoginRequest {
@@ -156,7 +157,8 @@ export class AuthService {
         userId: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.sub || payload.userId,
         email: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || payload.email,
         name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name,
-        role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role
+        role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role,
+        mustChangePassword: payload.mustChangePassword === 'true' || payload.mustChangePassword === true
       };
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -282,5 +284,37 @@ export class AuthService {
 
   resendOtp(request: ResendOtpRequest): Observable<ApiResponse> {
     return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/resend-otp`, request);
+  }
+
+  // New password change methods
+  setInitialPassword(newPassword: string): Observable<{ message: string; token?: string; mustChangePassword?: boolean }> {
+    return this.http.post<{ message: string; token?: string; mustChangePassword?: boolean }>(`${this.base}/set-initial-password`, { newPassword }).pipe(
+      tap(result => {
+        // Update token with new one that has mustChangePassword = false
+        if (result.token) {
+          localStorage.setItem('auth_token', result.token);
+          // Update user state with the new token
+          const updatedUser = this.getCurrentUser();
+          if (updatedUser) {
+            updatedUser.mustChangePassword = false;
+            this._user.next(updatedUser);
+          }
+        }
+      })
+    );
+  }
+
+  // Check if user must change password by calling backend
+  checkMustChangePassword(): Observable<{ mustChangePassword: boolean }> {
+    return this.http.get<any>(`${this.base}/me`).pipe(
+      map((response: any) => ({ mustChangePassword: response.mustChangePassword || false }))
+    );
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<ApiResponse> {
+    return this.http.post<ApiResponse>(`${this.base}/change-password`, { 
+      currentPassword, 
+      newPassword 
+    });
   }
 }
