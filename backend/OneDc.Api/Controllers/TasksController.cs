@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
+using System.Security.Claims;
 
 namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api")]
 [Authorize]
-public class TasksController : ControllerBase
+public class TasksController : BaseController
 {
     private readonly OneDcDbContext _db;
     private readonly IEmailService _emailService;
@@ -26,6 +27,14 @@ public class TasksController : ControllerBase
     public async Task<ActionResult<IEnumerable<TaskDto>>> List(Guid projectId, [FromQuery] Guid? assignedUserId, [FromQuery] OneDc.Domain.Entities.TaskStatus? status)
     {
         var q = _db.ProjectTasks.AsNoTracking().Where(t => t.ProjectId == projectId);
+        
+        // Role-based filtering: Regular employees can only see tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            q = q.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
         if (assignedUserId.HasValue) q = q.Where(t => t.AssignedUserId == assignedUserId);
         if (status.HasValue) q = q.Where(t => t.Status == status);
 
@@ -51,10 +60,19 @@ public class TasksController : ControllerBase
     [HttpGet("tasks/{taskId:guid}")]
     public async Task<ActionResult<TaskDto>> Get(Guid taskId)
     {
-        var t = await _db.ProjectTasks.AsNoTracking()
-            .Include(x => x.AssignedUser)
+        var baseQuery = _db.ProjectTasks.AsNoTracking();
+        
+        // Role-based filtering: Regular employees can only access tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            baseQuery = baseQuery.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
+        var t = await baseQuery.Include(x => x.AssignedUser)
             .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
         return new TaskDto {
             TaskId = t.TaskId,
             ProjectId = t.ProjectId,
@@ -74,6 +92,12 @@ public class TasksController : ControllerBase
     [HttpPost("projects/{projectId:guid}/tasks")] 
     public async Task<ActionResult<TaskDto>> Create(Guid projectId, CreateTaskRequest req)
     {
+        // Only admin and approver users can create tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can create tasks.");
+        }
+        
         var projectExists = await _db.Projects.AnyAsync(p => p.ProjectId == projectId);
         if (!projectExists) return BadRequest("Project not found");
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
@@ -130,6 +154,12 @@ public class TasksController : ControllerBase
     [HttpPut("tasks/{taskId:guid}")]
     public async Task<IActionResult> Update(Guid taskId, UpdateTaskRequest req)
     {
+        // Only admin and approver users can edit tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can edit tasks.");
+        }
+        
         var t = await _db.ProjectTasks
             .Include(x => x.Project)
             .FirstOrDefaultAsync(x => x.TaskId == taskId);
@@ -188,8 +218,18 @@ public class TasksController : ControllerBase
     [HttpPatch("tasks/{taskId:guid}/status")] 
     public async Task<IActionResult> UpdateStatus(Guid taskId, UpdateTaskStatusRequest req)
     {
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        var baseQuery = _db.ProjectTasks.AsQueryable();
+        
+        // Role-based filtering: Regular employees can only update status of tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            baseQuery = baseQuery.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
+        var t = await baseQuery.FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
         t.Status = req.Status;
         t.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
@@ -200,6 +240,12 @@ public class TasksController : ControllerBase
     [HttpDelete("tasks/{taskId:guid}")]
     public async Task<IActionResult> Delete(Guid taskId)
     {
+        // Only admin and approver users can delete tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can delete tasks.");
+        }
+        
         var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
         _db.ProjectTasks.Remove(t);

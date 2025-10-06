@@ -15,11 +15,12 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label">Title *</label>
-        <input type="text" class="form-control" formControlName="title">
+        <input type="text" class="form-control" formControlName="title" [readonly]="mode === 'view'">
       </div>
       <div class="col-md-6">
         <label class="form-label">Assignee</label>
         <app-searchable-dropdown
+          *ngIf="mode !== 'view'"
           [options]="assigneeOptions"
           placeholder="Search or select assignee..."
           formControlName="assignedUserId"
@@ -27,41 +28,59 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
           [searchFields]="['label']"
           (selectionChange)="onAssigneeChange($event)">
         </app-searchable-dropdown>
+        <input 
+          *ngIf="mode === 'view'" 
+          type="text" 
+          class="form-control" 
+          [value]="getAssigneeName()" 
+          readonly>
       </div>
       <div class="col-12">
         <label class="form-label">Description</label>
-        <textarea rows="3" class="form-control" formControlName="description"></textarea>
+        <textarea rows="3" class="form-control" formControlName="description" [readonly]="mode === 'view'"></textarea>
       </div>
       <div class="col-md-6">
         <label class="form-label">Label</label>
-        <input type="text" class="form-control" formControlName="label" placeholder="e.g., Bug, Feature, Enhancement">
+        <input type="text" class="form-control" formControlName="label" placeholder="e.g., Bug, Feature, Enhancement" [readonly]="mode === 'view'">
       </div>
       <div class="col-md-6">
         <label class="form-label">Estimated Hours</label>
-        <input type="number" step="0.25" class="form-control" formControlName="estimatedHours">
+        <input type="number" step="0.25" class="form-control" formControlName="estimatedHours" [readonly]="mode === 'view'">
       </div>
       <div class="col-md-6">
         <label class="form-label">Start Date</label>
-        <input type="date" class="form-control" formControlName="startDate">
+        <input type="date" class="form-control" formControlName="startDate" [readonly]="mode === 'view'">
       </div>
       <div class="col-md-6">
         <label class="form-label">End Date</label>
-        <input type="date" class="form-control" formControlName="endDate">
+        <input type="date" class="form-control" formControlName="endDate" [readonly]="mode === 'view'">
       </div>
-      <div class="col-md-6" *ngIf="mode==='edit'">
+      <div class="col-md-6" *ngIf="mode==='edit' || mode==='view'">
         <label class="form-label">Status</label>
-        <select class="form-select" formControlName="status">
+        <select class="form-select" formControlName="status" *ngIf="mode === 'edit'">
           <option value="NEW">New</option>
           <option value="IN_PROGRESS">In Progress</option>
           <option value="BLOCKED">Blocked</option>
-            <option value="COMPLETED">Completed</option>
+          <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
+        <input 
+          *ngIf="mode === 'view'" 
+          type="text" 
+          class="form-control" 
+          [value]="getStatusLabel()" 
+          readonly>
       </div>
     </div>
     <div class="mt-4 d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-outline-secondary" (click)="cancel.emit()" [disabled]="saving">Cancel</button>
-      <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving">
+      <button type="button" class="btn btn-outline-secondary" (click)="cancel.emit()" [disabled]="saving">
+        {{ mode === 'view' ? 'Close' : 'Cancel' }}
+      </button>
+      <button 
+        *ngIf="mode !== 'view'" 
+        type="submit" 
+        class="btn btn-primary" 
+        [disabled]="form.invalid || saving">
         <span *ngIf="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         {{ saving ? 'Saving...' : (mode==='create' || mode==='duplicate' ? 'Create' : 'Update') }}
       </button>
@@ -69,7 +88,21 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
   </form>
   `,
   styles: [`
-    .task-form .form-label { font-weight: 500; }
+    .task-form .form-label { 
+      font-weight: 500; 
+    }
+    .task-form input[readonly], 
+    .task-form textarea[readonly] {
+      background-color: #f8f9fa;
+      border-color: #e9ecef;
+      cursor: not-allowed;
+    }
+    .task-form input[readonly]:focus,
+    .task-form textarea[readonly]:focus {
+      background-color: #f8f9fa;
+      border-color: #e9ecef;
+      box-shadow: none;
+    }
   `]
 })
 export class TaskFormComponent implements OnChanges {
@@ -78,7 +111,7 @@ export class TaskFormComponent implements OnChanges {
   private tasksSvc = inject(TasksService);
 
   @Input() projectId!: string;
-  @Input() mode: 'create'|'edit'|'duplicate' = 'create';
+  @Input() mode: 'create'|'edit'|'duplicate'|'view' = 'create';
   @Input() task?: ProjectTask | null;
   @Input() saving: boolean = false;
   @Output() saved = new EventEmitter<void>();
@@ -179,8 +212,25 @@ export class TaskFormComponent implements OnChanges {
     }, 100);
   }
 
+  getAssigneeName(): string {
+    if (!this.task?.assignedUserId) return '-- Unassigned --';
+    const assignee = this.assigneeOptions.find(opt => opt.value === this.task?.assignedUserId);
+    return assignee?.label || '-- Unknown --';
+  }
+
+  getStatusLabel(): string {
+    const statusLabels: Record<string, string> = {
+      'NEW': 'New',
+      'IN_PROGRESS': 'In Progress',
+      'BLOCKED': 'Blocked',
+      'COMPLETED': 'Completed',
+      'CANCELLED': 'Cancelled'
+    };
+    return statusLabels[this.task?.status || ''] || this.task?.status || 'Unknown';
+  }
+
   submit() {
-    if (this.form.invalid || this.saving) return;
+    if (this.mode === 'view' || this.form.invalid || this.saving) return;
     
     this.loadingChange.emit(true);
     

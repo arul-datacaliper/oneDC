@@ -8,7 +8,7 @@ namespace OneDc.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class OnboardingController : ControllerBase
+public class OnboardingController : BaseController
 {
     private readonly IOnboardingService _onboardingService;
 

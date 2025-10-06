@@ -8,30 +8,13 @@ namespace OneDc.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class TimesheetsController : ControllerBase
+public class TimesheetsController : BaseController
 {
     private readonly ITimesheetService _svc;
 
     public TimesheetsController(ITimesheetService svc)
     {
         _svc = svc;
-    }
-
-    // Helper: get user ID from JWT token
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                         ?? User.FindFirst("sub")?.Value 
-                         ?? User.FindFirst("userId")?.Value;
-        
-        if (userIdClaim != null && Guid.TryParse(userIdClaim, out var userId))
-            return userId;
-            
-        // Fallback to debug header for development
-        if (Request.Headers.TryGetValue("X-Debug-UserId", out var raw) && Guid.TryParse(raw, out var debugId))
-            return debugId;
-            
-        throw new UnauthorizedAccessException("Unable to determine user ID from token or debug header.");
     }
 
     // GET api/timesheets?from=2025-09-08&to=2025-09-14

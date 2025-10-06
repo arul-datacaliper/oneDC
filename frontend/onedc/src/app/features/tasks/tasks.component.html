@@ -7,8 +7,11 @@
       <i class="bi bi-arrow-left-circle text-primary me-1"></i>
       Navigated from Admin Dashboard
     </p>
-    <p class="text-muted mb-0" *ngIf="!isNavigatedFromDashboard()">
+    <p class="text-muted mb-0" *ngIf="!isNavigatedFromDashboard() && canViewAllTasks()">
       Manage and track project tasks
+    </p>
+    <p class="text-muted mb-0" *ngIf="!isNavigatedFromDashboard() && !canViewAllTasks()">
+      View your assigned tasks
     </p>
   </div>
 </div>
@@ -39,7 +42,7 @@
           <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
-      <div class="col-md-2">
+      <div class="col-md-2" *ngIf="canViewAllTasks()">
         <label class="form-label small">Assignee</label>
         <app-searchable-dropdown
           [options]="assigneeOptions()"
@@ -49,12 +52,15 @@
           (selectionChange)="onAssigneeFilterChange($event)">
         </app-searchable-dropdown>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-3" [class.col-md-5]="!canViewAllTasks()">>
         <label class="form-label small">Search</label>
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
       <div class="col-md-2 text-end">
-        <button class="btn btn-primary w-100" (click)="openCreate()" [disabled]="!projectId() || saving() || deletingTaskId() || updatingStatusTaskId()"> <i class="bi bi-plus-circle me-1"></i> New Task</button>
+        <button class="btn btn-primary w-100" *ngIf="canViewAllTasks()" (click)="openCreate()" [disabled]="!projectId() || saving() || deletingTaskId() || updatingStatusTaskId()"> <i class="bi bi-plus-circle me-1"></i> New Task</button>
+        <div *ngIf="!canViewAllTasks()" class="text-muted small text-center">
+          Contact your manager to create new tasks
+        </div>
       </div>
     </div>
   </div>
@@ -62,6 +68,10 @@
 
 <div class="card table-card">
   <div class="card-body p-0">
+    <div *ngIf="!canViewAllTasks()" class="alert alert-info m-3 mb-0">
+      <i class="bi bi-info-circle me-1"></i>
+      <strong>Note:</strong> You are viewing only tasks assigned to you. Role-based filtering is enforced by the server.
+    </div>
     <div *ngIf="!projectId()" class="p-5 text-center text-muted">Select a project to view tasks.</div>
     <ng-container *ngIf="projectId()">
       <div class="table-responsive position-relative" *ngIf="filtered().length > 0; else emptyState">
@@ -86,7 +96,11 @@
           <tbody>
             <tr *ngFor="let t of pageTasks()">
               <td>
-                <div class="fw-semibold">{{ t.title }}</div>
+                <div class="fw-semibold">
+                  <a href="javascript:void(0)" class="text-decoration-none" (click)="openView(t)" title="Click to view details">
+                    {{ t.title }}
+                  </a>
+                </div>
                 <div class="small text-muted" *ngIf="t.description">{{ t.description }}</div>
               </td>
               <td>
@@ -100,15 +114,20 @@
               <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
               <td>
                 <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-outline-primary" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
-                  <button class="btn btn-outline-info" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
-                  <button class="btn btn-outline-danger" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
+                  <button class="btn btn-outline-secondary" (click)="openView(t)" title="View Details" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-eye"></i></button>
+                  <button class="btn btn-outline-primary" *ngIf="canViewAllTasks()" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
+                  <button class="btn btn-outline-info" *ngIf="canViewAllTasks()" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
+                  <button class="btn btn-outline-danger" *ngIf="canViewAllTasks()" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
                     <span *ngIf="deletingTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     <i *ngIf="deletingTaskId() !== t.taskId" class="bi bi-trash"></i>
                   </button>
                   <button class="btn btn-outline-success" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
                     <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-check2-circle"></i>
+                  </button>
+                  <button class="btn btn-outline-warning" *ngIf="!canViewAllTasks() && t.status==='NEW'" (click)="changeStatus(t,'IN_PROGRESS')" title="Start Working" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-play-circle"></i>
                   </button>
                 </div>
               </td>
@@ -145,13 +164,17 @@
       </div>
       
       <div class="modal-header">
-        <h5 class="modal-title">{{ editMode() ? 'Edit Task' : (duplicateMode() ? 'Duplicate Task' : 'New Task') }}</h5>
+        <h5 class="modal-title">{{ 
+          viewMode() ? 'Task Details' : 
+          (editMode() ? 'Edit Task' : 
+          (duplicateMode() ? 'Duplicate Task' : 'New Task')) 
+        }}</h5>
         <button type="button" class="btn-close" (click)="closeModal()" [disabled]="saving()"></button>
       </div>
       <div class="modal-body">
         <app-task-form 
           [projectId]="projectId()" 
-          [mode]="editMode() ? 'edit' : (duplicateMode() ? 'duplicate' : 'create')" 
+          [mode]="viewMode() ? 'view' : (editMode() ? 'edit' : (duplicateMode() ? 'duplicate' : 'create'))" 
           [task]="activeTask()" 
           [saving]="saving()"
           (saved)="onSaved()" 

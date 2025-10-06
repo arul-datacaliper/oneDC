@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
+import { AuthService } from '../../core/services/auth.service';
 import { TaskFormComponent } from './components/task-form.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { ToastrService } from 'ngx-toastr';
@@ -21,6 +22,7 @@ export class TasksComponent implements OnInit, AfterViewInit {
   @ViewChild('projectDropdown') projectDropdown!: SearchableDropdownComponent;
   // make service public for template access
   tasksSvc = inject(TasksService);
+  authSvc = inject(AuthService);
   private projectsSvc = inject(ProjectsService);
   private usersSvc = inject(UsersService);
   private toastr = inject(ToastrService);
@@ -51,6 +53,10 @@ export class TasksComponent implements OnInit, AfterViewInit {
   pageIndex = signal<number>(0);
   filtered = computed(() => {
     let list = this.tasks();
+    
+    // Note: Role-based filtering is now handled by the backend API
+    // Regular employees automatically receive only their assigned tasks
+    
     if (this.statusFilter()) list = list.filter(t => t.status === this.statusFilter());
     if (this.assigneeFilter()) list = list.filter(t => t.assignedUserId === this.assigneeFilter());
     if (this.search()) {
@@ -71,6 +77,7 @@ export class TasksComponent implements OnInit, AfterViewInit {
   showModal = signal<boolean>(false);
   editMode = signal<boolean>(false);
   duplicateMode = signal<boolean>(false);
+  viewMode = signal<boolean>(false);
   activeTask = signal<ProjectTask|null>(null);
   saving = signal<boolean>(false);
 
@@ -158,18 +165,28 @@ export class TasksComponent implements OnInit, AfterViewInit {
     this.activeTask.set(null);
     this.editMode.set(false);
     this.duplicateMode.set(false);
+    this.viewMode.set(false);
     this.showModal.set(true);
   }
   openEdit(t: ProjectTask) {
     this.activeTask.set(t);
     this.editMode.set(true);
     this.duplicateMode.set(false);
+    this.viewMode.set(false);
     this.showModal.set(true);
   }
   openDuplicate(t: ProjectTask) {
     this.activeTask.set(t);
     this.editMode.set(false);
     this.duplicateMode.set(true);
+    this.viewMode.set(false);
+    this.showModal.set(true);
+  }
+  openView(t: ProjectTask) {
+    this.activeTask.set(t);
+    this.editMode.set(false);
+    this.duplicateMode.set(false);
+    this.viewMode.set(true);
     this.showModal.set(true);
   }
   closeModal() { this.showModal.set(false); }
@@ -238,5 +255,10 @@ export class TasksComponent implements OnInit, AfterViewInit {
 
   onAssigneeFilterChange(option: DropdownOption | null) {
     this.assigneeFilter.set(option?.value || '');
+  }
+
+  // Helper method to check if user can see all tasks
+  canViewAllTasks(): boolean {
+    return this.authSvc.isAdmin() || this.authSvc.isApprover();
   }
 }
