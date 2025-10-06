@@ -1,6 +1,17 @@
 // Global font size reduction for tasks page
 .tasks-page {
   font-size: 0.85rem;
+  height: 100%; // Take full height of parent
+  display: flex;
+  flex-direction: column;
+  
+  // Ensure the table container can grow to fill available space
+  .table-responsive {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; // Allow flex child to shrink below content size
+  }
 }
 
 // Reduced font sizes for all form elements
@@ -65,6 +76,70 @@
 .filter-card { border: 1px solid #eee; }
 .table-card { border: 1px solid #eee; }
 .modal .modal-content { box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15); }
+
+// Infinite scroll table container styles
+.table-scroll-container {
+  position: relative;
+  flex: 1; // Take all available space in the table-responsive container
+  overflow-y: auto; // Enable vertical scrolling
+  min-height: 0; // Allow shrinking below content size
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
+  
+  // Smooth scrolling for infinite scroll
+  scroll-behavior: smooth;
+}
+
+// Keep table header sticky during scroll
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bs-light);
+  border-bottom: 2px solid var(--bs-border-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+// Table hover effects
+.table-hover tbody tr:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.05);
+}
+
+// Loading more indicator styling
+.table tbody tr {
+  &:has(.text-center) {
+    background-color: rgba(var(--bs-info-rgb), 0.05);
+    
+    td {
+      font-style: italic;
+      color: var(--bs-secondary);
+    }
+  }
+}
+
+// Responsive adjustments for mobile
+@media (max-width: 768px) {
+  .btn-group-sm .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.4rem;
+  }
+}
 
 // Modal loading overlay styles
 .modal-loading-overlay {

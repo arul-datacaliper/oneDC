@@ -183,11 +183,11 @@ export class TimesheetEditorComponent implements OnInit {
   private loadTasksForProject(projectId: string) {
     if (!projectId) return;
     if (this.tasksByProject[projectId]) return; // cache
-    this.tasksSvc.list(projectId).subscribe(ts => {
-      this.tasksByProject[projectId] = ts;
+    this.tasksSvc.list(projectId).subscribe(response => {
+      this.tasksByProject[projectId] = response.tasks;
       if (projectId === this.newRow.get('projectId')?.value) {
         // trigger change detection if needed
-        this.tasks.set(ts);
+        this.tasks.set(response.tasks);
       }
     });
   }

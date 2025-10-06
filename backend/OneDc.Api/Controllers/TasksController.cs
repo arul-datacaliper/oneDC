@@ -24,7 +24,7 @@ public class TasksController : BaseController
 
     // GET /api/projects/{projectId}/tasks
     [HttpGet("projects/{projectId:guid}/tasks")] 
-    public async Task<ActionResult<IEnumerable<TaskDto>>> List(Guid projectId, [FromQuery] Guid? assignedUserId, [FromQuery] OneDc.Domain.Entities.TaskStatus? status)
+    public async Task<ActionResult<IEnumerable<TaskDto>>> List(Guid projectId, [FromQuery] Guid? assignedUserId, [FromQuery] OneDc.Domain.Entities.TaskStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 15)
     {
         var q = _db.ProjectTasks.AsNoTracking().Where(t => t.ProjectId == projectId);
         
@@ -38,7 +38,13 @@ public class TasksController : BaseController
         if (assignedUserId.HasValue) q = q.Where(t => t.AssignedUserId == assignedUserId);
         if (status.HasValue) q = q.Where(t => t.Status == status);
 
+        // Apply pagination - sorted by creation date (latest first)
+        var totalCount = await q.CountAsync();
+        var skip = (page - 1) * pageSize;
+        
         var rows = await q.OrderByDescending(t => t.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
             .Select(t => new TaskDto {
                 TaskId = t.TaskId,
                 ProjectId = t.ProjectId,
@@ -53,6 +59,13 @@ public class TasksController : BaseController
                 AssignedUserName = t.AssignedUser != null ? t.AssignedUser.FirstName + " " + t.AssignedUser.LastName : null
             })
             .ToListAsync();
+            
+        // Return pagination metadata along with data
+        Response.Headers["X-Total-Count"] = totalCount.ToString();
+        Response.Headers["X-Page"] = page.ToString();
+        Response.Headers["X-Page-Size"] = pageSize.ToString();
+        Response.Headers["X-Total-Pages"] = Math.Ceiling((double)totalCount / pageSize).ToString();
+        
         return Ok(rows);
     }
 

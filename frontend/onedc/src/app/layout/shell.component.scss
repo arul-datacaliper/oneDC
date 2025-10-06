@@ -137,11 +137,13 @@
 
 // Main Content Styling
 .main-content {
-  min-height: 100vh;
+  height: 100vh; // Use full viewport height instead of min-height
+  overflow: hidden; // Prevent the main content from scrolling
   
   .navbar {
     background-color: var(--custom-primary) !important; // Override Bootstrap primary
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0; // Prevent navbar from shrinking
     
     .navbar-brand {
       font-weight: 600;
@@ -183,6 +185,10 @@
   
   .page {
     background-color: var(--bs-body-bg);
+    height: 100%; // Take full height of the remaining space
+    overflow-y: auto; // Allow scrolling only for the page content
+    display: flex;
+    flex-direction: column;
   }
 }
 

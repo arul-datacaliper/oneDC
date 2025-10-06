@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal, computed, effect, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild, AfterViewInit, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
+import { TasksService, ProjectTask, TaskStatus, TasksResponse } from '../../core/services/tasks.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -20,6 +20,7 @@ import { ToastrService } from 'ngx-toastr';
 export class TasksComponent implements OnInit, AfterViewInit {
   // ViewChild to access the project dropdown directly
   @ViewChild('projectDropdown') projectDropdown!: SearchableDropdownComponent;
+  @ViewChild('tableContainer') tableContainer!: ElementRef<HTMLDivElement>;
   // make service public for template access
   tasksSvc = inject(TasksService);
   authSvc = inject(AuthService);
@@ -44,21 +45,26 @@ export class TasksComponent implements OnInit, AfterViewInit {
   search = signal<string>('');
 
   loading = signal<boolean>(false);
+  loadingMore = signal<boolean>(false);
   tasks = signal<ProjectTask[]>([]);
   deletingTaskId = signal<string>('');
   updatingStatusTaskId = signal<string>('');
 
-  // paging
-  pageSize = signal<number>(10);
-  pageIndex = signal<number>(0);
+  // Pagination state
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(15);
+  totalCount = signal<number>(0);
+  totalPages = signal<number>(0);
+  hasMorePages = computed(() => this.currentPage() < this.totalPages());
+  
+  // Remove old pagination logic
+  // pageSize = signal<number>(10);
+  // pageIndex = signal<number>(0);
+  // Frontend filtering - only search is applied here, other filters go to backend
   filtered = computed(() => {
     let list = this.tasks();
     
-    // Note: Role-based filtering is now handled by the backend API
-    // Regular employees automatically receive only their assigned tasks
-    
-    if (this.statusFilter()) list = list.filter(t => t.status === this.statusFilter());
-    if (this.assigneeFilter()) list = list.filter(t => t.assignedUserId === this.assigneeFilter());
+    // Apply search filter on frontend for immediate feedback
     if (this.search()) {
       const s = this.search().toLowerCase();
       list = list.filter(t => t.title.toLowerCase().includes(s) || 
@@ -67,11 +73,13 @@ export class TasksComponent implements OnInit, AfterViewInit {
     }
     return list;
   });
-  pageTasks = computed(() => {
-    const start = this.pageIndex() * this.pageSize();
-    return this.filtered().slice(start, start + this.pageSize());
-  });
-  totalPages = computed(() => Math.ceil(this.filtered().length / this.pageSize()));
+  
+  // Remove old pagination - we now use infinite scroll
+  // pageTasks = computed(() => {
+  //   const start = this.pageIndex() * this.pageSize();
+  //   return this.filtered().slice(start, start + this.pageSize());
+  // });
+  // totalPages = computed(() => Math.ceil(this.filtered().length / this.pageSize()));
 
   // modal state
   showModal = signal<boolean>(false);
@@ -80,6 +88,23 @@ export class TasksComponent implements OnInit, AfterViewInit {
   viewMode = signal<boolean>(false);
   activeTask = signal<ProjectTask|null>(null);
   saving = signal<boolean>(false);
+
+  // Effects to reload tasks when filters change
+  private statusFilterEffect = effect(() => {
+    // Reload tasks when status filter changes
+    this.statusFilter();
+    if (this.projectId()) {
+      this.loadTasks();
+    }
+  });
+  
+  private assigneeFilterEffect = effect(() => {
+    // Reload tasks when assignee filter changes
+    this.assigneeFilter();
+    if (this.projectId()) {
+      this.loadTasks();
+    }
+  });
 
   ngAfterViewInit() {
     // After view init, if we have a projectId from query params, ensure dropdown is updated
@@ -142,23 +167,74 @@ export class TasksComponent implements OnInit, AfterViewInit {
     });
   }
 
-  loadTasks() {
-    if (!this.projectId()) { this.tasks.set([]); return; }
-    this.loading.set(true);
-    this.tasksSvc.list(this.projectId()).subscribe(ts => {
-      console.log('Tasks received from API:', ts); // Debug log
-      if (ts.length > 0) {
-        console.log('First task dates:', {
-          startDate: ts[0].startDate,
-          endDate: ts[0].endDate,
-          startDateType: typeof ts[0].startDate,
-          endDateType: typeof ts[0].endDate
-        }); // Debug log
+  loadTasks(loadMore: boolean = false) {
+    if (!this.projectId()) {
+      this.tasks.set([]);
+      return; 
+    }
+    
+    if (loadMore) {
+      this.loadingMore.set(true);
+    } else {
+      this.loading.set(true);
+      this.resetPagination();
+    }
+    
+    const page = loadMore ? this.currentPage() + 1 : 1;
+    
+    // Build options object with filters
+    const options: any = { 
+      page, 
+      pageSize: this.pageSize() 
+    };
+    
+    // Add backend filters
+    if (this.statusFilter()) {
+      options.status = this.statusFilter();
+    }
+    if (this.assigneeFilter()) {
+      options.assignedUserId = this.assigneeFilter();
+    }
+    
+    this.tasksSvc.list(this.projectId(), options).subscribe({
+      next: (response) => {
+        console.log('Tasks response from API:', response); // Debug log
+        
+        if (loadMore) {
+          // Append new tasks to existing ones
+          this.tasks.set([...this.tasks(), ...response.tasks]);
+          this.currentPage.set(page);
+        } else {
+          // Replace all tasks
+          this.tasks.set(response.tasks);
+          this.currentPage.set(1);
+        }
+        
+        // Update pagination info
+        this.totalCount.set(response.pagination.totalCount);
+        this.totalPages.set(response.pagination.totalPages);
+        
+        if (loadMore) {
+          this.loadingMore.set(false);
+        } else {
+          this.loading.set(false);
+        }
+      },
+      error: (err) => {
+        console.error('Error loading tasks:', err);
+        if (loadMore) {
+          this.loadingMore.set(false);
+        } else {
+          this.loading.set(false);
+        }
       }
-      this.tasks.set(ts);
-      this.pageIndex.set(0);
-      this.loading.set(false);
-    }, _ => this.loading.set(false));
+    });
+  }
+
+  private resetPagination() {
+    this.currentPage.set(1);
+    this.totalCount.set(0);
+    this.totalPages.set(0);
   }
 
   openCreate() {
@@ -238,16 +314,6 @@ export class TasksComponent implements OnInit, AfterViewInit {
     });
   }
 
-  pageNumbers(): number[] {
-    const pages: number[] = [];
-    const total = this.totalPages();
-    const current = this.pageIndex();
-    const start = Math.max(0, current - 2);
-    const end = Math.min(total, start + 5);
-    for (let i = start; i < end; i++) pages.push(i);
-    return pages;
-  }
-
   onProjectChange(option: DropdownOption | null) {
     this.projectId.set(option?.value || '');
     this.loadTasks();
@@ -260,5 +326,14 @@ export class TasksComponent implements OnInit, AfterViewInit {
   // Helper method to check if user can see all tasks
   canViewAllTasks(): boolean {
     return this.authSvc.isAdmin() || this.authSvc.isApprover();
+  }
+
+  onScroll(event: Event) {
+    const element = event.target as HTMLElement;
+    const atBottom = element.scrollHeight - element.scrollTop === element.clientHeight;
+    
+    if (atBottom && this.hasMorePages() && !this.loadingMore() && !this.loading()) {
+      this.loadTasks(true);
+    }
   }
 }
