@@ -81,13 +81,15 @@ export class OnboardingComponent implements OnInit {
   initializeForms() {
     this.profileForm = this.fb.group({
       bio: [''],
-      department: [''],
-      jobTitle: ['', Validators.required],
+      // Admin-managed fields - these will be disabled
+      department: [{ value: '', disabled: true }],
+      jobTitle: [{ value: '', disabled: true }],
+      employeeId: [{ value: '', disabled: true }],
+      dateOfJoining: [{ value: '', disabled: true }],
+      reportingManager: [{ value: '', disabled: true }],
+      // User-editable fields
       phoneNumber: [''],
       location: [''],
-      dateOfJoining: [''],
-      employeeId: [''],
-      reportingManager: [''],
       totalExperienceYears: [null, [Validators.min(0), Validators.max(50)]],
       educationBackground: [''],
       certifications: [''],
@@ -167,21 +169,24 @@ export class OnboardingComponent implements OnInit {
   }
 
   populateProfileForm(profile: UserProfile) {
+    // Update user-editable fields
     this.profileForm.patchValue({
       bio: profile.bio || '',
-      department: profile.department || '',
-      jobTitle: profile.jobTitle || '',
       phoneNumber: profile.phoneNumber || '',
       location: profile.location || '',
-      dateOfJoining: profile.dateOfJoining || '',
-      employeeId: profile.employeeId || '',
-      reportingManager: profile.reportingManager || '',
       totalExperienceYears: profile.totalExperienceYears || null,
       educationBackground: profile.educationBackground || '',
       certifications: profile.certifications || '',
       linkedInProfile: profile.linkedInProfile || '',
       gitHubProfile: profile.gitHubProfile || ''
     });
+
+    // Update admin-managed fields (disabled)
+    this.profileForm.get('department')?.setValue(profile.department || 'Not assigned');
+    this.profileForm.get('jobTitle')?.setValue(profile.jobTitle || 'Not assigned');
+    this.profileForm.get('employeeId')?.setValue(profile.employeeId || 'Not assigned');
+    this.profileForm.get('dateOfJoining')?.setValue(profile.dateOfJoining || 'Not specified');
+    this.profileForm.get('reportingManager')?.setValue(profile.reportingManager || 'Not assigned');
   }
 
   // Step navigation
@@ -210,7 +215,20 @@ export class OnboardingComponent implements OnInit {
   saveProfile() {
     if (this.profileForm.valid) {
       const userId = this.currentUserId();
-      const formData = this.profileForm.value as CreateUserProfileRequest;
+      
+      // Extract only user-editable fields from the form
+      const formData: CreateUserProfileRequest = {
+        bio: this.profileForm.get('bio')?.value || '',
+        phoneNumber: this.profileForm.get('phoneNumber')?.value || '',
+        location: this.profileForm.get('location')?.value || '',
+        totalExperienceYears: this.profileForm.get('totalExperienceYears')?.value || null,
+        educationBackground: this.profileForm.get('educationBackground')?.value || '',
+        certifications: this.profileForm.get('certifications')?.value || '',
+        linkedInProfile: this.profileForm.get('linkedInProfile')?.value || '',
+        gitHubProfile: this.profileForm.get('gitHubProfile')?.value || ''
+        // Note: Admin-managed fields (department, jobTitle, employeeId, dateOfJoining, reportingManager) 
+        // are NOT included as they come from the AppUser table
+      };
       
       this.loading.set(true);
       

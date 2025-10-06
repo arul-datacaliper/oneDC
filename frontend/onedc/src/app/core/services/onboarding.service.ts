@@ -43,19 +43,17 @@ export interface UserSkill {
 }
 
 export interface CreateUserProfileRequest {
+  // User-editable fields only
   bio?: string;
-  department?: string;
-  jobTitle?: string;
   phoneNumber?: string;
   location?: string;
-  dateOfJoining?: string; // YYYY-MM-DD
-  employeeId?: string;
-  reportingManager?: string;
   totalExperienceYears?: number;
   educationBackground?: string;
   certifications?: string;
   linkedInProfile?: string;
   gitHubProfile?: string;
+  // Note: Admin-managed fields (department, jobTitle, employeeId, dateOfJoining, reportingManager) 
+  // are not included here as they come from the AppUser table and are managed by admins
 }
 
 export interface CreateUserSkillRequest {

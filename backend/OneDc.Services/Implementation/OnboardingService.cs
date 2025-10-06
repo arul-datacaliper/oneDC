@@ -21,6 +21,53 @@ public class OnboardingService : IOnboardingService
     public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
     {
         var profile = await _repository.GetUserProfileAsync(userId);
+        var appUser = await _repository.GetAppUserAsync(userId);
+        
+        if (profile == null && appUser == null)
+            return null;
+            
+        // Get manager name if available
+        var managerName = await _repository.GetManagerNameAsync(appUser?.ManagerId);
+            
+        // If no user profile exists, create a default one with admin data
+        if (profile == null && appUser != null)
+        {
+            var defaultProfile = new UserProfile
+            {
+                UserProfileId = Guid.NewGuid(),
+                UserId = userId,
+                // Populate admin-managed fields from AppUser
+                EmployeeId = appUser.EmployeeId,
+                JobTitle = appUser.JobTitle,
+                Department = appUser.Department,
+                DateOfJoining = appUser.DateOfJoining,
+                ReportingManager = managerName,
+                // Leave user-editable fields empty for now
+                Bio = null,
+                PhoneNumber = null,
+                Location = null,
+                TotalExperienceYears = null,
+                EducationBackground = null,
+                Certifications = null,
+                LinkedInProfile = null,
+                GitHubProfile = null,
+                IsOnboardingComplete = false
+            };
+            
+            return defaultProfile.ToDto();
+        }
+        
+        // If profile exists, override admin-managed fields with current AppUser data
+        if (profile != null && appUser != null)
+        {
+            profile.EmployeeId = appUser.EmployeeId;
+            profile.JobTitle = appUser.JobTitle;
+            profile.Department = appUser.Department;
+            profile.DateOfJoining = appUser.DateOfJoining;
+            profile.ReportingManager = managerName;
+            // Note: We don't save these changes to keep the profile table clean of admin data
+        }
+        
         return profile?.ToDto();
     }
 
@@ -33,18 +80,28 @@ public class OnboardingService : IOnboardingService
         if (existingProfile != null)
             throw new InvalidOperationException("User profile already exists");
 
+        // Get admin-managed data from AppUser
+        var appUser = await _repository.GetAppUserAsync(userId);
+        if (appUser == null)
+            throw new ArgumentException("Employee data not found");
+
+        // Get manager name
+        var managerName = await _repository.GetManagerNameAsync(appUser.ManagerId);
+
         var profile = new UserProfile
         {
             UserProfileId = Guid.NewGuid(),
             UserId = userId,
+            // Admin-managed fields - these come from AppUser, not from request
+            EmployeeId = appUser.EmployeeId,
+            JobTitle = appUser.JobTitle,
+            Department = appUser.Department,
+            DateOfJoining = appUser.DateOfJoining,
+            ReportingManager = managerName,
+            // User-editable fields from request
             Bio = request.Bio,
-            Department = request.Department,
-            JobTitle = request.JobTitle,
             PhoneNumber = request.PhoneNumber,
             Location = request.Location,
-            DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null,
-            EmployeeId = request.EmployeeId,
-            ReportingManager = request.ReportingManager,
             TotalExperienceYears = request.TotalExperienceYears,
             EducationBackground = request.EducationBackground,
             Certifications = request.Certifications,
@@ -62,19 +119,30 @@ public class OnboardingService : IOnboardingService
         if (profile == null)
             throw new ArgumentException("User profile not found");
 
+        // Get current admin-managed data from AppUser
+        var appUser = await _repository.GetAppUserAsync(userId);
+        if (appUser == null)
+            throw new ArgumentException("Employee data not found");
+
+        // Get manager name
+        var managerName = await _repository.GetManagerNameAsync(appUser.ManagerId);
+
+        // Update only user-editable fields
         profile.Bio = request.Bio;
-        profile.Department = request.Department;
-        profile.JobTitle = request.JobTitle;
         profile.PhoneNumber = request.PhoneNumber;
         profile.Location = request.Location;
-        profile.DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null;
-        profile.EmployeeId = request.EmployeeId;
-        profile.ReportingManager = request.ReportingManager;
         profile.TotalExperienceYears = request.TotalExperienceYears;
         profile.EducationBackground = request.EducationBackground;
         profile.Certifications = request.Certifications;
         profile.LinkedInProfile = request.LinkedInProfile;
         profile.GitHubProfile = request.GitHubProfile;
+
+        // Ensure admin-managed fields remain from AppUser (don't update from request)
+        profile.EmployeeId = appUser.EmployeeId;
+        profile.JobTitle = appUser.JobTitle;
+        profile.Department = appUser.Department;
+        profile.DateOfJoining = appUser.DateOfJoining;
+        profile.ReportingManager = managerName;
 
         var updatedProfile = await _repository.UpdateUserProfileAsync(profile);
         return updatedProfile.ToDto();
