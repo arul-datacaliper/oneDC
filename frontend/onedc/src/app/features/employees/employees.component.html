@@ -385,12 +385,14 @@
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Reporting Manager</label>
-                  <select class="form-select" formControlName="managerId">
-                    <option value="">No Manager</option>
-                    <option *ngFor="let manager of availableManagers()" [value]="manager.value">
-                      {{ manager.label }}
-                    </option>
-                  </select>
+                  <app-searchable-dropdown
+                    formControlName="managerId"
+                    [options]="availableManagers()"
+                    placeholder="Search or select manager..."
+                    emptyLabel="No Manager"
+                    [searchFields]="['label']"
+                    [allowEmpty]="true">
+                  </app-searchable-dropdown>
                 </div>
               </div>
 
@@ -427,7 +429,7 @@
               <h6 class="mb-3">Present Address</h6>
               
               <div class="mb-3">
-                <label class="form-label">Address Line 1 <span class="text-danger">*</span></label>
+                <label class="form-label">Address Line 1</label>
                 <input type="text" class="form-control" formControlName="addressLine1"
                        placeholder="Enter address line 1">
               </div>
@@ -440,12 +442,12 @@
               
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">City <span class="text-danger">*</span></label>
+                  <label class="form-label">City</label>
                   <input type="text" class="form-control" formControlName="city"
                          placeholder="Enter city">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">State <span class="text-danger">*</span></label>
+                  <label class="form-label">State</label>
                   <input type="text" class="form-control" formControlName="state"
                          placeholder="Enter state">
                 </div>
@@ -453,12 +455,12 @@
               
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <label class="form-label">Country</label>
                   <input type="text" class="form-control" formControlName="country"
                          placeholder="Enter country">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Zip Code <span class="text-danger">*</span></label>
+                  <label class="form-label">Zip Code</label>
                   <input type="text" class="form-control" formControlName="zipCode"
                          placeholder="Enter zip code">
                 </div>
@@ -480,7 +482,7 @@
               </div>
               
               <div class="mb-3">
-                <label class="form-label">Address Line 1 <span class="text-danger">*</span></label>
+                <label class="form-label">Address Line 1</label>
                 <input type="text" class="form-control" formControlName="addressLine1"
                        placeholder="Enter address line 1">
               </div>
@@ -493,12 +495,12 @@
               
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">City <span class="text-danger">*</span></label>
+                  <label class="form-label">City</label>
                   <input type="text" class="form-control" formControlName="city"
                          placeholder="Enter city">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">State <span class="text-danger">*</span></label>
+                  <label class="form-label">State</label>
                   <input type="text" class="form-control" formControlName="state"
                          placeholder="Enter state">
                 </div>
@@ -506,12 +508,12 @@
               
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <label class="form-label">Country</label>
                   <input type="text" class="form-control" formControlName="country"
                          placeholder="Enter country">
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Zip Code <span class="text-danger">*</span></label>
+                  <label class="form-label">Zip Code</label>
                   <input type="text" class="form-control" formControlName="zipCode"
                          placeholder="Enter zip code">
                 </div>

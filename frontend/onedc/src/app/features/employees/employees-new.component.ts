@@ -7,13 +7,14 @@ import { ToastrService } from 'ngx-toastr';
 import { EmployeesService } from '../../core/services/employees.service';
 import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
 import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/models';
+import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-employees',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule, SearchableDropdownComponent],
   templateUrl: './employees.component.html',
   styleUrl: './employees.component.scss'
 })
