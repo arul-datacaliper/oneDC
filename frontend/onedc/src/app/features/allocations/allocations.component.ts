@@ -13,6 +13,16 @@ export interface EmployeeAllocation {
   userId: string;
   userName: string;
   allocatedHours: number;
+  periodHours?: number[]; // Hours for each month period when splitting by months
+}
+
+// Interface for month period allocation
+export interface MonthPeriodAllocation {
+  startDate: string;
+  endDate: string;
+  month: string;
+  days: number;
+  allocatedHours: number;
 }
 
 @Component({
@@ -28,6 +38,9 @@ export class AllocationsComponent implements OnInit {
   private userService = inject(UserManagementService);
   private toastr = inject(ToastrService);
   private fb = inject(FormBuilder);
+
+  // Expose Math for template use
+  Math = Math;
 
   // Signals for reactive state management
   currentWeekStart = signal<string>('');
@@ -59,10 +72,15 @@ export class AllocationsComponent implements OnInit {
   availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
   selectedEmployeeForDropdown = signal<string | null>(null);
   
+  // Multi-month allocation signals
+  isMultiMonthWeek = signal<boolean>(false);
+  monthPeriods = signal<MonthPeriodAllocation[]>([]);
+  
   // Export functionality
   exportFromDate = signal<string>('');
   exportToDate = signal<string>('');
   isExporting = signal<boolean>(false);
+  selectedExportPeriod = signal<'prev-month' | 'this-month' | 'this-quarter' | 'custom'>('this-month');
 
   // Form
   allocationForm: FormGroup;
@@ -102,6 +120,38 @@ export class AllocationsComponent implements OnInit {
       return `${endYear}-${endMonth}-${endDay}`;
     }
     return '';
+  });
+
+  // Helper to group allocations by employee and project (for month-split allocations)
+  groupedAllocations = computed(() => {
+    const allocations = this.filteredAllocations();
+    const grouped = new Map<string, WeeklyAllocation[]>();
+    
+    allocations.forEach(allocation => {
+      const key = `${allocation.projectId}-${allocation.userId}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(allocation);
+    });
+    
+    return Array.from(grouped.entries()).map(([key, allocations]) => {
+      const [projectId, userId] = key.split('-');
+      const totalHours = allocations.reduce((sum, a) => sum + a.allocatedHours, 0);
+      const avgUtilization = allocations.reduce((sum, a) => sum + a.utilizationPercentage, 0) / allocations.length;
+      
+      return {
+        projectId,
+        userId,
+        projectName: allocations[0].projectName,
+        userName: allocations[0].userName,
+        totalAllocatedHours: totalHours,
+        avgUtilizationPercentage: Math.round(avgUtilization * 100) / 100,
+        allocations: allocations.sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate)),
+        status: allocations[0].status,
+        isMonthSplit: allocations.length > 1 // Flag to indicate if this is split across months
+      };
+    });
   });
 
   // Template helper methods
@@ -326,6 +376,12 @@ export class AllocationsComponent implements OnInit {
         userName: employee.userName,
         allocatedHours: 0 // No default hours - user must enter value
       };
+
+      // Initialize periodHours if multi-month week is detected
+      if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+        newEmployeeAllocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+      }
+
       console.log('Adding employee allocation:', newEmployeeAllocation);
       this.selectedEmployeeAllocations.update(current => [...current, newEmployeeAllocation]);
       this.updateAvailableEmployeesForSelection();
@@ -399,12 +455,37 @@ export class AllocationsComponent implements OnInit {
       } else {
         // Check for existing allocations before creating new ones
         const existingAllocations = this.allocations();
-        const createRequests: CreateAllocationRequest[] = this.selectedEmployeeAllocations().map(emp => ({
-          projectId: formValue.projectId,
-          userId: emp.userId,
-          weekStartDate: formValue.weekStartDate,
-          allocatedHours: emp.allocatedHours
-        }));
+        let createRequests: CreateAllocationRequest[] = [];
+
+        if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+          // Create allocations for each month period for each employee using employee-specific hours
+          createRequests = this.selectedEmployeeAllocations().flatMap(emp => 
+            this.monthPeriods().map((period, periodIndex) => {
+              const periodHours = emp.periodHours?.[periodIndex] || 0;
+              return {
+                projectId: formValue.projectId,
+                userId: emp.userId,
+                weekStartDate: period.startDate,
+                weekEndDate: period.endDate,
+                allocatedHours: periodHours
+              };
+            }).filter(request => request.allocatedHours > 0) // Only create allocations with hours > 0
+          );
+
+          if (createRequests.length === 0) {
+            this.toastr.warning('Please enter allocation hours for at least one period for at least one employee');
+            return;
+          }
+        } else {
+          // Standard week allocation
+          createRequests = this.selectedEmployeeAllocations().map(emp => ({
+            projectId: formValue.projectId,
+            userId: emp.userId,
+            weekStartDate: formValue.weekStartDate,
+            weekEndDate: this.selectedWeekEndDate(),
+            allocatedHours: emp.allocatedHours
+          }));
+        }
 
         // Check for duplicates
         const duplicates = createRequests.filter(request => 
@@ -428,8 +509,9 @@ export class AllocationsComponent implements OnInit {
           this.allocationService.createAllocation(request).toPromise()
         );
 
-        Promise.all(allocationPromises).then(() => {
-          this.toastr.success(`${createRequests.length} allocation(s) created successfully`);
+        Promise.all(allocationPromises).then((results) => {
+          // Each result is now a single allocation
+          this.toastr.success(`${results.length} allocation(s) created successfully`);
           this.closeModal();
           this.loadInitialData();
         }).catch((error) => {
@@ -444,6 +526,44 @@ export class AllocationsComponent implements OnInit {
     } else if (this.selectedEmployeeAllocations().length === 0) {
       this.toastr.warning('Please select at least one employee for allocation');
     }
+  }
+
+  // Handle week start date change to detect multi-month weeks
+  onWeekStartDateChange(weekStartDate: string) {
+    this.formWeekStartDate.set(weekStartDate);
+    
+    if (weekStartDate) {
+      const isMultiMonth = this.allocationService.isWeekSpanningMultipleMonths(weekStartDate);
+      this.isMultiMonthWeek.set(isMultiMonth);
+      
+      if (isMultiMonth) {
+        const periods = this.allocationService.getMonthPeriodsForWeek(weekStartDate);
+        const monthAllocations = periods.map(period => ({
+          ...period,
+          allocatedHours: 0
+        }));
+        this.monthPeriods.set(monthAllocations);
+        
+        // Automatically initialize periodHours for existing employees
+        this.selectedEmployeeAllocations.update(current =>
+          current.map(emp => ({
+            ...emp,
+            periodHours: new Array(periods.length).fill(0)
+          }))
+        );
+      } else {
+        this.monthPeriods.set([]);
+      }
+    }
+  }
+
+  // Update hours for a specific month period (kept for reference but not used in automatic mode)
+  updateMonthPeriodHours(index: number, hours: number) {
+    this.monthPeriods.update(current => 
+      current.map((period, i) => 
+        i === index ? { ...period, allocatedHours: hours } : period
+      )
+    );
   }
 
   deleteAllocation(allocation: WeeklyAllocation) {
@@ -482,9 +602,77 @@ export class AllocationsComponent implements OnInit {
     return this.allocations().reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
   }
 
+  // Helper method to format allocation periods for month-split allocations
+  formatAllocationPeriods(allocations: WeeklyAllocation[]): string {
+    if (allocations.length === 1) {
+      const allocation = allocations[0];
+      return `${new Date(allocation.weekStartDate).toLocaleDateString()} - ${new Date(allocation.weekEndDate).toLocaleDateString()}`;
+    }
+    
+    return allocations.map(a => 
+      `${new Date(a.weekStartDate).toLocaleDateString()} - ${new Date(a.weekEndDate).toLocaleDateString()} (${a.allocatedHours}h)`
+    ).join(', ');
+  }
+
+  // Helper method to get month name from allocation
+  getMonthName(dateString: string): string {
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  }
+
+  // Helper method to check if allocation spans multiple months
+  isMultiMonthAllocation(allocations: WeeklyAllocation[]): boolean {
+    if (allocations.length <= 1) return false;
+    
+    const months = new Set(allocations.map(a => 
+      new Date(a.weekStartDate).getMonth() + new Date(a.weekStartDate).getFullYear() * 12
+    ));
+    
+    return months.size > 1;
+  }
+
   // TrackBy function for employee list
   trackByUserId(index: number, employee: EmployeeAllocation): string {
     return employee.userId;
+  }
+
+  // TrackBy function for period index
+  trackByPeriodIndex(index: number, period: MonthPeriodAllocation): number {
+    return index;
+  }
+
+  // Get hours for a specific employee and period
+  getEmployeePeriodHours(userId: string, periodIndex: number): number {
+    const employee = this.selectedEmployeeAllocations().find(emp => emp.userId === userId);
+    if (employee?.periodHours && employee.periodHours[periodIndex] !== undefined) {
+      return employee.periodHours[periodIndex];
+    }
+    return 0;
+  }
+
+  // Update hours for a specific employee and period
+  updateEmployeePeriodHours(userId: string, periodIndex: number, hours: number) {
+    const employees = this.selectedEmployeeAllocations();
+    const employeeIndex = employees.findIndex(emp => emp.userId === userId);
+    
+    if (employeeIndex !== -1) {
+      const updatedEmployee = { ...employees[employeeIndex] };
+      
+      // Initialize periodHours array if it doesn't exist
+      if (!updatedEmployee.periodHours) {
+        updatedEmployee.periodHours = new Array(this.monthPeriods().length).fill(0);
+      }
+      
+      // Update the specific period hours
+      updatedEmployee.periodHours[periodIndex] = hours;
+      
+      // Update the total allocatedHours (sum of all periods)
+      updatedEmployee.allocatedHours = updatedEmployee.periodHours.reduce((sum, h) => sum + h, 0);
+      
+      // Update the array
+      const updatedEmployees = [...employees];
+      updatedEmployees[employeeIndex] = updatedEmployee;
+      this.selectedEmployeeAllocations.set(updatedEmployees);
+    }
   }
 
   // Export functionality
@@ -541,6 +729,7 @@ export class AllocationsComponent implements OnInit {
     
     this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
     this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+    this.selectedExportPeriod.set('this-month');
   }
 
   // Set export date range to previous month
@@ -551,6 +740,7 @@ export class AllocationsComponent implements OnInit {
     
     this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
     this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+    this.selectedExportPeriod.set('prev-month');
   }
 
   // Set export date range to current quarter
@@ -562,6 +752,12 @@ export class AllocationsComponent implements OnInit {
     
     this.exportFromDate.set(firstDay.toISOString().split('T')[0]);
     this.exportToDate.set(lastDay.toISOString().split('T')[0]);
+    this.selectedExportPeriod.set('this-quarter');
+  }
+
+  // Handle manual date changes to set export period to custom
+  onExportDateChange() {
+    this.selectedExportPeriod.set('custom');
   }
 
   // Helper methods for template

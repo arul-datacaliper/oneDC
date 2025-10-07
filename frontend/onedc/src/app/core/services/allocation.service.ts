@@ -22,6 +22,7 @@ export interface CreateAllocationRequest {
   projectId: string;
   userId: string;
   weekStartDate: string;
+  weekEndDate: string;
   allocatedHours: number;
 }
 
@@ -148,5 +149,56 @@ export class AllocationService {
     const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
     const endDay = String(endDate.getDate()).padStart(2, '0');
     return `${endYear}-${endMonth}-${endDay}`;
+  }
+
+  // Helper method to detect if a week spans multiple months
+  isWeekSpanningMultipleMonths(weekStartDate: string): boolean {
+    const [year, month, day] = weekStartDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    
+    return startDate.getMonth() !== endDate.getMonth();
+  }
+
+  // Helper method to get month periods for a week that spans multiple months
+  getMonthPeriodsForWeek(weekStartDate: string): Array<{startDate: string, endDate: string, month: string, days: number}> {
+    const [year, month, day] = weekStartDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day);
+    const weekEndDate = new Date(startDate);
+    weekEndDate.setDate(startDate.getDate() + 6);
+    
+    const periods: Array<{startDate: string, endDate: string, month: string, days: number}> = [];
+    let currentDate = new Date(startDate);
+    
+    while (currentDate <= weekEndDate) {
+      // Find the end of the current month or the week end date, whichever is earlier
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Last day of current month
+      const periodEndDate = endOfMonth < weekEndDate ? endOfMonth : weekEndDate;
+      
+      // Calculate the number of days in this period
+      const days = Math.floor((periodEndDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      periods.push({
+        startDate: this.formatDate(currentDate),
+        endDate: this.formatDate(periodEndDate),
+        month: currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        days: days
+      });
+      
+      // Move to the next month
+      currentDate = new Date(periodEndDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return periods;
+  }
+
+  // Helper method to format date as YYYY-MM-DD
+  private formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

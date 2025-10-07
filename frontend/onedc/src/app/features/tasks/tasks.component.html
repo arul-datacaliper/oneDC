@@ -116,19 +116,19 @@
                 <td>{{ t.endDate ? (t.endDate | date:'mediumDate') : '-' }}</td>
                 <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
                 <td>
-                  <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-outline-secondary" (click)="openView(t)" title="View Details" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-outline-primary" *ngIf="canViewAllTasks()" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-outline-info" *ngIf="canViewAllTasks()" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
-                    <button class="btn btn-outline-danger" *ngIf="canViewAllTasks()" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-outline-secondary btn-sm" (click)="openView(t)" title="View Details" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-outline-primary btn-sm" *ngIf="canViewAllTasks()" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-outline-info btn-sm" *ngIf="canViewAllTasks()" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
+                    <button class="btn btn-outline-danger btn-sm" *ngIf="canViewAllTasks()" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
                       <span *ngIf="deletingTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       <i *ngIf="deletingTaskId() !== t.taskId" class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-outline-success" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <button class="btn btn-outline-success btn-sm" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
                       <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-check2-circle"></i>
                     </button>
-                    <button class="btn btn-outline-warning" *ngIf="!canViewAllTasks() && t.status==='NEW'" (click)="changeStatus(t,'IN_PROGRESS')" title="Start Working" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <button class="btn btn-outline-warning btn-sm" *ngIf="!canViewAllTasks() && t.status==='NEW'" (click)="changeStatus(t,'IN_PROGRESS')" title="Start Working" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
                       <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-play-circle"></i>
                     </button>

@@ -36,6 +36,7 @@ export class ProjectsComponent implements OnInit {
   editingProject = signal<Project | null>(null);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
+  clientFilter = signal<string>('');
   
   // Pagination
   pageSize = signal<number>(10);
@@ -139,6 +140,10 @@ export class ProjectsComponent implements OnInit {
       filtered = filtered.filter(p => p.status === this.statusFilter());
     }
     
+    if (this.clientFilter()) {
+      filtered = filtered.filter(p => p.clientId === this.clientFilter());
+    }
+    
     this.filteredProjects.set(filtered);
     this.pageIndex.set(0); // Reset to first page when filtering
   }
@@ -152,6 +157,12 @@ export class ProjectsComponent implements OnInit {
   onStatusFilterChange(event: Event) {
     const target = event.target as HTMLSelectElement;
     this.statusFilter.set(target.value);
+    this.applyFilters();
+  }
+
+  onClientFilterChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.clientFilter.set(target.value);
     this.applyFilters();
   }
 
