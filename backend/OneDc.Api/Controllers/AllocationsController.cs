@@ -259,11 +259,13 @@ public class AllocationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<AvailableProjectDto>>> GetAvailableProjects()
     {
         var projects = await _context.Projects
+            .Include(p => p.Client)
             .Where(p => p.Status.ToLower() == "active")
             .Select(p => new AvailableProjectDto
             {
                 ProjectId = p.ProjectId.ToString(),
                 ProjectName = p.Name,
+                ClientName = p.Client != null ? p.Client.Name : "Unknown Client",
                 Status = p.Status
             })
             .OrderBy(p => p.ProjectName)
@@ -442,6 +444,7 @@ public class AvailableProjectDto
 {
     public string ProjectId { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
+    public string ClientName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
 }
 

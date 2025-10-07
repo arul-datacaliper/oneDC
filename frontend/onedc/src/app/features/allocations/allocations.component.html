@@ -266,9 +266,12 @@
               placeholder="Search and select a project..."
               [clearable]="true"
               [searchable]="true"
-              bindLabel="projectName"
+              bindLabel="displayName"
               bindValue="projectId"
-              [items]="availableProjects()">
+              [items]="availableProjectsWithDisplayName()">
+              <ng-option *ngFor="let project of availableProjectsWithDisplayName()" [value]="project.projectId">
+                <span>{{ project.projectName }} <small class="text-muted">- {{ project.clientName }}</small></span>
+              </ng-option>
             </ng-select>
           </div>
         </div>
@@ -422,9 +425,12 @@
                   placeholder="Search and select a project..."
                   [clearable]="false"
                   [searchable]="true"
-                  bindLabel="projectName"
+                  bindLabel="displayName"
                   bindValue="projectId"
-                  [items]="availableProjects()">
+                  [items]="availableProjectsWithDisplayName()">
+                  <ng-option *ngFor="let project of availableProjectsWithDisplayName()" [value]="project.projectId">
+                    <span>{{ project.projectName }} <small class="text-muted">- {{ project.clientName }}</small></span>
+                  </ng-option>
                 </ng-select>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('projectId')?.invalid && allocationForm.get('projectId')?.touched">

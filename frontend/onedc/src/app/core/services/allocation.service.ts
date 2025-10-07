@@ -95,8 +95,8 @@ export class AllocationService {
   }
 
   // Get available projects for allocation
-  getAvailableProjects(): Observable<{projectId: string, projectName: string, status: string}[]> {
-    return this.http.get<{projectId: string, projectName: string, status: string}[]>(`${this.apiUrl}/available-projects`);
+  getAvailableProjects(): Observable<{projectId: string, projectName: string, clientName: string, status: string}[]> {
+    return this.http.get<{projectId: string, projectName: string, clientName: string, status: string}[]>(`${this.apiUrl}/available-projects`);
   }
 
   // Get available employees for allocation

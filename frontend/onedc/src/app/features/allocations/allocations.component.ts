@@ -40,8 +40,16 @@ export class AllocationsComponent implements OnInit {
   allocations = signal<WeeklyAllocation[]>([]);
   projectSummary = signal<AllocationSummary[]>([]);
   employeeSummary = signal<EmployeeAllocationSummary[]>([]);
-  availableProjects = signal<{projectId: string, projectName: string, status: string}[]>([]);
+  availableProjects = signal<{projectId: string, projectName: string, clientName: string, status: string}[]>([]);
   availableEmployees = signal<{userId: string, userName: string, role: string}[]>([]);
+  
+  // Computed properties
+  availableProjectsWithDisplayName = computed(() => {
+    return this.availableProjects().map(project => ({
+      ...project,
+      displayName: `${project.projectName} - ${project.clientName}`
+    }));
+  });
   
   // UI state signals
   isLoading = signal(false);
@@ -561,7 +569,7 @@ export class AllocationsComponent implements OnInit {
     const projectId = this.selectedProjectId();
     if (!projectId) return '';
     const project = this.availableProjects().find(p => p.projectId === projectId);
-    return project?.projectName || '';
+    return project ? `${project.projectName} - ${project.clientName}` : '';
   }
 
   getSelectedEmployeeName(): string {
