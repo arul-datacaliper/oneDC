@@ -111,17 +111,28 @@ public class TasksController : BaseController
             return Forbid("Only administrators and approvers can create tasks.");
         }
         
-        // Check if project exists and get project details for permission check
-        var projectInfo = await _db.Projects.FirstOrDefaultAsync(p => p.ProjectId == projectId);
-        if (projectInfo == null) return BadRequest("Project not found");
+        // Validate date range first (no DB query needed)
+        if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
+            return BadRequest("EndDate must be after StartDate");
+
+        // Single optimized query to get project and assignee info if needed
+        var projectQuery = _db.Projects.AsNoTracking().Where(p => p.ProjectId == projectId);
+        AppUser? assignee = null;
+        
+        if (req.AssignedUserId.HasValue)
+        {
+            assignee = await _db.AppUsers.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+        }
+        
+        var project = await projectQuery.FirstOrDefaultAsync();
+        if (project == null) return BadRequest("Project not found");
         
         // Additional check: If user is approver, ensure they can manage this project
-        if (IsApprover() && !CanManageProjectTasks(projectInfo.DefaultApprover))
+        if (IsApprover() && !CanManageProjectTasks(project.DefaultApprover))
         {
             return Forbid("You can only create tasks for projects where you are assigned as the project manager.");
         }
-        if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
-            return BadRequest("EndDate must be after StartDate");
 
         var entity = new ProjectTask {
             TaskId = Guid.NewGuid(),
@@ -138,15 +149,12 @@ public class TasksController : BaseController
         _db.ProjectTasks.Add(entity);
         await _db.SaveChangesAsync();
 
-        // Send email notification if task is assigned to someone
-        if (req.AssignedUserId.HasValue)
+        // Send email notification asynchronously (fire-and-forget) to avoid blocking
+        if (req.AssignedUserId.HasValue && assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
         {
-            try
+            _ = Task.Run(async () =>
             {
-                var assignee = await _db.AppUsers.FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
-                var project = await _db.Projects.FirstOrDefaultAsync(p => p.ProjectId == projectId);
-                
-                if (assignee != null && project != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                try
                 {
                     var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
                     await _emailService.SendTaskAssignmentNotificationAsync(
@@ -159,12 +167,12 @@ public class TasksController : BaseController
                         entity.EndDate
                     );
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the task creation
-                Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the task creation
+                    Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+                }
+            });
         }
 
         return CreatedAtAction(nameof(Get), new { taskId = entity.TaskId }, new { entity.TaskId });
@@ -210,32 +218,36 @@ public class TasksController : BaseController
         t.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
-        // Send email notification if task assignee changed and is now assigned to someone
+        // Send email notification asynchronously if task assignee changed and is now assigned to someone
         if (assigneeChanged && req.AssignedUserId.HasValue)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                var assignee = await _db.AppUsers.FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
-                
-                if (assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                try
                 {
-                    var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
-                    await _emailService.SendTaskAssignmentNotificationAsync(
-                        assignee.WorkEmail,
-                        assigneeName,
-                        t.Title,
-                        t.Description ?? "",
-                        t.Project?.Name ?? "Unknown Project",
-                        t.StartDate,
-                        t.EndDate
-                    );
+                    var assignee = await _db.AppUsers.AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+                    
+                    if (assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                    {
+                        var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
+                        await _emailService.SendTaskAssignmentNotificationAsync(
+                            assignee.WorkEmail,
+                            assigneeName,
+                            t.Title,
+                            t.Description ?? "",
+                            t.Project?.Name ?? "Unknown Project",
+                            t.StartDate,
+                            t.EndDate
+                        );
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the task update
-                Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the task update
+                    Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+                }
+            });
         }
 
         return NoContent();

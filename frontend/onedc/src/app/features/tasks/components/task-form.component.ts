@@ -1,10 +1,23 @@
 import { Component, EventEmitter, Input, Output, inject, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { Observable, startWith, map, of } from 'rxjs';
 import { TasksService, TaskStatus, ProjectTask, CreateTaskRequest, UpdateTaskRequest } from '../../../core/services/tasks.service';
 import { UsersService, AppUser } from '../../../core/services/users.service';
 import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
+
+// Custom validator for date range
+function dateRangeValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const startDate = control.get('startDate')?.value;
+    const endDate = control.get('endDate')?.value;
+    
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      return { dateRange: true };
+    }
+    return null;
+  };
+}
 
 @Component({
   selector: 'app-task-form',
@@ -54,6 +67,13 @@ import { SearchableDropdownComponent, DropdownOption } from '../../../shared/com
       <div class="col-md-6">
         <label class="form-label">End Date</label>
         <input type="date" class="form-control" formControlName="endDate" [readonly]="mode === 'view'">
+      </div>
+      <!-- Date validation error message -->
+      <div class="col-12" *ngIf="form.hasError('dateRange') && (form.get('startDate')?.touched || form.get('endDate')?.touched)">
+        <div class="alert alert-danger py-2">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          End date must be after start date.
+        </div>
       </div>
       <div class="col-md-6" *ngIf="mode==='edit' || mode==='view'">
         <label class="form-label">Status</label>
@@ -130,7 +150,7 @@ export class TaskFormComponent implements OnChanges {
     startDate: [''],
     endDate: [''],
     status: ['NEW' as TaskStatus]
-  });
+  }, { validators: [dateRangeValidator()] });
 
   ngOnInit() {
     this.usersSvc.list(true).subscribe(u => {
