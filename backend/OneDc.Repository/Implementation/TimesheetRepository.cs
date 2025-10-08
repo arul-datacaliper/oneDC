@@ -25,5 +25,14 @@ public class TimesheetRepository : ITimesheetRepository
     public async Task AddAsync(TimesheetEntry entry) =>
         await _db.TimesheetEntries.AddAsync(entry);
 
+    public async Task DeleteAsync(Guid entryId)
+    {
+        var entry = await _db.TimesheetEntries.FirstOrDefaultAsync(t => t.EntryId == entryId);
+        if (entry != null)
+        {
+            _db.TimesheetEntries.Remove(entry);
+        }
+    }
+
     public Task SaveChangesAsync() => _db.SaveChangesAsync();
 }

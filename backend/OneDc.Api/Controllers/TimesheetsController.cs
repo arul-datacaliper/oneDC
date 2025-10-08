@@ -106,4 +106,28 @@ public class TimesheetsController : BaseController
             return StatusCode(500, new { error = "Internal server error", details = ex.Message });
         }
     }
+
+    // DELETE api/timesheets/{id}  (delete DRAFT or REJECTED)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _svc.DeleteAsync(userId, id);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
+    }
 }

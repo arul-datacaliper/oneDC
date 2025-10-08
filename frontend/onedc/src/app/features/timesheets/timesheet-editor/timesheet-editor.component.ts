@@ -7,6 +7,7 @@ import { TimesheetsService } from '../../../core/services/timesheets.service';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { TasksService, ProjectTask } from '../../../core/services/tasks.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
+import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
 
 type Entry = {
@@ -26,7 +27,7 @@ type Entry = {
   selector: 'app-timesheet-editor',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, FormsModule
+    CommonModule, ReactiveFormsModule, FormsModule, SearchableDropdownComponent
   ],
   templateUrl: './timesheet-editor.component.html',
   styleUrls: ['./timesheet-editor.component.scss']
@@ -59,7 +60,30 @@ export class TimesheetEditorComponent implements OnInit {
   projects = signal<Project[]>([]);
   rows = signal<TimesheetEntry[]>([]);
   loading = signal(false);
+  editingRowIndex = signal<number | null>(null); // Track which row is being edited
   displayed = ['date','project','hours','description','ticket','taskType','status','actions'];
+
+  // Computed property for project dropdown options
+  projectOptions = computed<DropdownOption[]>(() => {
+    return this.projects().map(project => ({
+      value: project.projectId,
+      label: `${project.code} — ${project.name}`,
+      searchableText: `${project.code} ${project.name}`.toLowerCase()
+    }));
+  });
+
+  // Computed property for task dropdown options based on selected project
+  taskOptions = computed<DropdownOption[]>(() => {
+    const selectedProjectId = this.newRow.get('projectId')?.value;
+    if (!selectedProjectId) return [];
+    
+    const tasks = this.getTasksForProject(selectedProjectId);
+    return tasks.map(task => ({
+      value: task.taskId,
+      label: task.title,
+      searchableText: task.title.toLowerCase()
+    }));
+  });
 
   // Task types for dropdown
   taskTypes = getTaskTypes();
@@ -157,6 +181,9 @@ export class TimesheetEditorComponent implements OnInit {
         this.items.clear();
         this.rows().forEach((r: TimesheetEntry) => this.items.push(this.buildRow(r)));
         
+        // Load tasks for all projects in the timesheet entries
+        this.loadTasksForCurrentProjects();
+        
         this.loading.set(false);
         
         if (data.length === 0) {
@@ -164,8 +191,6 @@ export class TimesheetEditorComponent implements OnInit {
         } else {
           console.log(`Loaded ${data.length} timesheet entries for ${this.selectedDate()}`);
         }
-
-        this.loadTasksForCurrentProjects();
       },
       error: (err) => {
         console.error('Failed to load timesheets:', err);
@@ -195,6 +220,24 @@ export class TimesheetEditorComponent implements OnInit {
   getTasksForProject(projectId: string | null | undefined): ProjectTask[] {
     if (!projectId) return [];
     return this.tasksByProject[projectId] || [];
+  }
+
+  // Get task options for a specific project (used in edit mode)
+  getTaskOptionsForProject(projectId: string | null | undefined): DropdownOption[] {
+    if (!projectId) return [];
+    
+    // Ensure tasks are loaded for this project
+    if (!this.tasksByProject[projectId]) {
+      this.loadTasksForProject(projectId);
+      return [];
+    }
+    
+    const tasks = this.getTasksForProject(projectId);
+    return tasks.map(task => ({
+      value: task.taskId,
+      label: task.title,
+      searchableText: task.title.toLowerCase()
+    }));
   }
 
   buildRow(r: TimesheetEntry) {
@@ -332,6 +375,7 @@ export class TimesheetEditorComponent implements OnInit {
         ));
         
         this.showNotification('Saved', 'OK', { duration: 1200 });
+        this.exitEditMode(); // Exit edit mode after successful save
       },
       error: err => this.showNotification(err?.error ?? 'Save failed', 'OK', { duration: 2500 })
     });
@@ -490,5 +534,39 @@ export class TimesheetEditorComponent implements OnInit {
   onFieldChange(formGroup: FormGroup, fieldName: string, value: any) {
     formGroup.get(fieldName)!.setValue(value);
     formGroup.get('dirty')!.setValue(true, { emitEvent: false });
+  }
+
+  // Enter edit mode for a specific row
+  enterEditMode(index: number) {
+    const g = this.items.at(index);
+    if (!g || !this.isEditable(g.get('status')!.value)) {
+      this.showNotification('Only DRAFT and REJECTED entries can be edited', 'OK', { duration: 2000 });
+      return;
+    }
+    this.editingRowIndex.set(index);
+  }
+
+  // Exit edit mode
+  exitEditMode() {
+    this.editingRowIndex.set(null);
+  }
+
+  // Check if a specific row is in edit mode
+  isRowInEditMode(index: number): boolean {
+    return this.editingRowIndex() === index;
+  }
+
+  getTaskTitle(projectId: string | null | undefined, taskId: string | null | undefined): string {
+    if (!taskId || !projectId) return 'No task selected';
+    
+    // If tasks aren't loaded for this project yet, try to load them
+    if (!this.tasksByProject[projectId]) {
+      this.loadTasksForProject(projectId);
+      return 'Loading...';
+    }
+    
+    const tasks = this.getTasksForProject(projectId);
+    const task = tasks.find(t => t.taskId === taskId);
+    return task ? task.title : 'Task not found';
   }
 }

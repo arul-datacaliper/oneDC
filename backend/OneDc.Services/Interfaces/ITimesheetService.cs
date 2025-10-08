@@ -11,4 +11,5 @@ public interface ITimesheetService
     Task<TimesheetEntry> CreateDraftAsync(Guid userId, TimesheetCreateDto dto);
     Task<TimesheetEntry> UpdateDraftAsync(Guid userId, Guid entryId, TimesheetUpdateDto dto);
     Task<TimesheetEntry> SubmitAsync(Guid userId, Guid entryId);
+    Task DeleteAsync(Guid userId, Guid entryId);
 }

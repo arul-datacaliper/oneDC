@@ -83,6 +83,17 @@ public class TimesheetService : ITimesheetService
         return entry;
     }
 
+    public async Task DeleteAsync(Guid userId, Guid entryId)
+    {
+        var entry = await _repo.GetByIdAsync(entryId) ?? throw new InvalidOperationException("Entry not found.");
+        if (entry.UserId != userId) throw new UnauthorizedAccessException("Cannot delete another user's timesheet.");
+        if (entry.Status != TimesheetStatus.DRAFT && entry.Status != TimesheetStatus.REJECTED) 
+            throw new InvalidOperationException("Only DRAFT and REJECTED entries can be deleted.");
+
+        await _repo.DeleteAsync(entryId);
+        await _repo.SaveChangesAsync();
+    }
+
     // --- helpers ---
     private static void ValidateHours(decimal hours)
     {

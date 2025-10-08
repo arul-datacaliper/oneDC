@@ -281,7 +281,17 @@ i.bi {
   min-height: 3rem; // Ensure consistent height for table cells
 }
 
-.actions .btn {
+// Button group styling improvements
+.btn-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 120px; // Reserve space for consistent layout
+  flex-wrap: nowrap;
+}
+
+.btn-group .btn {
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -289,10 +299,81 @@ i.bi {
   align-items: center;
   justify-content: center;
   border-radius: var(--bs-border-radius);
+  flex-shrink: 0; // Prevent button shrinking
   
   i.bi {
     font-size: 0.875rem;
     line-height: 1;
+  }
+}
+
+// Ensure consistent spacing even when buttons are hidden
+.btn-group .btn:not(:last-child) {
+  margin-right: 0.25rem;
+}
+
+// Table cell for actions should have consistent width
+td.text-center {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+}
+
+// Specific styling for actions cell
+.actions-cell {
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: 150px !important;
+  white-space: nowrap;
+  padding: 0.5rem 0.25rem !important;
+}
+
+// Button styling within actions cell
+.actions-cell .btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bs-border-radius);
+  margin: 0 0.125rem;
+  
+  i.bi {
+    font-size: 0.875rem;
+    line-height: 1;
+  }
+}
+
+// Ensure gap between buttons is consistent
+.actions-cell .d-flex {
+  gap: 0.25rem !important;
+}
+
+// Searchable dropdown styling within table cells
+.task-dropdown-wrapper {
+  position: relative;
+  z-index: 100;
+}
+
+// Override searchable dropdown styles for table use
+.task-dropdown-wrapper app-searchable-dropdown {
+  .dropdown {
+    position: relative;
+  }
+  
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    min-width: 200px;
+  }
+  
+  .form-control {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    height: auto;
   }
 }
 
