@@ -19,7 +19,29 @@ using System.Security.Cryptography;
 using Azure.Communication.Email;
 
 // Load environment variables from .env file
-Env.Load();
+try 
+{
+    var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+    Console.WriteLine($"Looking for .env file at: {envFilePath}");
+    
+    if (File.Exists(envFilePath))
+    {
+        Env.Load(envFilePath);
+        Console.WriteLine("Successfully loaded .env file");
+    }
+    else
+    {
+        Console.WriteLine("Warning: .env file not found. Using system environment variables only.");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error loading .env file: {ex.Message}");
+}
+
+// Debug: Print connection string status
+var testConnectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING");
+Console.WriteLine($"DATABASE_CONNECTION_STRING loaded: {!string.IsNullOrEmpty(testConnectionString)}");
 
 
 var builder = WebApplication.CreateBuilder(args);

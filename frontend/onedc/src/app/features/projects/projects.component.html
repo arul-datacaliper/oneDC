@@ -289,12 +289,20 @@
 
             <div class="col-md-6">
               <label class="form-label">End Date</label>
-              <input type="date" class="form-control" formControlName="endDate">
+              <input type="date" class="form-control" formControlName="endDate"
+                     [class.is-invalid]="isFieldInvalid('endDate')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('endDate')">
+                {{ getFieldError('endDate') }}
+              </div>
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Planned Release Date</label>
-              <input type="date" class="form-control" formControlName="plannedReleaseDate">
+              <input type="date" class="form-control" formControlName="plannedReleaseDate"
+                     [class.is-invalid]="isFieldInvalid('plannedReleaseDate')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('plannedReleaseDate')">
+                {{ getFieldError('plannedReleaseDate') }}
+              </div>
             </div>
 
             <div class="col-md-6">

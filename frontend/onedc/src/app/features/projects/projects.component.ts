@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 
 import { ProjectsService } from '../../core/services/projects.service';
@@ -75,6 +75,52 @@ export class ProjectsComponent implements OnInit {
       budgetHours: ['', [Validators.min(0)]],
       budgetCost: ['', [Validators.min(0)]]
     });
+
+    // Add date validation
+    this.setupDateValidation();
+  }
+
+  // Custom date validators
+  private dateAfterValidator(startDateControlName: string): ValidatorFn {
+    return (control: AbstractControl): {[key: string]: any} | null => {
+      if (!control.parent) return null;
+      
+      const startDateControl = control.parent.get(startDateControlName);
+      if (!startDateControl || !startDateControl.value || !control.value) return null;
+      
+      const startDate = new Date(startDateControl.value);
+      const endDate = new Date(control.value);
+      
+      if (endDate < startDate) {
+        return { 'dateAfter': { 
+          actualDate: control.value, 
+          requiredAfter: startDateControl.value,
+          message: 'Date must be after start date'
+        }};
+      }
+      
+      return null;
+    };
+  }
+
+  private setupDateValidation(): void {
+    // Add validators to end date and planned release date
+    const endDateControl = this.projectForm.get('endDate');
+    const plannedReleaseDateControl = this.projectForm.get('plannedReleaseDate');
+
+    if (endDateControl) {
+      endDateControl.setValidators([this.dateAfterValidator('startDate')]);
+    }
+
+    if (plannedReleaseDateControl) {
+      plannedReleaseDateControl.setValidators([this.dateAfterValidator('startDate')]);
+    }
+
+    // Re-validate when start date changes
+    this.projectForm.get('startDate')?.valueChanges.subscribe(() => {
+      endDateControl?.updateValueAndValidity();
+      plannedReleaseDateControl?.updateValueAndValidity();
+    });
   }
 
   ngOnInit(): void {
@@ -105,7 +151,9 @@ export class ProjectsComponent implements OnInit {
     this.clientsService.getAll().subscribe({
       next: (data) => {
         console.log('Clients loaded successfully from API:', data);
-        this.clients.set(data);
+        // Filter to only include ACTIVE clients for project creation
+        const activeClients = data.filter(client => client.status === 'ACTIVE');
+        this.clients.set(activeClients);
       },
       error: (err) => {
         console.error('Failed to load clients from API:', err);
@@ -418,6 +466,16 @@ export class ProjectsComponent implements OnInit {
       }
       if (field.errors['maxlength']) return `${fieldName} is too long`;
       if (field.errors['min']) return `${fieldName} must be positive`;
+      if (field.errors['dateAfter']) {
+        switch (fieldName) {
+          case 'endDate':
+            return 'End date must be after start date';
+          case 'plannedReleaseDate':
+            return 'Planned release date must be after start date';
+          default:
+            return field.errors['dateAfter'].message || 'Date must be after start date';
+        }
+      }
     }
     return '';
   }

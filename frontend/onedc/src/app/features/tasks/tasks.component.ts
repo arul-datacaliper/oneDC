@@ -135,7 +135,9 @@ export class TasksComponent implements OnInit, AfterViewInit {
   loadProjects() { 
     this.projectsSvc.getAll().subscribe(ps => {
       this.projects.set(ps);
-      this.projectOptions.set(ps.map(p => ({
+      // Filter to only include ACTIVE projects for task assignment
+      const activeProjects = ps.filter(p => p.status === 'ACTIVE');
+      this.projectOptions.set(activeProjects.map(p => ({
         value: p.projectId,
         label: `${p.name} — ${p.client?.name || p.clientId}`,
         project: p
