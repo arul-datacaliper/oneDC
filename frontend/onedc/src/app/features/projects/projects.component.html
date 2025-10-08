@@ -339,9 +339,10 @@
           <button type="button" class="btn btn-secondary" (click)="closeModal()">
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="projectForm.invalid">
-            <i class="bi bi-check-circle"></i>
-            {{ editingProject() ? 'Update Project' : 'Create Project' }}
+          <button type="submit" class="btn btn-primary" [disabled]="projectForm.invalid || submitting()">
+            <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i *ngIf="!submitting()" class="bi bi-check-circle"></i>
+            {{ submitting() ? 'Processing...' : (editingProject() ? 'Update Project' : 'Create Project') }}
           </button>
         </div>
       </form>

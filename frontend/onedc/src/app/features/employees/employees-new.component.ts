@@ -32,6 +32,7 @@ export class EmployeesComponent implements OnInit {
   employees = signal<Employee[]>([]);
   filteredEmployees = signal<Employee[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   showProfileModal = signal<boolean>(false);
   editingEmployee = signal<Employee | null>(null);
@@ -390,7 +391,8 @@ export class EmployeesComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.employeeForm.valid) {
+    if (this.employeeForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.employeeForm.value;
       
       const employeeData = {
@@ -426,6 +428,9 @@ export class EmployeesComponent implements OnInit {
           error: (err) => {
             console.error('Failed to update employee:', err);
             this.toastr.error('Failed to update employee');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -440,6 +445,9 @@ export class EmployeesComponent implements OnInit {
           error: (err) => {
             console.error('Failed to create employee:', err);
             this.toastr.error('Failed to create employee');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }

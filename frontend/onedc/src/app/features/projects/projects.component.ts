@@ -33,6 +33,7 @@ export class ProjectsComponent implements OnInit {
   users = signal<AppUser[]>([]);
   filteredProjects = signal<Project[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   editingProject = signal<Project | null>(null);
   searchTerm = signal<string>('');
@@ -256,7 +257,8 @@ export class ProjectsComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.projectForm.valid) {
+    if (this.projectForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.projectForm.value;
       
       if (this.editingProject()) {
@@ -301,6 +303,9 @@ export class ProjectsComponent implements OnInit {
               // Generic error handling
               this.toastr.error(`Failed to update project: ${err.error?.title || err.error?.detail || err.message}`);
             }
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -344,6 +349,9 @@ export class ProjectsComponent implements OnInit {
               // Generic error handling
               this.toastr.error(`Failed to create project: ${err.error?.title || err.error?.detail || err.message}`);
             }
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }

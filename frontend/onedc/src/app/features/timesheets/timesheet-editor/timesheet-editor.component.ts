@@ -60,6 +60,7 @@ export class TimesheetEditorComponent implements OnInit {
   projects = signal<Project[]>([]);
   rows = signal<TimesheetEntry[]>([]);
   loading = signal(false);
+  submitting = signal(false); // Add submitting state to prevent duplicate submissions
   editingRowIndex = signal<number | null>(null); // Track which row is being edited
   displayed = ['date','project','hours','description','ticket','taskType','status','actions'];
 
@@ -262,6 +263,8 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   addRow() : void {
+    if (this.submitting()) return; // Prevent multiple submissions
+    
     console.log('addRow: Starting...'); // Debug log
     const val = this.newRow.value;
     console.log('addRow: Form value:', val); // Debug log
@@ -280,6 +283,8 @@ export class TimesheetEditorComponent implements OnInit {
       this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
+
+    this.submitting.set(true); // Set submitting state
 
     const dto = {
       projectId: val.projectId!,
@@ -325,6 +330,9 @@ export class TimesheetEditorComponent implements OnInit {
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 4000 });
+      },
+      complete: () => {
+        this.submitting.set(false); // Reset submitting state
       }
     });
   }

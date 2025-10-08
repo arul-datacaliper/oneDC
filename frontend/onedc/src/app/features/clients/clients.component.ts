@@ -26,6 +26,7 @@ export class ClientsComponent implements OnInit {
   clients = signal<Client[]>([]);
   filteredClients = signal<Client[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   editingClient = signal<Client | null>(null);
   searchTerm = signal<string>('');
@@ -163,7 +164,8 @@ export class ClientsComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.clientForm.valid) {
+    if (this.clientForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.clientForm.value;
       
       if (this.editingClient()) {
@@ -191,6 +193,9 @@ export class ClientsComponent implements OnInit {
           error: (err) => {
             console.error('Failed to update client:', err);
             this.toastr.error('Failed to update client');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -218,6 +223,9 @@ export class ClientsComponent implements OnInit {
           error: (err) => {
             console.error('Failed to create client:', err);
             this.toastr.error('Failed to create client');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }
