@@ -67,8 +67,8 @@ export class TimesheetEditorComponent implements OnInit {
   projectOptions = computed<DropdownOption[]>(() => {
     return this.projects().map(project => ({
       value: project.projectId,
-      label: `${project.code} — ${project.name}`,
-      searchableText: `${project.code} ${project.name}`.toLowerCase()
+      label: `${project.name} — ${project.client?.name || project.clientId}`,
+      searchableText: `${project.name} ${project.client?.name || project.clientId}`.toLowerCase()
     }));
   });
 
@@ -492,7 +492,7 @@ export class TimesheetEditorComponent implements OnInit {
 
   projectLabel(id: string) {
     const p = this.projects().find(x => x.projectId === id);
-    return p ? `${p.code} — ${p.name}` : id;
+    return p ? `${p.name} — ${p.client?.name || p.clientId}` : id;
   }
 
   statusLabel(status: any) {

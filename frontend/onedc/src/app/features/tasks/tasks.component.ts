@@ -137,7 +137,7 @@ export class TasksComponent implements OnInit, AfterViewInit {
       this.projects.set(ps);
       this.projectOptions.set(ps.map(p => ({
         value: p.projectId,
-        label: `${p.code} — ${p.name}`,
+        label: `${p.name} — ${p.client?.name || p.clientId}`,
         project: p
       })));
       
