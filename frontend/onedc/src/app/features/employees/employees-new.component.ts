@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { EmployeesService } from '../../core/services/employees.service';
@@ -10,6 +10,71 @@ import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+
+// Custom validators for date validation
+function notFutureDateValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+    
+    if (selectedDate > today) {
+      return { futureDate: true };
+    }
+    return null;
+  };
+}
+
+function minimumAgeValidator(minAge: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const birthDate = new Date(control.value);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    let actualAge = age;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      actualAge--;
+    }
+    
+    if (actualAge < minAge) {
+      return { minimumAge: { requiredAge: minAge, actualAge } };
+    }
+    return null;
+  };
+}
+
+function joiningDateValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const joiningDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Allow today as valid joining date
+    
+    // Allow future dates for joining date (for planned hires) but not too far in future
+    const maxFutureDate = new Date();
+    maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1); // Allow up to 1 year in future
+    
+    if (joiningDate > maxFutureDate) {
+      return { tooFarInFuture: true };
+    }
+    
+    // Don't allow joining dates too far in the past (more than 50 years)
+    const minPastDate = new Date();
+    minPastDate.setFullYear(minPastDate.getFullYear() - 50);
+    
+    if (joiningDate < minPastDate) {
+      return { tooFarInPast: true };
+    }
+    
+    return null;
+  };
+}
 
 @Component({
   selector: 'app-employees',
@@ -123,8 +188,8 @@ export class EmployeesComponent implements OnInit {
       firstName: ['', [Validators.required, Validators.maxLength(80)]],
       lastName: ['', [Validators.required, Validators.maxLength(80)]],
       gender: [''],
-      dateOfBirth: [''],
-      dateOfJoining: ['', Validators.required],
+      dateOfBirth: ['', [notFutureDateValidator(), minimumAgeValidator(16)]], // Must be 16+ and not future date
+      dateOfJoining: ['', [Validators.required, joiningDateValidator()]], // Cannot be too far in past/future
       jobTitle: ['', [Validators.required, Validators.maxLength(100)]],
       role: [UserRole.EMPLOYEE, Validators.required],
       department: ['', [Validators.required, Validators.maxLength(100)]],
@@ -496,6 +561,10 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['required']) return `${fieldName} is required`;
       if (field.errors['email']) return 'Invalid email format';
       if (field.errors['maxlength']) return `${fieldName} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['futureDate']) return 'Date cannot be in the future';
+      if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
+      if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
+      if (field.errors['tooFarInPast']) return 'Joining date cannot be more than 50 years in the past';
     }
     return '';
   }
