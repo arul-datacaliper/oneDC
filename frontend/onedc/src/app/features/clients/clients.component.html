@@ -157,7 +157,7 @@
     </div>
 
     <!-- Pagination -->
-    <div class="d-flex justify-content-between align-items-center p-3 border-top" *ngIf="filteredClients().length > 0">
+    <div class="d-flex justify-content-between align-items-center p-3" *ngIf="filteredClients().length > 0">
       <div class="text-muted">
         Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), filteredClients().length) }} of {{ filteredClients().length }} clients
       </div>
