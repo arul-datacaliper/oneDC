@@ -6,6 +6,8 @@ import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
 import { ProjectsService } from '../../../core/services/projects.service';
 import { TasksService, ProjectTask } from '../../../core/services/tasks.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { UsersService, AppUser } from '../../../core/services/users.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
@@ -38,8 +40,18 @@ export class TimesheetEditorComponent implements OnInit {
   private projSvc = inject(ProjectsService);
   private toastr = inject(ToastrService);
   private tasksSvc = inject(TasksService);
+  private authSvc = inject(AuthService);
+  private usersSvc = inject(UsersService);
+  
   tasks = signal<ProjectTask[]>([]);
   private tasksByProject: Record<string, ProjectTask[]> = {};
+
+  // Admin functionality
+  isAdmin = signal<boolean>(false);
+  users = signal<AppUser[]>([]);
+  selectedUserId = signal<string | null>(null);
+  selectedProjectId = signal<string | null>(null);
+  viewMode = signal<'own' | 'user' | 'project' | 'all'>('own');
 
   // Bootstrap-styled toast notification method
   private showNotification(message: string, action?: string, config?: any) {
@@ -86,6 +98,26 @@ export class TimesheetEditorComponent implements OnInit {
     }));
   });
 
+  // Admin dropdown options
+  userOptions = computed<DropdownOption[]>(() => {
+    return this.users().map(user => ({
+      value: user.userId,
+      label: `${user.firstName} ${user.lastName} (${user.email})`,
+      searchableText: `${user.firstName} ${user.lastName} ${user.email}`.toLowerCase()
+    }));
+  });
+
+  projectFilterOptions = computed<DropdownOption[]>(() => {
+    return [
+      { value: '', label: 'All Projects', searchableText: 'all projects' },
+      ...this.projects().map(project => ({
+        value: project.projectId,
+        label: `${project.name} — ${project.client?.name || project.clientId}`,
+        searchableText: `${project.name} ${project.client?.name || project.clientId}`.toLowerCase()
+      }))
+    ];
+  });
+
   // Task types for dropdown
   taskTypes = getTaskTypes();
   getTaskTypeDisplayName = getTaskTypeDisplayName;
@@ -129,6 +161,15 @@ export class TimesheetEditorComponent implements OnInit {
 
   ngOnInit(): void {
     console.log('TimesheetEditorComponent: Initializing...'); // Debug log
+    
+    // Check if user is admin
+    this.isAdmin.set(this.authSvc.isAdmin());
+    
+    // Load admin data if needed
+    if (this.isAdmin()) {
+      this.loadUsers();
+    }
+    
     this.loadProjects();
     this.load();
     this.updateNewRowDate();
@@ -173,7 +214,29 @@ export class TimesheetEditorComponent implements OnInit {
     console.log('Loading timesheets for date:', this.selectedDate()); // Debug log
     this.loading.set(true);
     
-    this.tsSvc.list(this.from(), this.to()).subscribe({
+    // Determine which service method to call based on admin status and selections
+    let timesheetObservable;
+    
+    if (this.isAdmin()) {
+      const selectedUserId = this.selectedUserId();
+      const selectedProjectId = this.selectedProjectId();
+      
+      if (selectedUserId) {
+        // Load timesheets for specific user
+        timesheetObservable = this.tsSvc.listForUser(selectedUserId, this.from(), this.to());
+      } else if (selectedProjectId) {
+        // Load timesheets for specific project (all users)
+        timesheetObservable = this.tsSvc.listForProject(selectedProjectId, this.from(), this.to());
+      } else {
+        // Load all timesheets
+        timesheetObservable = this.tsSvc.listAll(this.from(), this.to());
+      }
+    } else {
+      // Regular user - load their own timesheets
+      timesheetObservable = this.tsSvc.list(this.from(), this.to());
+    }
+    
+    timesheetObservable.subscribe({
       next: (data: any[]) => {
         console.log('Loaded timesheets:', data); // Debug log
         this.rows.set(data as TimesheetEntry[]);
@@ -214,6 +277,18 @@ export class TimesheetEditorComponent implements OnInit {
       if (projectId === this.newRow.get('projectId')?.value) {
         // trigger change detection if needed
         this.tasks.set(response.tasks);
+      }
+    });
+  }
+
+  private loadUsers(): void {
+    this.usersSvc.list().subscribe({
+      next: (users) => {
+        this.users.set(users);
+      },
+      error: (error) => {
+        console.error('Error loading users:', error);
+        this.showNotification('Failed to load users', 'error');
       }
     });
   }
@@ -576,5 +651,24 @@ export class TimesheetEditorComponent implements OnInit {
     const tasks = this.getTasksForProject(projectId);
     const task = tasks.find(t => t.taskId === taskId);
     return task ? task.title : 'Task not found';
+  }
+
+  // Admin-specific methods
+  onUserSelectionChange(userId: string | null): void {
+    this.selectedUserId.set(userId);
+    this.selectedProjectId.set(null); // Clear project filter when user is selected
+    this.load(); // Reload data with new filter
+  }
+
+  onProjectFilterChange(projectId: string | null): void {
+    this.selectedProjectId.set(projectId);
+    this.selectedUserId.set(null); // Clear user filter when project is selected
+    this.load(); // Reload data with new filter
+  }
+
+  clearFilters(): void {
+    this.selectedUserId.set(null);
+    this.selectedProjectId.set(null);
+    this.load(); // Reload all data
   }
 }

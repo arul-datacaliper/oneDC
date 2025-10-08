@@ -8,9 +8,11 @@
 			"args": [
 				"run",
 				"--project",
-				"backend/OneDc.Api"
+				"backend/OneDc.Api",
+				"--urls",
+				"http://localhost:5260"
 			],
-			"group": "serve",
+			"group": "build",
 			"isBackground": true,
 			"problemMatcher": [
 				"$msCompile"

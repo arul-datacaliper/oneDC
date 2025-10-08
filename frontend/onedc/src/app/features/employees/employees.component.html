@@ -277,17 +277,25 @@
 
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <label class="form-label">Gender</label>
-                  <select class="form-select" formControlName="gender">
-                    <option value="">Select gender</option>
+                  <label class="form-label">Gender <small class="text-muted">(Optional)</small></label>
+                  <select class="form-select" formControlName="gender"
+                          [class.is-invalid]="isFieldInvalid('gender')">
+                    <option value="">Select gender (optional)</option>
                     <option *ngFor="let gender of availableGenders" [value]="gender.value">
                       {{ gender.label }}
                     </option>
                   </select>
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('gender')">
+                    {{ getFieldError('gender') }}
+                  </div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Date of Birth</label>
-                  <input type="date" class="form-control" formControlName="dateOfBirth">
+                  <label class="form-label">Date of Birth <small class="text-muted">(Optional)</small></label>
+                  <input type="date" class="form-control" formControlName="dateOfBirth"
+                         [class.is-invalid]="isFieldInvalid('dateOfBirth')">
+                  <div class="invalid-feedback" *ngIf="isFieldInvalid('dateOfBirth')">
+                    {{ getFieldError('dateOfBirth') }}
+                  </div>
                 </div>
               </div>
 
