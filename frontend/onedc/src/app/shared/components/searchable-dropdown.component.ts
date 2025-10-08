@@ -54,13 +54,13 @@ export interface DropdownOption {
       position: absolute;
       top: 100%;
       left: 0;
-      z-index: 1000;
+      z-index: 10000;
       max-height: 200px;
       overflow-y: auto;
       border: 1px solid #ced4da;
       border-radius: 0.375rem;
       background-color: white;
-      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
     .dropdown-item {
       display: block;

@@ -42,17 +42,21 @@
           <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
-      <div class="col-md-2" *ngIf="canViewAllTasks()">
-        <label class="form-label small">Assignee</label>
+      <div class="col-md-2">
+        <label class="form-label small">
+          Assignee 
+          <span *ngIf="assigneeFilter() === authSvc.getCurrentUser()?.userId" class="badge bg-info ms-1" title="Showing your tasks by default">My Tasks</span>
+        </label>
         <app-searchable-dropdown
           [options]="assigneeOptions()"
+          [ngModel]="assigneeFilter()"
           placeholder="Search assignee..."
           emptyLabel="All"
           [searchFields]="['label']"
           (selectionChange)="onAssigneeFilterChange($event)">
         </app-searchable-dropdown>
       </div>
-      <div class="col-md-3" [class.col-md-5]="!canViewAllTasks()">
+      <div class="col-md-3">>
         <label class="form-label small">Search</label>
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
@@ -70,7 +74,7 @@
   <div class="card-body p-0">
     <div *ngIf="!canViewAllTasks()" class="alert alert-info m-3 mb-0">
       <i class="bi bi-info-circle me-1"></i>
-      <strong>Note:</strong> You are viewing only tasks assigned to you. Role-based filtering is enforced by the server.
+      <strong>Note:</strong> By default, you see only tasks assigned to you. Use the "Assignee" filter above to view all tasks or tasks assigned to specific team members.
     </div>
     <div *ngIf="!projectId()" class="p-5 text-center text-muted">Select a project to view tasks.</div>
     <ng-container *ngIf="projectId()">

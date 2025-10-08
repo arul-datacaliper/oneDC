@@ -12,6 +12,18 @@
     flex-direction: column;
     min-height: 0; // Allow flex child to shrink below content size
   }
+
+  // Ensure filter card has proper stacking context for dropdowns
+  .filter-card {
+    position: relative;
+    z-index: 100;
+  }
+
+  // Ensure table card is below filter card
+  .table-card {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 // Reduced font sizes for all form elements
@@ -110,7 +122,7 @@
 .table thead th {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 1;
   background: var(--bs-light);
   border-bottom: 2px solid var(--bs-border-color);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);

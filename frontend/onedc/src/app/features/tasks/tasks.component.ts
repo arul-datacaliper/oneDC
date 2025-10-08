@@ -164,6 +164,12 @@ export class TasksComponent implements OnInit, AfterViewInit {
         label: `${u.firstName} ${u.lastName}`,
         user: u
       })));
+      
+      // Set current user as default assignee filter (so users see their own tasks by default)
+      const currentUser = this.authSvc.getCurrentUser();
+      if (currentUser && !this.assigneeFilter()) {
+        this.assigneeFilter.set(currentUser.userId);
+      }
     });
   }
 
