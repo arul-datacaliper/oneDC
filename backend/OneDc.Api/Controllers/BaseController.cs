@@ -105,4 +105,35 @@ public abstract class BaseController : ControllerBase
     {
         return IsAdminOrApprover() || IsCurrentUser(targetUserId);
     }
+
+    /// <summary>
+    /// Checks if the current user can manage tasks for the specified project.
+    /// Admin users can manage all tasks, Approver users can only manage tasks for projects they approve.
+    /// </summary>
+    /// <param name="projectDefaultApprover">The default approver (project manager) ID for the project</param>
+    /// <returns>True if the user can manage tasks for this project, false otherwise</returns>
+    protected bool CanManageProjectTasks(Guid? projectDefaultApprover)
+    {
+        // Admins can manage all tasks
+        if (IsAdmin())
+        {
+            return true;
+        }
+        
+        // Approvers can only manage tasks for projects they approve
+        if (IsApprover() && projectDefaultApprover.HasValue)
+        {
+            try
+            {
+                return GetCurrentUserId() == projectDefaultApprover.Value;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+        
+        // Employees cannot manage tasks
+        return false;
+    }
 }

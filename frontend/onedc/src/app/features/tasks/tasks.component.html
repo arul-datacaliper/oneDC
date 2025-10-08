@@ -52,7 +52,7 @@
           (selectionChange)="onAssigneeFilterChange($event)">
         </app-searchable-dropdown>
       </div>
-      <div class="col-md-3" [class.col-md-5]="!canViewAllTasks()">>
+      <div class="col-md-3" [class.col-md-5]="!canViewAllTasks()">
         <label class="form-label small">Search</label>
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>

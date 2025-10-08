@@ -111,8 +111,15 @@ public class TasksController : BaseController
             return Forbid("Only administrators and approvers can create tasks.");
         }
         
-        var projectExists = await _db.Projects.AnyAsync(p => p.ProjectId == projectId);
-        if (!projectExists) return BadRequest("Project not found");
+        // Check if project exists and get project details for permission check
+        var projectInfo = await _db.Projects.FirstOrDefaultAsync(p => p.ProjectId == projectId);
+        if (projectInfo == null) return BadRequest("Project not found");
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && !CanManageProjectTasks(projectInfo.DefaultApprover))
+        {
+            return Forbid("You can only create tasks for projects where you are assigned as the project manager.");
+        }
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
             return BadRequest("EndDate must be after StartDate");
 
@@ -177,6 +184,13 @@ public class TasksController : BaseController
             .Include(x => x.Project)
             .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && t.Project != null && !CanManageProjectTasks(t.Project.DefaultApprover))
+        {
+            return Forbid("You can only edit tasks for projects where you are assigned as the project manager.");
+        }
+        
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
             return BadRequest("EndDate must be after StartDate");
 
@@ -259,8 +273,17 @@ public class TasksController : BaseController
             return Forbid("Only administrators and approvers can delete tasks.");
         }
         
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        var t = await _db.ProjectTasks
+            .Include(x => x.Project)
+            .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && t.Project != null && !CanManageProjectTasks(t.Project.DefaultApprover))
+        {
+            return Forbid("You can only delete tasks for projects where you are assigned as the project manager.");
+        }
+        
         _db.ProjectTasks.Remove(t);
         await _db.SaveChangesAsync();
         return NoContent();

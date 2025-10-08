@@ -5,28 +5,58 @@ using OneDc.Services.Interfaces;
 using System.Net;
 using Npgsql;
 using Microsoft.EntityFrameworkCore;
+using OneDc.Infrastructure;
 
 namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ProjectsController : ControllerBase
+public class ProjectsController : BaseController
 {
     private readonly IProjectService _svc;
     private readonly ILogger<ProjectsController> _logger;
+    private readonly OneDcDbContext _db;
     
-    public ProjectsController(IProjectService svc, ILogger<ProjectsController> logger)
+    public ProjectsController(IProjectService svc, ILogger<ProjectsController> logger, OneDcDbContext db)
     {
         _svc = svc;
         _logger = logger;
+        _db = db;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var items = await _svc.GetAllAsync();
-        return Ok(items);
+        // For Admin users, return all projects
+        if (IsAdmin())
+        {
+            var allItems = await _svc.GetAllAsync();
+            return Ok(allItems);
+        }
+        
+        // For Approver users, return only projects they manage
+        if (IsApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            var managedProjects = await _db.Projects
+                .Include(p => p.Client)
+                .Where(p => p.DefaultApprover == currentUserId)
+                .AsNoTracking()
+                .ToListAsync();
+            return Ok(managedProjects);
+        }
+        
+        // For Employee users, return projects they have tasks assigned to
+        var userId = GetCurrentUserId();
+        var projectsWithAssignedTasks = await _db.Projects
+            .Include(p => p.Client)
+            .Where(p => _db.ProjectTasks.Any(t => t.ProjectId == p.ProjectId && t.AssignedUserId == userId))
+            .Distinct()
+            .AsNoTracking()
+            .ToListAsync();
+        
+        return Ok(projectsWithAssignedTasks);
     }
 
     [HttpGet("{id:guid}")]
