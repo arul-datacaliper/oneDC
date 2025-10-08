@@ -353,28 +353,62 @@ td.text-center {
 // Searchable dropdown styling within table cells
 .task-dropdown-wrapper {
   position: relative;
-  z-index: 100;
+  z-index: 1050; // High z-index to appear above Bootstrap modals and other elements
 }
 
 // Override searchable dropdown styles for table use
 .task-dropdown-wrapper app-searchable-dropdown {
   .dropdown {
     position: relative;
+    z-index: 1050;
   }
   
   .dropdown-menu {
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 1000;
+    z-index: 1060; // Even higher z-index for the dropdown menu
     min-width: 200px;
+    max-width: 300px;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25) !important; // Enhanced shadow for better visibility
+    border: 1px solid #dee2e6 !important;
+    background-color: white !important;
   }
   
   .form-control {
     font-size: 0.8rem;
     padding: 0.25rem 0.5rem;
     height: auto;
+    z-index: 1050;
   }
+}
+
+// Ensure table rows don't interfere with dropdown
+.table tbody tr {
+  position: relative;
+  z-index: 1;
+}
+
+// When a row is in edit mode, give it higher z-index
+.table tbody tr.editing-row {
+  z-index: 1040;
+}
+
+// Ensure table container allows overflow for dropdowns
+.table-responsive {
+  overflow: visible !important;
+}
+
+// Special class for tables with dropdowns
+.table-dropdown-friendly {
+  overflow: visible !important;
+  position: relative;
+  z-index: 1;
+}
+
+// Alternative: ensure the table container has proper stacking context
+.timesheet-editor-page .card {
+  overflow: visible;
 }
 
 // Utility classes
