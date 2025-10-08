@@ -30,7 +30,14 @@ var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_S
                        builder.Configuration.GetConnectionString("OneDcDb");
 
 builder.Services.AddDbContext<OneDcDbContext>(opt =>
-    opt.UseNpgsql(connectionString)
+    opt.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.CommandTimeout(60); // 60 seconds timeout
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+        })
        .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();

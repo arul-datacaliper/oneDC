@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 
 import { ProjectsService } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
@@ -12,7 +13,7 @@ import { ToastrService } from 'ngx-toastr';
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss'
 })
@@ -50,6 +51,13 @@ export class ProjectsComponent implements OnInit {
     return this.filteredProjects().slice(start, end);
   });
 
+  usersWithDisplayName = computed(() => {
+    return this.users().map(user => ({
+      ...user,
+      displayName: `${user.firstName} ${user.lastName}`
+    }));
+  });
+
   // Form
   projectForm: FormGroup;
 
@@ -60,7 +68,7 @@ export class ProjectsComponent implements OnInit {
       clientId: ['', Validators.required],
       status: ['ACTIVE', Validators.required],
       billable: [true],
-      defaultApprover: [''],
+      defaultApprover: ['', Validators.required],
       startDate: [''],
       endDate: [''],
       plannedReleaseDate: [''],
@@ -230,7 +238,21 @@ export class ProjectsComponent implements OnInit {
           },
           error: (err) => {
             console.error('Update failed:', err);
-            this.toastr.error(`Failed to update project: ${err.error?.title || err.message}`);
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate project code
+              this.toastr.error(err.error?.detail || 'A project with this code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to update project: ${err.error?.title || err.error?.detail || err.message}`);
+            }
           }
         });
       } else {
@@ -259,7 +281,21 @@ export class ProjectsComponent implements OnInit {
           },
           error: (err) => {
             console.error('Create failed:', err);
-            this.toastr.error(`Failed to create project: ${err.error?.title || err.message}`);
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate project code
+              this.toastr.error(err.error?.detail || 'A project with this code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to create project: ${err.error?.title || err.error?.detail || err.message}`);
+            }
           }
         });
       }
@@ -365,7 +401,21 @@ export class ProjectsComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.projectForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) {
+        // Custom messages for specific fields
+        switch (fieldName) {
+          case 'defaultApprover':
+            return 'Project Manager is required';
+          case 'clientId':
+            return 'Client is required';
+          case 'code':
+            return 'Project Code is required';
+          case 'name':
+            return 'Project Name is required';
+          default:
+            return `${fieldName} is required`;
+        }
+      }
       if (field.errors['maxlength']) return `${fieldName} is too long`;
       if (field.errors['min']) return `${fieldName} must be positive`;
     }

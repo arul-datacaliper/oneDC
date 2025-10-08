@@ -101,27 +101,6 @@ export class AllocationsComponent implements OnInit {
     return allocations;
   });
 
-  // Computed property for selected week end date
-  selectedWeekEndDate = computed(() => {
-    const weekStartDate = this.formWeekStartDate();
-    if (weekStartDate) {
-      // Parse the date string directly without timezone conversion
-      const [year, month, day] = weekStartDate.split('-').map(Number);
-      const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
-      
-      // Add 6 days for Saturday
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 6);
-      
-      // Format as YYYY-MM-DD
-      const endYear = endDate.getFullYear();
-      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-      const endDay = String(endDate.getDate()).padStart(2, '0');
-      return `${endYear}-${endMonth}-${endDay}`;
-    }
-    return '';
-  });
-
   // Helper to group allocations by employee and project (for month-split allocations)
   groupedAllocations = computed(() => {
     const allocations = this.filteredAllocations();
@@ -182,12 +161,18 @@ export class AllocationsComponent implements OnInit {
     // Form validation for multiple employee allocation
     this.allocationForm = this.fb.group({
       projectId: ['', Validators.required],
-      weekStartDate: ['', Validators.required]
+      weekStartDate: ['', Validators.required],
+      weekEndDate: ['', Validators.required]
     });
 
     // Track form weekStartDate changes and update signal
     this.allocationForm.get('weekStartDate')?.valueChanges.subscribe(value => {
       this.formWeekStartDate.set(value || '');
+      // Auto-calculate end date when start date changes
+      if (value) {
+        const endDate = this.calculateWeekEndDate(value);
+        this.allocationForm.get('weekEndDate')?.setValue(endDate, { emitEvent: false });
+      }
     });
 
     // Initialize with current week
@@ -196,6 +181,24 @@ export class AllocationsComponent implements OnInit {
     
     // Initialize export dates with current month
     this.setCurrentMonth();
+  }
+
+  // Helper method to calculate week end date (Saturday) from start date (Sunday)
+  private calculateWeekEndDate(weekStartDate: string): string {
+    if (!weekStartDate) return '';
+    
+    const [year, month, day] = weekStartDate.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+    
+    // Add 6 days for Saturday
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    
+    // Format as YYYY-MM-DD
+    const endYear = endDate.getFullYear();
+    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+    const endDay = String(endDate.getDate()).padStart(2, '0');
+    return `${endYear}-${endMonth}-${endDay}`;
   }
 
   ngOnInit() {
@@ -315,8 +318,10 @@ export class AllocationsComponent implements OnInit {
     console.log('openCreateModal called');
     this.allocationForm.reset();
     const currentWeek = this.currentWeekStart();
+    const currentWeekEnd = this.calculateWeekEndDate(currentWeek);
     this.allocationForm.patchValue({
-      weekStartDate: currentWeek
+      weekStartDate: currentWeek,
+      weekEndDate: currentWeekEnd
     });
     this.formWeekStartDate.set(currentWeek); // Update signal manually for initial value
     this.selectedEmployeeAllocations.set([]);
@@ -331,7 +336,8 @@ export class AllocationsComponent implements OnInit {
   openEditModal(allocation: WeeklyAllocation) {
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
-      weekStartDate: allocation.weekStartDate
+      weekStartDate: allocation.weekStartDate,
+      weekEndDate: allocation.weekEndDate
     });
     this.formWeekStartDate.set(allocation.weekStartDate); // Update signal manually
     // For edit mode, set single employee allocation
@@ -482,7 +488,7 @@ export class AllocationsComponent implements OnInit {
             projectId: formValue.projectId,
             userId: emp.userId,
             weekStartDate: formValue.weekStartDate,
-            weekEndDate: this.selectedWeekEndDate(),
+            weekEndDate: formValue.weekEndDate,
             allocatedHours: emp.allocatedHours
           }));
         }
@@ -531,12 +537,29 @@ export class AllocationsComponent implements OnInit {
   // Handle week start date change to detect multi-month weeks
   onWeekStartDateChange(weekStartDate: string) {
     this.formWeekStartDate.set(weekStartDate);
+    this.checkMultiMonthWeek();
+  }
+
+  // Handle week end date change to detect multi-month weeks
+  onWeekEndDateChange(weekEndDate: string) {
+    this.checkMultiMonthWeek();
+  }
+
+  // Check if the selected week spans multiple months
+  private checkMultiMonthWeek() {
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
     
-    if (weekStartDate) {
-      const isMultiMonth = this.allocationService.isWeekSpanningMultipleMonths(weekStartDate);
+    if (weekStartDate && weekEndDate) {
+      // Check if start and end dates are in different months
+      const startDate = new Date(weekStartDate);
+      const endDate = new Date(weekEndDate);
+      const isMultiMonth = startDate.getMonth() !== endDate.getMonth() || startDate.getFullYear() !== endDate.getFullYear();
+      
       this.isMultiMonthWeek.set(isMultiMonth);
       
       if (isMultiMonth) {
+        // Use the service method with the start date (it calculates the proper week end internally)
         const periods = this.allocationService.getMonthPeriodsForWeek(weekStartDate);
         const monthAllocations = periods.map(period => ({
           ...period,

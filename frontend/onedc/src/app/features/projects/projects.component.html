@@ -245,13 +245,23 @@
             </div>
 
             <div class="col-md-6">
-              <label class="form-label">Default Approver</label>
-              <select class="form-select" formControlName="defaultApprover">
-                <option value="">No default approver</option>
-                <option *ngFor="let user of users()" [value]="user.userId">
-                  {{ user.firstName }} {{ user.lastName }}
-                </option>
-              </select>
+              <label class="form-label">Project Manager <span class="text-danger">*</span></label>
+              <ng-select 
+                formControlName="defaultApprover"
+                placeholder="Search and select a project manager..."
+                [clearable]="true"
+                [searchable]="true"
+                bindLabel="displayName"
+                bindValue="userId"
+                [items]="usersWithDisplayName()"
+                [class.is-invalid]="isFieldInvalid('defaultApprover')">
+                <ng-option *ngFor="let user of usersWithDisplayName()" [value]="user.userId">
+                  <span>{{ user.firstName }} {{ user.lastName }}</span>
+                </ng-option>
+              </ng-select>
+              <div class="invalid-feedback d-block" *ngIf="isFieldInvalid('defaultApprover')">
+                {{ getFieldError('defaultApprover') }}
+              </div>
             </div>
 
             <!-- Project Settings -->

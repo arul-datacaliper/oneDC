@@ -456,7 +456,7 @@
               </div>
             </div>
             
-            <div class="col-md-6">
+            <div class="col-md-3">
               <div class="mb-3">
                 <label class="form-label">Week Start Date *</label>
                 <input 
@@ -466,17 +466,30 @@
                   [disabled]="!!editingAllocation()"
                   (change)="onWeekStartDateChange($any($event.target).value)">
                 <div class="form-text">
-                  <!-- Select the Sunday that starts the work week -->
-                  <div *ngIf="allocationForm.get('weekStartDate')?.value" class="mt-1">
-                    <small class="text-primary">
-                      Week: {{ allocationForm.get('weekStartDate')?.value | date:'mediumDate' }} - 
-                      {{ selectedWeekEndDate() | date:'mediumDate' }}
-                    </small>
-                  </div>
+                  <small class="text-muted">Select the Sunday that starts the work week</small>
                 </div>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('weekStartDate')?.invalid && allocationForm.get('weekStartDate')?.touched">
                   Week start date is required
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-3">
+              <div class="mb-3">
+                <label class="form-label">Week End Date *</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  formControlName="weekEndDate"
+                  [disabled]="!!editingAllocation()"
+                  (change)="onWeekEndDateChange($any($event.target).value)">
+                <div class="form-text">
+                  <small class="text-muted">Auto-calculated, but editable if needed</small>
+                </div>
+                <div class="invalid-feedback d-block" 
+                     *ngIf="allocationForm.get('weekEndDate')?.invalid && allocationForm.get('weekEndDate')?.touched">
+                  Week end date is required
                 </div>
               </div>
             </div>

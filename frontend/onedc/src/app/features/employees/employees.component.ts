@@ -130,20 +130,20 @@ export class EmployeesComponent implements OnInit {
       emergencyContactNumber: [''],
       managerId: [''], // Add reporting manager field
       presentAddress: this.fb.group({
-        addressLine1: ['', [Validators.required]],
+        addressLine1: [''],
         addressLine2: [''],
-        city: ['', [Validators.required]],
-        state: ['', [Validators.required]],
-        country: ['', [Validators.required]],
-        zipCode: ['', [Validators.required]]
+        city: [''],
+        state: [''],
+        country: [''],
+        zipCode: ['']
       }),
       permanentAddress: this.fb.group({
-        addressLine1: ['', [Validators.required]],
+        addressLine1: [''],
         addressLine2: [''],
-        city: ['', [Validators.required]],
-        state: ['', [Validators.required]],
-        country: ['', [Validators.required]],
-        zipCode: ['', [Validators.required]]
+        city: [''],
+        state: [''],
+        country: [''],
+        zipCode: ['']
       })
     });
   }
