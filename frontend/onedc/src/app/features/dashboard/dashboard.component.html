@@ -408,8 +408,8 @@
       </div>
     </div>
 
-    <!-- Dashboard Tables Row for Employee -->
-    <div class="row g-4 mb-4" *ngIf="!canApprove()">
+    <!-- Dashboard Tables Row for Employee and Approvers -->
+    <div class="row g-4 mb-4">
       <!-- My Tasks Table -->
       <div class="col-lg-6">
         <div class="card shadow-sm h-100">
@@ -527,7 +527,7 @@
     </div>
 
     <!-- Full Project Utilization Table -->
-    <div class="card shadow-sm mb-4" *ngIf="!canApprove()">
+    <div class="card shadow-sm mb-4">
       <div class="card-header bg-white">
         <h5 class="card-title mb-0">Complete Project Utilization</h5>
         <p class="text-muted mb-0 small">Detailed view of your time allocation across all projects</p>
@@ -597,23 +597,53 @@
 
     <!-- Approver-specific section -->
     <div *ngIf="canApprove()" class="mt-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-warning bg-opacity-10">
-          <h5 class="card-title mb-0 text-warning">
-            <i class="bi bi-clipboard-check me-2"></i>
-            Pending Approvals
-          </h5>
-          <p class="text-muted mb-0 small">Timesheets awaiting your approval</p>
+      <!-- Section Divider -->
+      <div class="d-flex align-items-center mb-4">
+        <hr class="flex-grow-1">
+        <span class="mx-3 text-muted fw-medium">
+          <i class="bi bi-shield-check me-2"></i>
+          Approver Responsibilities
+        </span>
+        <hr class="flex-grow-1">
+      </div>
+      
+      <div class="card shadow-sm border-warning">
+        <div class="card-header bg-warning bg-opacity-10 border-warning">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="card-title mb-1 text-warning">
+                <i class="bi bi-clipboard-check me-2"></i>
+                Pending Approvals
+              </h5>
+              <p class="text-muted mb-0 small">Timesheets awaiting your approval</p>
+            </div>
+            <span class="badge bg-warning text-dark fs-6">
+              {{ adminMetrics?.pendingApprovals || 0 }} pending
+            </span>
+          </div>
         </div>
-        <div class="card-body text-center">
-          <i class="bi bi-clock-history text-warning fs-1"></i>
-          <p class="text-muted mt-2">
-            You have <strong>{{ adminMetrics?.pendingApprovals || 0 }}</strong> timesheets pending approval
-          </p>
-          <a routerLink="/approvals" class="btn btn-warning">
-            <i class="bi bi-eye me-2"></i>
-            Review Approvals
-          </a>
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-clock-history text-warning fs-1 me-3"></i>
+                <div>
+                  <p class="mb-1">
+                    You have <strong class="text-warning">{{ adminMetrics?.pendingApprovals || 0 }}</strong> timesheets awaiting your approval.
+                  </p>
+                  <small class="text-muted">
+                    Regular approval helps maintain project timelines and team productivity.
+                  </small>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+              <a routerLink="/approvals" class="btn btn-warning">
+                <i class="bi bi-eye me-2"></i>
+                Review Approvals
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

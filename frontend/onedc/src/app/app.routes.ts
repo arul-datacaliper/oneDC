@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { ShellComponent } from './layout/shell.component';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 import { PasswordChangeGuard } from './core/guards/password-change.guard';
 
 export const routes: Routes = [
@@ -22,7 +23,7 @@ export const routes: Routes = [
       { path: 'timesheets',loadChildren: () => import('./features/timesheets/routes').then(m => m.TIMESHEETS_ROUTES) },
       { path: 'approvals', loadChildren: () => import('./features/approvals/routes').then(m => m.APPROVALS_ROUTES) },
       { path: 'allocations', loadComponent: () => import('./features/allocations/allocations.component').then(m => m.AllocationsComponent) },
-      { path: 'reports',   loadChildren: () => import('./features/reports/routes').then(m => m.REPORTS_ROUTES) },
+      { path: 'reports',   loadChildren: () => import('./features/reports/routes').then(m => m.REPORTS_ROUTES), canActivate: [adminGuard] },
       { path: 'admin',     loadChildren: () => import('./features/admin/routes').then(m => m.ADMIN_ROUTES) },
       { path: 'onboarding', loadChildren: () => import('./features/onboarding/routes').then(m => m.ONBOARDING_ROUTES) },
       { path: 'profile',   loadChildren: () => import('./features/profile/routes').then(m => m.PROFILE_ROUTES) },
