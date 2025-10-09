@@ -13,29 +13,37 @@
   transition: transform 0.3s ease;
   z-index: 1000;
   
-  // Sidebar Header
-  .sidebar-header {
+  // User Info at Top
+  .sidebar-user-top {
     padding: 1.5rem 1.25rem 1rem;
-    border-bottom: 1px solid var(--bs-border-color);
     
-    .sidebar-icon {
-      width: 28px;
-      height: 28px;
-      object-fit: contain;
-      filter: hue-rotate(210deg) saturate(1.2) brightness(0.8); // Adjust to match the custom primary color
-    }
-    
-    .sidebar-brand {
-      font-size: 1.375rem;
-      font-weight: 600;
-      color: var(--custom-primary);
-      margin-bottom: 0;
-    }
-    
-    .sidebar-subtitle {
-      font-size: 0.75rem;
-      color: var(--bs-secondary);
-      opacity: 0.8;
+    .user-profile-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1rem;
+      border: 1px solid #e9ecef;
+      
+      .user-avatar {
+        .bi-person-circle {
+          color: var(--custom-primary);
+          font-size: 2.5rem;
+        }
+      }
+      
+      .user-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+      }
+      
+      .user-role {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+      }
     }
   }
   
@@ -46,53 +54,77 @@
     opacity: 0.3;
   }
   
-  // Navigation Pills
-  .nav-pills {
-    padding: 1rem 0.75rem;
+  // Navigation Container
+  .sidebar-nav {
+    padding: 0 0.75rem;
+    overflow-y: auto;
+    flex: 1;
     
-    .nav-item {
-      margin-bottom: 0.25rem;
-      
-      .nav-link {
-        display: flex;
-        align-items: center;
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        color: var(--bs-gray-700);
-        font-weight: 500;
-        text-decoration: none;
-        transition: all 0.2s ease;
+    .nav-pills {
+      .nav-item {
+        margin-bottom: 0.25rem;
         
-        i {
-          font-size: 1.125rem;
-          margin-right: 0.75rem;
-          width: 1.25rem;
-          color: var(--bs-gray-600);
-        }
-        
-        .nav-text {
-          font-size: 0.875rem;
-        }
-        
-        &:hover {
-          background-color: rgba(var(--custom-primary-rgb), 0.1);
-          color: var(--custom-primary);
-          transform: translateX(2px);
+        .nav-link {
+          display: flex;
+          align-items: center;
+          padding: 0.75rem 1rem;
+          border-radius: 0.5rem;
+          color: var(--bs-gray-700);
+          font-weight: 500;
+          text-decoration: none;
+          transition: all 0.2s ease;
           
           i {
+            font-size: 1.125rem;
+            margin-right: 0.75rem;
+            width: 1.25rem;
+            color: var(--bs-gray-600);
+          }
+          
+          .nav-text {
+            font-size: 0.875rem;
+          }
+          
+          &:hover {
+            background-color: rgba(var(--custom-primary-rgb), 0.1);
             color: var(--custom-primary);
+            transform: translateX(2px);
+            
+            i {
+              color: var(--custom-primary);
+            }
           }
-        }
-        
-        &.active {
-          background-color: var(--custom-primary);
-          color: white;
-          box-shadow: 0 2px 8px rgba(var(--custom-primary-rgb), 0.3);
           
-          i {
+          &.active {
+            background-color: var(--custom-primary);
             color: white;
+            box-shadow: 0 2px 8px rgba(var(--custom-primary-rgb), 0.3);
+            
+            i {
+              color: white;
+            }
           }
         }
+      }
+    }
+  }
+
+  // Sign Out at Bottom
+  .sidebar-signout {
+    padding: 1rem 1.25rem 1.5rem;
+    
+    .btn-outline-danger {
+      border-color: #dc3545;
+      color: #dc3545;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      
+      &:hover {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
       }
     }
   }
