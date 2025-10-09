@@ -3,8 +3,8 @@
   <!-- Dashboard Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h2 class="mb-1">Admin Dashboard</h2>
-      <p class="text-muted mb-0">Overview of system metrics and top performing projects</p>
+      <h2 class="mb-1">Dashboard</h2>
+      <p class="text-muted mb-0">Overview of system metrics and key information</p>
     </div>
     <button class="btn btn-outline-primary" (click)="ngOnInit()" [disabled]="isLoadingAdminMetrics">
       <i class="bi bi-arrow-clockwise" [class.spin]="isLoadingAdminMetrics"></i>
@@ -248,14 +248,8 @@
     <!-- Dashboard Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
-        <h2 class="mb-1">
-          <span *ngIf="canApprove()">Approver Dashboard</span>
-          <span *ngIf="!canApprove()">My Dashboard</span>
-        </h2>
-        <p class="text-muted mb-0">
-          <span *ngIf="canApprove()">Your timesheet overview and team approvals</span>
-          <span *ngIf="!canApprove()">Your timesheet and project utilization</span>
-        </p>
+        <h2 class="mb-1">Dashboard</h2>
+        <p class="text-muted mb-0">Your overview and key information</p>
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-outline-secondary btn-sm" (click)="toggleDateRange()">
