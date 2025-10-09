@@ -1,6 +1,9 @@
 // Custom color scheme
 $primary-color: #2d3f9f;
 
+// Import color module for modern SCSS functions
+@use "sass:color";
+
 // Global font size reduction for approvals page
 .approvals-page {
   font-size: 0.85rem;
@@ -197,14 +200,69 @@ $primary-color: #2d3f9f;
     
     tbody tr:hover {
       background-color: #f8f9fa;
+      
+      .action-buttons {
+        .btn {
+          transform: scale(1.02);
+          transition: transform 0.1s ease-in-out;
+        }
+      }
     }
     
     .actions {
-      .btn-group {
+      min-width: 180px;
+      
+      .action-buttons {
+        display: flex;
+        gap: 0.25rem;
+        justify-content: flex-start;
+        align-items: center;
+        
         .btn {
           padding: 0.25rem 0.5rem;
-          font-size: 0.875rem;
+          font-size: 0.75rem;
+          white-space: nowrap;
+          border-width: 1px;
+          
+          i {
+            font-size: 0.75rem;
+            margin-right: 0.25rem;
+          }
+          
+          &.btn-outline-success {
+            color: #198754;
+            border-color: #198754;
+            
+            &:hover {
+              background-color: #198754;
+              border-color: #198754;
+              color: white;
+            }
+          }
+          
+          &.btn-outline-danger {
+            color: #dc3545;
+            border-color: #dc3545;
+            
+            &:hover {
+              background-color: #dc3545;
+              border-color: #dc3545;
+              color: white;
+            }
+          }
         }
+      }
+    }
+    
+    .description-cell {
+      max-width: 200px;
+      
+      .description-text {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
       }
     }
   }
@@ -225,8 +283,8 @@ $primary-color: #2d3f9f;
   border-color: $primary-color;
   
   &:hover {
-    background-color: darken($primary-color, 10%);
-    border-color: darken($primary-color, 10%);
+    background-color: color.adjust($primary-color, $lightness: -10%);
+    border-color: color.adjust($primary-color, $lightness: -10%);
   }
   
   &:focus {
@@ -270,7 +328,7 @@ $primary-color: #2d3f9f;
     color: $primary-color;
     
     &:hover {
-      color: darken($primary-color, 10%);
+      color: color.adjust($primary-color, $lightness: -10%);
       background-color: rgba($primary-color, 0.1);
       border-color: rgba($primary-color, 0.25);
     }
@@ -308,5 +366,22 @@ $primary-color: #2d3f9f;
     .btn {
       width: 100%;
     }
+  }
+  
+  .actions {
+    .action-buttons {
+      flex-direction: column !important;
+      gap: 0.125rem;
+      
+      .btn {
+        font-size: 0.7rem !important;
+        padding: 0.125rem 0.25rem !important;
+        width: 100%;
+      }
+    }
+  }
+  
+  .description-cell {
+    max-width: 120px;
   }
 }

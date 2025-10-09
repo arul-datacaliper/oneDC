@@ -130,4 +130,75 @@ public class TimesheetsController : BaseController
             return StatusCode(500, new { error = "Internal server error", details = ex.Message });
         }
     }
+
+    // Admin endpoints for viewing all timesheets
+    
+    // GET api/timesheets/all?from=2025-09-08&to=2025-09-14
+    [HttpGet("all")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<IActionResult> GetAll([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    {
+        try
+        {
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.FromDateTime(DateTime.Today);
+            
+            var items = await _svc.GetAllAsync(fromDate, toDate);
+            return Ok(items);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
+    }
+
+    // GET api/timesheets/user/{userId}?from=2025-09-08&to=2025-09-14
+    [HttpGet("user/{userId:guid}")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<IActionResult> GetForUser(Guid userId, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    {
+        try
+        {
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.FromDateTime(DateTime.Today);
+            
+            var items = await _svc.GetMineAsync(userId, fromDate, toDate);
+            return Ok(items);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
+    }
+
+    // GET api/timesheets/project/{projectId}?from=2025-09-08&to=2025-09-14
+    [HttpGet("project/{projectId:guid}")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<IActionResult> GetForProject(Guid projectId, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    {
+        try
+        {
+            var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+            var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.FromDateTime(DateTime.Today);
+            
+            var items = await _svc.GetForProjectAsync(projectId, fromDate, toDate);
+            return Ok(items);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
+        }
+    }
 }

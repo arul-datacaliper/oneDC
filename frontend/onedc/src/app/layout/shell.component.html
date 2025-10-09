@@ -138,21 +138,6 @@
             <span class="ms-1">{{ envLabel }}</span>
           </button> -->
 
-          <button class="btn btn-outline-light btn-sm" 
-                  (click)="toggleTheme()" 
-                  [attr.title]="'Toggle theme'">
-            <i class="bi" [class.bi-sun]="theme() === 'dark'" [class.bi-moon]="theme() === 'light'"></i>
-          </button>
-
-          <div class="position-relative">
-            <button class="btn btn-outline-light btn-sm" title="Notifications (stub)">
-              <i class="bi bi-bell"></i>
-              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning">
-                3
-              </span>
-            </button>
-          </div>
-
           <!-- User Dropdown -->
           <div class="dropdown">
             <button class="btn btn-outline-light btn-sm dropdown-toggle" 

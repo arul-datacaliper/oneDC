@@ -113,4 +113,14 @@ public class TimesheetService : ITimesheetService
         if (total > DAILY_CAP)
             throw new InvalidOperationException($"Daily cap exceeded: {total}h > {DAILY_CAP}h.");
     }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetAllAsync(DateOnly from, DateOnly to)
+    {
+        return await _repo.GetByRangeAsync(from, to);
+    }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetForProjectAsync(Guid projectId, DateOnly from, DateOnly to)
+    {
+        return await _repo.GetByProjectAndRangeAsync(projectId, from, to);
+    }
 }

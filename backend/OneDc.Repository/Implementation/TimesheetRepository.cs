@@ -19,6 +19,24 @@ public class TimesheetRepository : ITimesheetRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<TimesheetEntry>> GetByRangeAsync(DateOnly from, DateOnly to)
+    {
+        return await _db.TimesheetEntries
+            .Where(t => t.WorkDate >= from && t.WorkDate <= to)
+            .OrderBy(t => t.WorkDate).ThenBy(t => t.UserId).ThenBy(t => t.ProjectId)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetByProjectAndRangeAsync(Guid projectId, DateOnly from, DateOnly to)
+    {
+        return await _db.TimesheetEntries
+            .Where(t => t.ProjectId == projectId && t.WorkDate >= from && t.WorkDate <= to)
+            .OrderBy(t => t.WorkDate).ThenBy(t => t.UserId)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public Task<TimesheetEntry?> GetByIdAsync(Guid entryId) =>
         _db.TimesheetEntries.FirstOrDefaultAsync(t => t.EntryId == entryId);
 

@@ -98,10 +98,9 @@
             <th scope="col">Project</th>
             <th scope="col">Task</th>
             <th scope="col">Hours</th>
-            <th scope="col">Description</th>
-            <th scope="col">Ticket</th>
+            <th scope="col" style="width: 200px;">Description</th>
             <th scope="col">Status</th>
-            <th scope="col">Actions</th>
+            <th scope="col" style="width: 180px;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -119,19 +118,20 @@
             <td><div>{{ labelProject(r) }}</div></td>
             <td>{{ labelTask(r) }}</td>
             <td>{{ r.hours | number:'1.0-2' }}</td>
-            <td>{{ r.description }}</td>
-            <td>{{ r.ticketRef }}</td>
+            <td class="description-cell">
+              <div class="description-text" [title]="r.description">{{ r.description }}</div>
+            </td>
             <td>
               <span [class]="getStatusClass(r.status)" [title]="getStatusTooltip(r)">
                 {{ getStatusLabel(r.status) }}
               </span>
             </td>
             <td class="actions">
-              <div class="btn-group" role="group" *ngIf="r.status === 'SUBMITTED'">
-                <button class="btn btn-sm btn-outline-primary" (click)="approve(r)" [disabled]="processing()">
+              <div class="action-buttons d-flex gap-1" *ngIf="r.status === 'SUBMITTED'">
+                <button class="btn btn-sm btn-outline-success" (click)="approve(r)" [disabled]="processing()" title="Approve">
                   <i class="bi bi-check-circle"></i> Approve
                 </button>
-                <button class="btn btn-sm btn-danger" (click)="reject(r)" [disabled]="processing()">
+                <button class="btn btn-sm btn-outline-danger" (click)="reject(r)" [disabled]="processing()" title="Reject">
                   <i class="bi bi-x-circle"></i> Reject
                 </button>
               </div>

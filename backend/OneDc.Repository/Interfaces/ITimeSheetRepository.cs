@@ -5,6 +5,8 @@ namespace OneDc.Repository.Interfaces;
 public interface ITimesheetRepository
 {
     Task<IEnumerable<TimesheetEntry>> GetByUserAndRangeAsync(Guid userId, DateOnly from, DateOnly to);
+    Task<IEnumerable<TimesheetEntry>> GetByRangeAsync(DateOnly from, DateOnly to);
+    Task<IEnumerable<TimesheetEntry>> GetByProjectAndRangeAsync(Guid projectId, DateOnly from, DateOnly to);
     Task<TimesheetEntry?> GetByIdAsync(Guid entryId);
     Task AddAsync(TimesheetEntry entry);
     Task DeleteAsync(Guid entryId);

@@ -40,6 +40,34 @@ public class ApprovalsController : BaseController
         return Ok(shaped);
     }
 
+    // GET api/approvals/admin/all?from=2025-09-08&to=2025-09-14&projectId=...&userId=...
+    [HttpGet("admin/all")]
+    [Authorize(Roles = "ADMIN")]
+    public async Task<IActionResult> GetAllPending([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] Guid? projectId, [FromQuery] Guid? userId)
+    {
+        var items = await _svc.GetAllPendingAsync(from, to, projectId, userId);
+
+        var shaped = items.Select(t => new {
+            entryId = t.EntryId,
+            userId = t.UserId,
+            userName = t.User != null ? ($"{t.User.FirstName} {t.User.LastName}") : null,
+            projectId = t.ProjectId,
+            projectCode = t.Project?.Code,
+            projectName = t.Project?.Name,
+            taskId = t.TaskId,
+            taskTitle = t.Task != null ? t.Task.Title : null,
+            workDate = t.WorkDate.ToString("yyyy-MM-dd"),
+            hours = t.Hours,
+            description = t.Description,
+            ticketRef = t.TicketRef,
+            status = t.Status,
+            submittedAt = t.SubmittedAt,
+            approverComment = t.ApproverComment,
+            defaultApprover = t.Project?.DefaultApprover
+        });
+        return Ok(shaped);
+    }
+
     // POST api/approvals/{id}/approve
     [HttpPost("{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id)

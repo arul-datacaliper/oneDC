@@ -18,6 +18,9 @@ public class ApprovalService : IApprovalService
     public Task<IEnumerable<TimesheetEntry>> GetPendingAsync(Guid approverId, DateOnly from, DateOnly to, Guid? projectId = null, Guid? userId = null)
         => _repo.GetPendingForApproverAsync(approverId, from, to, projectId, userId);
 
+    public Task<IEnumerable<TimesheetEntry>> GetAllPendingAsync(DateOnly from, DateOnly to, Guid? projectId = null, Guid? userId = null)
+        => _repo.GetAllPendingAsync(from, to, projectId, userId);
+
     public async Task<TimesheetEntry> ApproveAsync(Guid approverId, Guid entryId)
     {
         var entry = await _repo.GetByIdAsync(entryId) ?? throw new InvalidOperationException("Entry not found.");
