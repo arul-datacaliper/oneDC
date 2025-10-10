@@ -54,6 +54,7 @@ namespace OneDc.Services.Interfaces
 
         // Approver operations
         Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsAsync();
+        Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsByApproverAsync(Guid approverId);
         Task<IEnumerable<LeaveRequest>> GetLeaveRequestsByApproverAsync(Guid approverId);
         Task<LeaveRequest> ApproveOrRejectLeaveAsync(LeaveApprovalDto dto);
 

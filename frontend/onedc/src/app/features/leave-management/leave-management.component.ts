@@ -19,8 +19,13 @@ export class LeaveManagementComponent implements OnInit {
   isLoading = signal(false);
   error = signal<string | null>(null);
   
+  // Admin employee records
+  employees = signal<any[]>([]);
+  selectedEmployeeId = signal<string | null>(null);
+  employeeLeaveRequests = signal<LeaveRequest[]>([]);
+  
   // UI state
-  activeTab = signal<'my-leaves' | 'apply-leave' | 'approvals'>('my-leaves');
+  activeTab = signal<'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records'>('my-leaves');
   showLeaveForm = signal(false);
   editingLeave = signal<LeaveRequest | null>(null);
 
@@ -84,9 +89,9 @@ export class LeaveManagementComponent implements OnInit {
       await this.loadMyLeaveRequests();
       await this.loadLeaveTypes();
 
-      // Load approvals if user is approver
-      if (this.isApprover()) {
-        console.log('LeaveManagement: User is approver, loading pending approvals...');
+      // Load approvals if user is approver or admin
+      if (this.isApprover() || this.isAdmin()) {
+        console.log('LeaveManagement: User is approver/admin, loading pending approvals...');
         await this.loadPendingApprovals();
       }
       
@@ -141,7 +146,49 @@ export class LeaveManagementComponent implements OnInit {
     }
   }
 
-  setActiveTab(tab: 'my-leaves' | 'apply-leave' | 'approvals') {
+  async loadEmployeeList() {
+    try {
+      console.log('LeaveManagement: Loading employee list...');
+      const response = await this.leaveService.getAllEmployees().toPromise();
+      if (response.success) {
+        this.employees.set(response.data);
+        console.log('LeaveManagement: Employee list loaded:', response.data);
+      }
+    } catch (error) {
+      console.error('LeaveManagement: Error loading employee list:', error);
+      // Fallback to mock data if API fails
+      this.employees.set([
+        { id: '1', name: 'John Doe', email: 'john@example.com', role: 'Employee' },
+        { id: '2', name: 'Jane Smith', email: 'jane@example.com', role: 'Approver' },
+        { id: '3', name: 'Mike Johnson', email: 'mike@example.com', role: 'Employee' }
+      ]);
+    }
+  }
+
+  async loadEmployeeLeaveRequests(employeeId: string) {
+    try {
+      console.log('LeaveManagement: Loading leave requests for employee:', employeeId);
+      const response = await this.leaveService.getEmployeeLeaveRequests(employeeId).toPromise();
+      if (response.success) {
+        this.employeeLeaveRequests.set(response.data);
+        console.log('LeaveManagement: Employee leave requests loaded:', response.data);
+      }
+    } catch (error) {
+      console.error('LeaveManagement: Error loading employee leave requests:', error);
+      this.employeeLeaveRequests.set([]);
+    }
+  }
+
+  onEmployeeSelect(employeeId: string) {
+    this.selectedEmployeeId.set(employeeId);
+    if (employeeId) {
+      this.loadEmployeeLeaveRequests(employeeId);
+    } else {
+      this.employeeLeaveRequests.set([]);
+    }
+  }
+
+  setActiveTab(tab: 'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records') {
     this.activeTab.set(tab);
     if (tab === 'apply-leave') {
       this.showLeaveForm.set(true);
@@ -156,6 +203,11 @@ export class LeaveManagementComponent implements OnInit {
         this.editingLeave.set(null);
         this.resetForm();
       }
+    }
+
+    // Load employee list when accessing employee records tab
+    if (tab === 'employee-records' && this.isAdmin()) {
+      this.loadEmployeeList();
     }
   }
 

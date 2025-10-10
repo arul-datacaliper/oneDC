@@ -13,6 +13,7 @@ namespace OneDc.Repository.Interfaces
 
         // Approver operations
         Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsAsync();
+        Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsByApproverIdAsync(Guid approverId);
         Task<IEnumerable<LeaveRequest>> GetLeaveRequestsByApproverIdAsync(Guid approverId);
         Task<IEnumerable<LeaveRequest>> GetAllLeaveRequestsAsync();
 

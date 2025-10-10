@@ -69,6 +69,16 @@ namespace OneDc.Repository.Implementation
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsByApproverIdAsync(Guid approverId)
+        {
+            return await _context.LeaveRequests
+                .Include(lr => lr.Employee)
+                .Include(lr => lr.Approver)
+                .Where(lr => lr.Status == "Pending" && lr.ApproverId == approverId)
+                .OrderBy(lr => lr.CreatedDate)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<LeaveRequest>> GetLeaveRequestsByApproverIdAsync(Guid approverId)
         {
             return await _context.LeaveRequests

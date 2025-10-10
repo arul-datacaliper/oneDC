@@ -119,6 +119,19 @@ export class LeaveService {
   }
 
   // Admin operations
+  getAllEmployees(): Observable<any> {
+    this.isLoading.set(true);
+    this.error.set(null);
+    return this.http.get(`${this.apiUrl}/employees`);
+  }
+
+  getEmployeeLeaveRequests(employeeId: string): Observable<any> {
+    this.isLoading.set(true);
+    this.error.set(null);
+    return this.http.get(`${this.apiUrl}/admin/employee/${employeeId}`);
+  }
+
+  // Admin operations
   getAllLeaveRequests(): Observable<any> {
     this.isLoading.set(true);
     this.error.set(null);

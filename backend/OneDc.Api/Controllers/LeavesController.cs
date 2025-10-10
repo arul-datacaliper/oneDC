@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
+using OneDc.Infrastructure.Repositories.Interfaces;
 using System.Security.Claims;
 
 namespace OneDc.Api.Controllers
@@ -11,11 +13,13 @@ namespace OneDc.Api.Controllers
     public class LeavesController : ControllerBase
     {
         private readonly ILeaveService _leaveService;
+        private readonly IUserRepository _userRepository;
         private readonly ILogger<LeavesController> _logger;
 
-        public LeavesController(ILeaveService leaveService, ILogger<LeavesController> logger)
+        public LeavesController(ILeaveService leaveService, IUserRepository userRepository, ILogger<LeavesController> logger)
         {
             _leaveService = leaveService;
+            _userRepository = userRepository;
             _logger = logger;
         }
 
@@ -38,6 +42,85 @@ namespace OneDc.Api.Controllers
         {
             return User.HasClaim(ClaimTypes.Role, "APPROVER") || IsAdmin();
         }
+
+        #region Admin Operations
+
+        /// <summary>
+        /// Get all employees for admin dropdown (Admin only)
+        /// </summary>
+        [HttpGet("employees")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<object>> GetAllEmployees()
+        {
+            try
+            {
+                // Get all active employees from the database
+                var allUsers = await _userRepository.GetAllAsync();
+                var activeEmployees = allUsers
+                    .Where(u => u.IsActive)
+                    .OrderBy(u => u.FirstName)
+                    .ThenBy(u => u.LastName)
+                    .Select(u => new 
+                    {
+                        id = u.UserId.ToString(),
+                        name = $"{u.FirstName} {u.LastName}",
+                        email = u.Email,
+                        role = u.Role.ToString()
+                    })
+                    .ToList();
+
+                return Ok(new { 
+                    success = true, 
+                    data = activeEmployees
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all employees");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get leave requests by employee ID for admin view (Admin only)
+        /// </summary>
+        [HttpGet("admin/employee/{employeeId}")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<object>> GetEmployeeLeaveRecords(Guid employeeId)
+        {
+            try
+            {
+                var leaveRequests = await _leaveService.GetLeaveRequestsByEmployeeAsync(employeeId);
+
+                var result = leaveRequests.Select(lr => new
+                {
+                    id = lr.Id,
+                    employeeId = lr.EmployeeId,
+                    employeeName = lr.EmployeeName,
+                    startDate = lr.StartDate,
+                    endDate = lr.EndDate,
+                    leaveType = lr.LeaveType,
+                    reason = lr.Reason,
+                    status = lr.Status,
+                    totalDays = lr.TotalDays,
+                    isHalfDay = lr.IsHalfDay,
+                    halfDayPeriod = lr.HalfDayPeriod,
+                    approverComments = lr.ApproverComments,
+                    approverName = lr.ApproverName,
+                    approvedDate = lr.ApprovedDate,
+                    createdDate = lr.CreatedDate
+                });
+
+                return Ok(new { success = true, data = result });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting leave requests for employee {EmployeeId}", employeeId);
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        #endregion
 
         #region Employee Operations
 
@@ -226,7 +309,18 @@ namespace OneDc.Api.Controllers
         {
             try
             {
-                var leaveRequests = await _leaveService.GetPendingLeaveRequestsAsync();
+                var currentUserId = GetCurrentUserId();
+                IEnumerable<LeaveRequest> leaveRequests;
+
+                // If user is admin, get all pending requests, otherwise get only assigned to them
+                if (IsAdmin())
+                {
+                    leaveRequests = await _leaveService.GetPendingLeaveRequestsAsync();
+                }
+                else
+                {
+                    leaveRequests = await _leaveService.GetPendingLeaveRequestsByApproverAsync(currentUserId);
+                }
 
                 var result = leaveRequests.Select(lr => new
                 {
@@ -241,7 +335,9 @@ namespace OneDc.Api.Controllers
                     totalDays = lr.TotalDays,
                     isHalfDay = lr.IsHalfDay,
                     halfDayPeriod = lr.HalfDayPeriod,
-                    createdDate = lr.CreatedDate
+                    createdDate = lr.CreatedDate,
+                    approverName = lr.ApproverName,
+                    approverId = lr.ApproverId
                 });
 
                 return Ok(new { success = true, data = result });

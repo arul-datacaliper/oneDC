@@ -153,6 +153,11 @@ namespace OneDc.Services.Implementation
             return await _leaveRepository.GetPendingLeaveRequestsAsync();
         }
 
+        public async Task<IEnumerable<LeaveRequest>> GetPendingLeaveRequestsByApproverAsync(Guid approverId)
+        {
+            return await _leaveRepository.GetPendingLeaveRequestsByApproverIdAsync(approverId);
+        }
+
         public async Task<IEnumerable<LeaveRequest>> GetLeaveRequestsByApproverAsync(Guid approverId)
         {
             return await _leaveRepository.GetLeaveRequestsByApproverIdAsync(approverId);
