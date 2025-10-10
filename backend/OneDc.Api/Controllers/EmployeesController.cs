@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
+using OneDc.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 
 namespace OneDc.Api.Controllers;
 
@@ -109,10 +111,12 @@ public class UpdateEmployeeRequest
 public class EmployeesController : ControllerBase
 {
     private readonly OneDcDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public EmployeesController(OneDcDbContext context)
+    public EmployeesController(OneDcDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     // Helper method to generate next employee ID
@@ -140,12 +144,31 @@ public class EmployeesController : ControllerBase
 
     // GET api/employees
     [HttpGet]
-    public async Task<IActionResult> GetAllEmployees()
+    public async Task<IActionResult> GetAllEmployees([FromQuery] string status = "active")
     {
         try
         {
-            var employees = await _context.AppUsers
-                .Where(u => u.IsActive)
+            var query = _context.AppUsers.AsQueryable();
+            
+            // Filter based on status: "active", "inactive", or "all"
+            switch (status.ToLower())
+            {
+                case "active":
+                    query = query.Where(u => u.IsActive);
+                    break;
+                case "inactive":
+                    query = query.Where(u => !u.IsActive);
+                    break;
+                case "all":
+                    // No filter, include both active and inactive
+                    break;
+                default:
+                    // Default to active only
+                    query = query.Where(u => u.IsActive);
+                    break;
+            }
+            
+            var employees = await query
                 .OrderBy(u => u.FirstName)
                 .ToListAsync();
 
@@ -166,8 +189,50 @@ public class EmployeesController : ControllerBase
         }
     }
 
+    // GET api/employees/inactive
+    [HttpGet("inactive")]
+    public async Task<IActionResult> GetInactiveEmployees()
+    {
+        try
+        {
+            var inactiveEmployees = await _context.AppUsers
+                .Where(u => !u.IsActive)
+                .OrderBy(u => u.FirstName)
+                .ToListAsync();
+
+            return Ok(inactiveEmployees);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving inactive employees", error = ex.Message });
+        }
+    }
+
+    // GET api/employees/counts
+    [HttpGet("counts")]
+    public async Task<IActionResult> GetEmployeeCounts()
+    {
+        try
+        {
+            var activeCount = await _context.AppUsers.CountAsync(u => u.IsActive);
+            var inactiveCount = await _context.AppUsers.CountAsync(u => !u.IsActive);
+            var totalCount = await _context.AppUsers.CountAsync();
+
+            return Ok(new
+            {
+                active = activeCount,
+                inactive = inactiveCount,
+                total = totalCount
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error retrieving employee counts", error = ex.Message });
+        }
+    }
+
     // GET api/employees/{id}
-    [HttpGet("{id}")]
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetEmployeeById(Guid id)
     {
         try
@@ -201,6 +266,10 @@ public class EmployeesController : ControllerBase
         {
             // Generate the next employee ID
             var employeeId = await GenerateNextEmployeeIdAsync();
+            
+            // Generate temporary password for new employee
+            var temporaryPassword = GenerateTemporaryPassword();
+            var hashedPassword = HashPassword(temporaryPassword);
 
             var newEmployee = new AppUser
             {
@@ -233,12 +302,60 @@ public class EmployeesController : ControllerBase
                 PermanentState = request.PermanentState,
                 PermanentCountry = request.PermanentCountry,
                 PermanentZipCode = request.PermanentZipCode,
+                PasswordHash = hashedPassword, // Set the hashed password
+                MustChangePassword = true, // Force password change on first login
                 IsActive = request.IsActive,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
             _context.AppUsers.Add(newEmployee);
             await _context.SaveChangesAsync();
+
+            // Send manager assignment notification if a manager is assigned
+            if (request.ManagerId.HasValue)
+            {
+                var manager = await _context.AppUsers
+                    .FirstOrDefaultAsync(u => u.UserId == request.ManagerId.Value);
+                
+                if (manager != null)
+                {
+                    var employeeEmail = request.WorkEmail;
+                    var employeeName = $"{request.FirstName} {request.LastName}";
+                    var managerName = $"{manager.FirstName} {manager.LastName}";
+                    var managerEmail = manager.WorkEmail ?? manager.Email;
+                    
+                    // Send notification email (don't await to avoid blocking the response)
+                    _ = Task.Run(async () => 
+                    {
+                        try
+                        {
+                            await _emailService.SendManagerAssignmentNotificationAsync(
+                                employeeEmail, employeeName, managerName, managerEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log the error but don't fail the employee creation
+                            Console.WriteLine($"Failed to send manager assignment email: {emailEx.Message}");
+                        }
+                    });
+                }
+            }
+
+            // Send welcome email with temporary password (don't await to avoid blocking the response)
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    var employeeName = $"{request.FirstName} {request.LastName}";
+                    await _emailService.SendWelcomeEmailAsync(
+                        request.WorkEmail, employeeName, temporaryPassword);
+                }
+                catch (Exception emailEx)
+                {
+                    // Log the error but don't fail the employee creation
+                    Console.WriteLine($"Failed to send welcome email: {emailEx.Message}");
+                }
+            });
 
             return CreatedAtAction(nameof(GetEmployeeById), new { id = newEmployee.UserId }, newEmployee);
         }
@@ -249,7 +366,7 @@ public class EmployeesController : ControllerBase
     }
 
     // PUT api/employees/{id}
-    [HttpPut("{id}")]
+    [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateEmployee(Guid id, [FromBody] UpdateEmployeeRequest request)
     {
         if (!ModelState.IsValid)
@@ -266,6 +383,11 @@ public class EmployeesController : ControllerBase
             {
                 return NotFound($"Employee with ID {id} not found");
             }
+
+            // Check if manager has changed
+            var oldManagerId = existingEmployee.ManagerId;
+            var newManagerId = request.ManagerId;
+            var managerChanged = oldManagerId != newManagerId;
 
             // Update employee properties
             existingEmployee.FirstName = request.FirstName;
@@ -304,6 +426,36 @@ public class EmployeesController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // Send manager assignment notification if manager changed and new manager assigned
+            if (managerChanged && newManagerId.HasValue)
+            {
+                var newManager = await _context.AppUsers
+                    .FirstOrDefaultAsync(u => u.UserId == newManagerId.Value);
+                
+                if (newManager != null)
+                {
+                    var employeeEmail = existingEmployee.WorkEmail ?? existingEmployee.Email;
+                    var employeeName = $"{existingEmployee.FirstName} {existingEmployee.LastName}";
+                    var managerName = $"{newManager.FirstName} {newManager.LastName}";
+                    var managerEmail = newManager.WorkEmail ?? newManager.Email;
+                    
+                    // Send notification email (don't await to avoid blocking the response)
+                    _ = Task.Run(async () => 
+                    {
+                        try
+                        {
+                            await _emailService.SendManagerAssignmentNotificationAsync(
+                                employeeEmail, employeeName, managerName, managerEmail);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log the error but don't fail the employee update
+                            Console.WriteLine($"Failed to send manager assignment email: {emailEx.Message}");
+                        }
+                    });
+                }
+            }
+
             return Ok(existingEmployee);
         }
         catch (Exception ex)
@@ -313,7 +465,7 @@ public class EmployeesController : ControllerBase
     }
 
     // DELETE api/employees/{id}
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteEmployee(Guid id)
     {
         try
@@ -338,7 +490,38 @@ public class EmployeesController : ControllerBase
         }
     }
 
-    [HttpGet("{userId}/dashboard-metrics")]
+    // PUT api/employees/{id}/reactivate
+    [HttpPut("{id:guid}/reactivate")]
+    public async Task<IActionResult> ReactivateEmployee(Guid id)
+    {
+        try
+        {
+            var employee = await _context.AppUsers
+                .FirstOrDefaultAsync(u => u.UserId == id);
+
+            if (employee == null)
+            {
+                return NotFound($"Employee with ID {id} not found");
+            }
+
+            if (employee.IsActive)
+            {
+                return BadRequest(new { message = "Employee is already active" });
+            }
+
+            // Reactivate by setting isActive to true
+            employee.IsActive = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Employee reactivated successfully", employee });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error reactivating employee", error = ex.Message });
+        }
+    }
+
+    [HttpGet("{userId:guid}/dashboard-metrics")]
     public async Task<IActionResult> GetEmployeeDashboardMetrics(Guid userId)
     {
         try
@@ -373,7 +556,7 @@ public class EmployeesController : ControllerBase
         }
     }
 
-    [HttpGet("{userId}/tasks")]
+    [HttpGet("{userId:guid}/tasks")]
     public async Task<IActionResult> GetAssignedTasks(Guid userId)
     {
         try
@@ -511,5 +694,65 @@ public class EmployeesController : ControllerBase
         {
             return "No Manager";
         }
+    }
+
+    // Helper method to generate a temporary password
+    private static string GenerateTemporaryPassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        const string specialChars = "!@#$%";
+        
+        using var rng = RandomNumberGenerator.Create();
+        
+        // Generate 6 alphanumeric characters
+        var alphanumeric = new char[6];
+        for (int i = 0; i < 6; i++)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            alphanumeric[i] = chars[(int)(randomInt % chars.Length)];
+        }
+        
+        // Add 2 special characters
+        var special = new char[2];
+        for (int i = 0; i < 2; i++)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            special[i] = specialChars[(int)(randomInt % specialChars.Length)];
+        }
+        
+        // Combine and shuffle
+        var password = new string(alphanumeric) + new string(special);
+        var passwordArray = password.ToCharArray();
+        
+        // Shuffle the password
+        for (int i = passwordArray.Length - 1; i > 0; i--)
+        {
+            var randomBytes = new byte[4];
+            rng.GetBytes(randomBytes);
+            var randomInt = BitConverter.ToUInt32(randomBytes, 0);
+            var j = (int)(randomInt % (i + 1));
+            (passwordArray[i], passwordArray[j]) = (passwordArray[j], passwordArray[i]);
+        }
+        
+        return new string(passwordArray);
+    }
+
+    // Helper method to hash password (same as AuthService)
+    private static string HashPassword(string password)
+    {
+        const int iterations = 10000;
+        
+        using var rng = RandomNumberGenerator.Create();
+        var salt = new byte[32];
+        rng.GetBytes(salt);
+
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
+        var hash = pbkdf2.GetBytes(32);
+
+        return $"{iterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 }

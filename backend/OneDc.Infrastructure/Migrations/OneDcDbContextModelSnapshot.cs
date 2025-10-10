@@ -105,6 +105,10 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("manager_id");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean")
+                        .HasColumnName("must_change_password");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(600)
                         .HasColumnType("character varying(600)")
@@ -308,6 +312,72 @@ namespace OneDc.Infrastructure.Migrations
                         .HasDatabaseName("ix_client_code");
 
                     b.ToTable("client", "ts");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.FileBlob", b =>
+                {
+                    b.Property<Guid>("FileBlobId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("file_blob_id");
+
+                    b.Property<string>("Container")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("default")
+                        .HasColumnName("container");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("data");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size");
+
+                    b.Property<DateTimeOffset?>("LastAccessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_accessed_at");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("original_file_name");
+
+                    b.HasKey("FileBlobId")
+                        .HasName("pk_file_blob");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_file_blob_created_at");
+
+                    b.HasIndex("LastAccessedAt")
+                        .HasDatabaseName("ix_file_blob_last_accessed_at");
+
+                    b.HasIndex("Container", "FileName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_file_blob_container_file_name");
+
+                    b.ToTable("file_blob", "ts");
                 });
 
             modelBuilder.Entity("OneDc.Domain.Entities.Holiday", b =>

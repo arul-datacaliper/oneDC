@@ -126,7 +126,7 @@
               </span>
             </td>
             <td>
-              <div class="btn-group" role="group">
+              <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary" 
                         (click)="openEditModal(client)" 
                         title="Edit client">
@@ -157,7 +157,7 @@
     </div>
 
     <!-- Pagination -->
-    <div class="d-flex justify-content-between align-items-center p-3 border-top" *ngIf="filteredClients().length > 0">
+    <div class="d-flex justify-content-between align-items-center p-3" *ngIf="filteredClients().length > 0">
       <div class="text-muted">
         Showing {{ pageIndex() * pageSize() + 1 }} to {{ Math.min((pageIndex() + 1) * pageSize(), filteredClients().length) }} of {{ filteredClients().length }} clients
       </div>
@@ -259,9 +259,10 @@
           <button type="button" class="btn btn-secondary" (click)="closeModal()">
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="clientForm.invalid">
-            <i class="bi" [ngClass]="editingClient() ? 'bi-check' : 'bi-plus'"></i>
-            {{ editingClient() ? 'Update Client' : 'Create Client' }}
+          <button type="submit" class="btn btn-primary" [disabled]="clientForm.invalid || submitting()">
+            <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i *ngIf="!submitting()" class="bi" [ngClass]="editingClient() ? 'bi-check' : 'bi-plus'"></i>
+            {{ submitting() ? 'Processing...' : (editingClient() ? 'Update Client' : 'Create Client') }}
           </button>
         </div>
       </form>
@@ -271,4 +272,12 @@
 
 <!-- Modal backdrop -->
 <div class="modal-backdrop fade show" *ngIf="showModal()" (click)="closeModal()"></div>
+
+<!-- Confirmation Dialog -->
+<app-confirmation-dialog
+  [visible]="showConfirmDialog()"
+  [data]="confirmDialogData()"
+  (confirmed)="onDeleteConfirmed()"
+  (cancelled)="onDeleteCancelled()">
+</app-confirmation-dialog>
 </div>

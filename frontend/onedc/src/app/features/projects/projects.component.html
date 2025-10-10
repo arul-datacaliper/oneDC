@@ -14,7 +14,7 @@
 <div class="card mb-4">
   <div class="card-body">
     <div class="row g-3">
-      <div class="col-md-6">
+      <div class="col-md-4">
         <label class="form-label">Search Projects</label>
         <div class="input-group">
           <span class="input-group-text">
@@ -24,13 +24,22 @@
                  [value]="searchTerm()" (input)="onSearchChange($event)">
         </div>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Status Filter</label>
         <select class="form-select" [value]="statusFilter()" (change)="onStatusFilterChange($event)">
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="ON_HOLD">On Hold</option>
           <option value="CLOSED">Closed</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Client Filter</label>
+        <select class="form-select" [value]="clientFilter()" (change)="onClientFilterChange($event)">
+          <option value="">All Clients</option>
+          <option *ngFor="let client of clients()" [value]="client.clientId">
+            {{ client.name }}
+          </option>
         </select>
       </div>
       <div class="col-md-3">
@@ -102,7 +111,7 @@
               {{ project.plannedReleaseDate || '-' }}
             </td>
             <td>
-              <div class="btn-group" role="group">
+              <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary" 
                         (click)="openEditModal(project)" 
                         title="Edit project">
@@ -236,13 +245,23 @@
             </div>
 
             <div class="col-md-6">
-              <label class="form-label">Default Approver</label>
-              <select class="form-select" formControlName="defaultApprover">
-                <option value="">No default approver</option>
-                <option *ngFor="let user of users()" [value]="user.userId">
-                  {{ user.firstName }} {{ user.lastName }}
-                </option>
-              </select>
+              <label class="form-label">Project Manager <span class="text-danger">*</span></label>
+              <ng-select 
+                formControlName="defaultApprover"
+                placeholder="Search and select a project manager..."
+                [clearable]="true"
+                [searchable]="true"
+                bindLabel="displayName"
+                bindValue="userId"
+                [items]="usersWithDisplayName()"
+                [class.is-invalid]="isFieldInvalid('defaultApprover')">
+                <ng-option *ngFor="let user of usersWithDisplayName()" [value]="user.userId">
+                  <span>{{ user.firstName }} {{ user.lastName }}</span>
+                </ng-option>
+              </ng-select>
+              <div class="invalid-feedback d-block" *ngIf="isFieldInvalid('defaultApprover')">
+                {{ getFieldError('defaultApprover') }}
+              </div>
             </div>
 
             <!-- Project Settings -->
@@ -270,12 +289,20 @@
 
             <div class="col-md-6">
               <label class="form-label">End Date</label>
-              <input type="date" class="form-control" formControlName="endDate">
+              <input type="date" class="form-control" formControlName="endDate"
+                     [class.is-invalid]="isFieldInvalid('endDate')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('endDate')">
+                {{ getFieldError('endDate') }}
+              </div>
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Planned Release Date</label>
-              <input type="date" class="form-control" formControlName="plannedReleaseDate">
+              <input type="date" class="form-control" formControlName="plannedReleaseDate"
+                     [class.is-invalid]="isFieldInvalid('plannedReleaseDate')">
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('plannedReleaseDate')">
+                {{ getFieldError('plannedReleaseDate') }}
+              </div>
             </div>
 
             <div class="col-md-6">
@@ -312,9 +339,10 @@
           <button type="button" class="btn btn-secondary" (click)="closeModal()">
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="projectForm.invalid">
-            <i class="bi bi-check-circle"></i>
-            {{ editingProject() ? 'Update Project' : 'Create Project' }}
+          <button type="submit" class="btn btn-primary" [disabled]="projectForm.invalid || submitting()">
+            <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i *ngIf="!submitting()" class="bi bi-check-circle"></i>
+            {{ submitting() ? 'Processing...' : (editingProject() ? 'Update Project' : 'Create Project') }}
           </button>
         </div>
       </form>

@@ -1,10 +1,11 @@
-import { Component, OnInit, inject, signal, computed, effect, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect, ViewChild, AfterViewInit, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
+import { TasksService, ProjectTask, TaskStatus, TasksResponse } from '../../core/services/tasks.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UsersService, AppUser } from '../../core/services/users.service';
+import { AuthService } from '../../core/services/auth.service';
 import { TaskFormComponent } from './components/task-form.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { ToastrService } from 'ngx-toastr';
@@ -19,8 +20,10 @@ import { ToastrService } from 'ngx-toastr';
 export class TasksComponent implements OnInit, AfterViewInit {
   // ViewChild to access the project dropdown directly
   @ViewChild('projectDropdown') projectDropdown!: SearchableDropdownComponent;
+  @ViewChild('tableContainer') tableContainer!: ElementRef<HTMLDivElement>;
   // make service public for template access
   tasksSvc = inject(TasksService);
+  authSvc = inject(AuthService);
   private projectsSvc = inject(ProjectsService);
   private usersSvc = inject(UsersService);
   private toastr = inject(ToastrService);
@@ -42,15 +45,26 @@ export class TasksComponent implements OnInit, AfterViewInit {
   search = signal<string>('');
 
   loading = signal<boolean>(false);
+  loadingMore = signal<boolean>(false);
   tasks = signal<ProjectTask[]>([]);
+  deletingTaskId = signal<string>('');
+  updatingStatusTaskId = signal<string>('');
 
-  // paging
-  pageSize = signal<number>(10);
-  pageIndex = signal<number>(0);
+  // Pagination state
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(15);
+  totalCount = signal<number>(0);
+  totalPages = signal<number>(0);
+  hasMorePages = computed(() => this.currentPage() < this.totalPages());
+  
+  // Remove old pagination logic
+  // pageSize = signal<number>(10);
+  // pageIndex = signal<number>(0);
+  // Frontend filtering - only search is applied here, other filters go to backend
   filtered = computed(() => {
     let list = this.tasks();
-    if (this.statusFilter()) list = list.filter(t => t.status === this.statusFilter());
-    if (this.assigneeFilter()) list = list.filter(t => t.assignedUserId === this.assigneeFilter());
+    
+    // Apply search filter on frontend for immediate feedback
     if (this.search()) {
       const s = this.search().toLowerCase();
       list = list.filter(t => t.title.toLowerCase().includes(s) || 
@@ -59,16 +73,38 @@ export class TasksComponent implements OnInit, AfterViewInit {
     }
     return list;
   });
-  pageTasks = computed(() => {
-    const start = this.pageIndex() * this.pageSize();
-    return this.filtered().slice(start, start + this.pageSize());
-  });
-  totalPages = computed(() => Math.ceil(this.filtered().length / this.pageSize()));
+  
+  // Remove old pagination - we now use infinite scroll
+  // pageTasks = computed(() => {
+  //   const start = this.pageIndex() * this.pageSize();
+  //   return this.filtered().slice(start, start + this.pageSize());
+  // });
+  // totalPages = computed(() => Math.ceil(this.filtered().length / this.pageSize()));
 
   // modal state
   showModal = signal<boolean>(false);
   editMode = signal<boolean>(false);
+  duplicateMode = signal<boolean>(false);
+  viewMode = signal<boolean>(false);
   activeTask = signal<ProjectTask|null>(null);
+  saving = signal<boolean>(false);
+
+  // Effects to reload tasks when filters change
+  private statusFilterEffect = effect(() => {
+    // Reload tasks when status filter changes
+    this.statusFilter();
+    if (this.projectId()) {
+      this.loadTasks();
+    }
+  });
+  
+  private assigneeFilterEffect = effect(() => {
+    // Reload tasks when assignee filter changes
+    this.assigneeFilter();
+    if (this.projectId()) {
+      this.loadTasks();
+    }
+  });
 
   ngAfterViewInit() {
     // After view init, if we have a projectId from query params, ensure dropdown is updated
@@ -99,9 +135,11 @@ export class TasksComponent implements OnInit, AfterViewInit {
   loadProjects() { 
     this.projectsSvc.getAll().subscribe(ps => {
       this.projects.set(ps);
-      this.projectOptions.set(ps.map(p => ({
+      // Filter to only include ACTIVE projects for task assignment
+      const activeProjects = ps.filter(p => p.status === 'ACTIVE');
+      this.projectOptions.set(activeProjects.map(p => ({
         value: p.projectId,
-        label: `${p.code} — ${p.name}`,
+        label: `${p.name} — ${p.client?.name || p.clientId}`,
         project: p
       })));
       
@@ -128,36 +166,111 @@ export class TasksComponent implements OnInit, AfterViewInit {
         label: `${u.firstName} ${u.lastName}`,
         user: u
       })));
+      
+      // Set current user as default assignee filter (so users see their own tasks by default)
+      const currentUser = this.authSvc.getCurrentUser();
+      if (currentUser && !this.assigneeFilter()) {
+        this.assigneeFilter.set(currentUser.userId);
+      }
     });
   }
 
-  loadTasks() {
-    if (!this.projectId()) { this.tasks.set([]); return; }
-    this.loading.set(true);
-    this.tasksSvc.list(this.projectId()).subscribe(ts => {
-      console.log('Tasks received from API:', ts); // Debug log
-      if (ts.length > 0) {
-        console.log('First task dates:', {
-          startDate: ts[0].startDate,
-          endDate: ts[0].endDate,
-          startDateType: typeof ts[0].startDate,
-          endDateType: typeof ts[0].endDate
-        }); // Debug log
+  loadTasks(loadMore: boolean = false) {
+    if (!this.projectId()) {
+      this.tasks.set([]);
+      return; 
+    }
+    
+    if (loadMore) {
+      this.loadingMore.set(true);
+    } else {
+      this.loading.set(true);
+      this.resetPagination();
+    }
+    
+    const page = loadMore ? this.currentPage() + 1 : 1;
+    
+    // Build options object with filters
+    const options: any = { 
+      page, 
+      pageSize: this.pageSize() 
+    };
+    
+    // Add backend filters
+    if (this.statusFilter()) {
+      options.status = this.statusFilter();
+    }
+    if (this.assigneeFilter()) {
+      options.assignedUserId = this.assigneeFilter();
+    }
+    
+    this.tasksSvc.list(this.projectId(), options).subscribe({
+      next: (response) => {
+        console.log('Tasks response from API:', response); // Debug log
+        
+        if (loadMore) {
+          // Append new tasks to existing ones
+          this.tasks.set([...this.tasks(), ...response.tasks]);
+          this.currentPage.set(page);
+        } else {
+          // Replace all tasks
+          this.tasks.set(response.tasks);
+          this.currentPage.set(1);
+        }
+        
+        // Update pagination info
+        this.totalCount.set(response.pagination.totalCount);
+        this.totalPages.set(response.pagination.totalPages);
+        
+        if (loadMore) {
+          this.loadingMore.set(false);
+        } else {
+          this.loading.set(false);
+        }
+      },
+      error: (err) => {
+        console.error('Error loading tasks:', err);
+        if (loadMore) {
+          this.loadingMore.set(false);
+        } else {
+          this.loading.set(false);
+        }
       }
-      this.tasks.set(ts);
-      this.pageIndex.set(0);
-      this.loading.set(false);
-    }, _ => this.loading.set(false));
+    });
+  }
+
+  private resetPagination() {
+    this.currentPage.set(1);
+    this.totalCount.set(0);
+    this.totalPages.set(0);
   }
 
   openCreate() {
     this.activeTask.set(null);
     this.editMode.set(false);
+    this.duplicateMode.set(false);
+    this.viewMode.set(false);
     this.showModal.set(true);
   }
   openEdit(t: ProjectTask) {
     this.activeTask.set(t);
     this.editMode.set(true);
+    this.duplicateMode.set(false);
+    this.viewMode.set(false);
+    this.showModal.set(true);
+  }
+  openDuplicate(t: ProjectTask) {
+    this.activeTask.set(t);
+    this.editMode.set(false);
+    this.duplicateMode.set(true);
+    this.viewMode.set(false);
+    this.showModal.set(true);
+  }
+  openView(t: ProjectTask) {
+    this.activeTask.set(t);
+    this.editMode.set(false);
+    this.duplicateMode.set(false);
+    this.viewMode.set(true);
     this.showModal.set(true);
   }
   closeModal() { this.showModal.set(false); }
@@ -165,34 +278,48 @@ export class TasksComponent implements OnInit, AfterViewInit {
   onSaved() {
     // gather form data from child via template reference / direct DOM would be messy; re-fetch for simplicity
     this.showModal.set(false);
+    this.saving.set(false);
     this.loadTasks();
-    this.toastr.success(this.editMode() ? 'Task updated' : 'Task created');
+    const message = this.editMode() ? 'Task updated' : 'Task created';
+    this.toastr.success(message);
+  }
+
+  onLoadingChange(loading: boolean) {
+    this.saving.set(loading);
   }
 
   delete(t: ProjectTask) {
-    if (!confirm('Delete this task?')) return;
-    this.tasksSvc.delete(t.taskId).subscribe(() => {
-      this.toastr.success('Task deleted');
-      this.tasks.set(this.tasks().filter(x => x.taskId !== t.taskId));
+    if (!confirm('Delete this task?') || this.deletingTaskId()) return;
+    
+    this.deletingTaskId.set(t.taskId);
+    this.tasksSvc.delete(t.taskId).subscribe({
+      next: () => {
+        this.toastr.success('Task deleted');
+        this.tasks.set(this.tasks().filter(x => x.taskId !== t.taskId));
+        this.deletingTaskId.set('');
+      },
+      error: (err) => {
+        console.error('Delete failed', err);
+        this.deletingTaskId.set('');
+      }
     });
   }
 
   changeStatus(t: ProjectTask, status: TaskStatus) {
-    if (t.status === status) return;
-    this.tasksSvc.updateStatus(t.taskId, status).subscribe(() => {
-      this.toastr.success('Status updated');
-      this.tasks.set(this.tasks().map(x => x.taskId === t.taskId ? { ...x, status } : x));
+    if (t.status === status || this.updatingStatusTaskId()) return;
+    
+    this.updatingStatusTaskId.set(t.taskId);
+    this.tasksSvc.updateStatus(t.taskId, status).subscribe({
+      next: () => {
+        this.toastr.success('Status updated');
+        this.tasks.set(this.tasks().map(x => x.taskId === t.taskId ? { ...x, status } : x));
+        this.updatingStatusTaskId.set('');
+      },
+      error: (err) => {
+        console.error('Status update failed', err);
+        this.updatingStatusTaskId.set('');
+      }
     });
-  }
-
-  pageNumbers(): number[] {
-    const pages: number[] = [];
-    const total = this.totalPages();
-    const current = this.pageIndex();
-    const start = Math.max(0, current - 2);
-    const end = Math.min(total, start + 5);
-    for (let i = start; i < end; i++) pages.push(i);
-    return pages;
   }
 
   onProjectChange(option: DropdownOption | null) {
@@ -202,5 +329,19 @@ export class TasksComponent implements OnInit, AfterViewInit {
 
   onAssigneeFilterChange(option: DropdownOption | null) {
     this.assigneeFilter.set(option?.value || '');
+  }
+
+  // Helper method to check if user can see all tasks
+  canViewAllTasks(): boolean {
+    return this.authSvc.isAdmin() || this.authSvc.isApprover();
+  }
+
+  onScroll(event: Event) {
+    const element = event.target as HTMLElement;
+    const atBottom = element.scrollHeight - element.scrollTop === element.clientHeight;
+    
+    if (atBottom && this.hasMorePages() && !this.loadingMore() && !this.loading()) {
+      this.loadTasks(true);
+    }
   }
 }

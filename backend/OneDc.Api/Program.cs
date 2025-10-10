@@ -13,29 +13,53 @@ using OneDc.Domain.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using DotNetEnv;
 using OneDc.Api.JsonConverters;
 using System.Security.Cryptography;
 using Azure.Communication.Email;
 
-using DotNetEnv;
-
 // Load environment variables from .env file
-Env.Load();
+try 
+{
+    var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+    Console.WriteLine($"Looking for .env file at: {envFilePath}");
+    
+    if (File.Exists(envFilePath))
+    {
+        Env.Load(envFilePath);
+        Console.WriteLine("Successfully loaded .env file");
+    }
+    else
+    {
+        Console.WriteLine("Warning: .env file not found. Using system environment variables only.");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error loading .env file: {ex.Message}");
+}
+
+// Debug: Print connection string status
+var testConnectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING");
+Console.WriteLine($"DATABASE_CONNECTION_STRING loaded: {!string.IsNullOrEmpty(testConnectionString)}");
 
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Configure configuration to use environment variables
 builder.Configuration.AddEnvironmentVariables();
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 // DbContext  
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING") ?? 
                        builder.Configuration.GetConnectionString("OneDcDb");
 
 builder.Services.AddDbContext<OneDcDbContext>(opt =>
-    opt.UseNpgsql(connectionString)
+    opt.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.CommandTimeout(60); // 60 seconds timeout
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+        })
        .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
@@ -56,7 +80,8 @@ builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
-
+// File Storage Services - Database blob storage for both dev and prod
+builder.Services.AddScoped<IFileStorageService, DatabaseBlobStorageService>();
 // Password Reset Services
 builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IPasswordResetRepository, OneDc.Infrastructure.Repositories.Implementation.PasswordResetRepository>();
 builder.Services.AddScoped<OneDc.Infrastructure.Repositories.Interfaces.IUserRepository, OneDc.Infrastructure.Repositories.Implementation.UserRepository>();
@@ -65,8 +90,16 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Azure Email Communication Service
 var azureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? 
-                                builder.Configuration["AzureEmail:ConnectionString"] ?? "";
-builder.Services.AddSingleton(new EmailClient(azureEmailConnectionString));
+                                builder.Configuration["AzureEmail:ConnectionString"];
+
+if (!string.IsNullOrWhiteSpace(azureEmailConnectionString))
+{
+    builder.Services.AddSingleton(new EmailClient(azureEmailConnectionString));
+}
+else
+{
+    Console.WriteLine("Warning: Azure Email Connection String not configured. Email functionality will be disabled.");
+}
 
 // JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

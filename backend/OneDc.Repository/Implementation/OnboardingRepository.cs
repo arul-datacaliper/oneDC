@@ -97,6 +97,23 @@ public class OnboardingRepository : IOnboardingRepository
             .AnyAsync(u => u.UserId == userId && u.IsActive);
     }
 
+    public async Task<AppUser?> GetAppUserAsync(Guid userId)
+    {
+        return await _context.AppUsers
+            .FirstOrDefaultAsync(u => u.UserId == userId && u.IsActive);
+    }
+
+    public async Task<string?> GetManagerNameAsync(Guid? managerId)
+    {
+        if (managerId == null)
+            return null;
+            
+        var manager = await _context.AppUsers
+            .FirstOrDefaultAsync(u => u.UserId == managerId && u.IsActive);
+            
+        return manager != null ? $"{manager.FirstName} {manager.LastName}" : null;
+    }
+
     public async Task<IEnumerable<(Guid UserId, string Email, string FirstName, string LastName, bool HasProfile, bool HasSkills)>> GetAllUsersOnboardingDataAsync()
     {
         var usersData = await _context.AppUsers

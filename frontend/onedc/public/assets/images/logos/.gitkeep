@@ -1,0 +1,14 @@
+# Company Logos
+
+This folder contains company logos and branding assets.
+
+## Guidelines
+- Use PNG with transparent background for versatility
+- Provide multiple sizes: small (32px), medium (128px), large (256px)
+- Include both light and dark versions for different backgrounds
+
+## Example files:
+- `onedc-logo.png` - Main company logo
+- `onedc-logo-white.png` - White version for dark backgrounds  
+- `onedc-logo-small.png` - Small version for navigation
+- `favicon.ico` - Favicon (should also be in root public folder)

@@ -8,6 +8,153 @@
   --custom-primary: #2d3f9f;
 }
 
+// Employee Page specific styles
+.employees-page {
+  // View toggle buttons styling - more specific targeting
+  .btn-group[role="group"] {
+    border-radius: 0.375rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    
+    .btn.btn-sm {
+      border: none !important;
+      font-weight: 500 !important;
+      font-size: 0.8rem !important;
+      padding: 0.375rem 0.75rem !important;
+      transition: all 0.2s ease-in-out !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1;
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(45, 63, 159, 0.25) !important;
+        z-index: 2;
+      }
+      
+      // Active button styling - Primary (Active)
+      &.btn-primary {
+        background-color: #2d3f9f !important;
+        border-color: #2d3f9f !important;
+        color: white !important;
+        
+        &:hover {
+          background-color: #243286 !important;
+          border-color: #243286 !important;
+        }
+      }
+      
+      // Active button styling - Secondary (Inactive)
+      &.btn-secondary {
+        background-color: #6c757d !important;
+        border-color: #6c757d !important;
+        color: white !important;
+        
+        &:hover {
+          background-color: #5a6268 !important;
+          border-color: #5a6268 !important;
+        }
+      }
+      
+      // Active button styling - Info (All)
+      &.btn-info {
+        background-color: #0dcaf0 !important;
+        border-color: #0dcaf0 !important;
+        color: #212529 !important;
+        
+        &:hover {
+          background-color: #0bb5d6 !important;
+          border-color: #0bb5d6 !important;
+        }
+      }
+      
+      // Outline button styling - Primary
+      &.btn-outline-primary {
+        color: #2d3f9f !important;
+        border-color: transparent !important;
+        background-color: #f8f9fa !important;
+        
+        &:hover {
+          background-color: #2d3f9f !important;
+          border-color: #2d3f9f !important;
+          color: white !important;
+        }
+      }
+      
+      // Outline button styling - Secondary
+      &.btn-outline-secondary {
+        color: #6c757d !important;
+        border-color: transparent !important;
+        background-color: #f8f9fa !important;
+        
+        &:hover {
+          background-color: #6c757d !important;
+          border-color: #6c757d !important;
+          color: white !important;
+        }
+      }
+      
+      // Outline button styling - Info
+      &.btn-outline-info {
+        color: #0dcaf0 !important;
+        border-color: transparent !important;
+        background-color: #f8f9fa !important;
+        
+        &:hover {
+          background-color: #0dcaf0 !important;
+          border-color: #0dcaf0 !important;
+          color: #212529 !important;
+        }
+      }
+      
+      // First button
+      &:first-child {
+        border-top-left-radius: 0.375rem !important;
+        border-bottom-left-radius: 0.375rem !important;
+      }
+      
+      // Last button
+      &:last-child {
+        border-top-right-radius: 0.375rem !important;
+        border-bottom-right-radius: 0.375rem !important;
+      }
+    }
+  }
+  
+  // Card containing the view buttons
+  .card {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    transition: all 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 0.25rem 2rem 0 rgba(58, 59, 69, 0.2);
+    }
+    
+    .card-body {
+      padding: 1rem;
+      
+      .form-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+      }
+    }
+  }
+}
+
 .card {
   border: 1px solid #e3e6f0;
   border-radius: 0.5rem;
@@ -213,6 +360,97 @@
   
   .table-responsive {
     font-size: 0.875rem;
+  }
+  
+  // Mobile-specific styling for view buttons
+  .employees-page .btn-group[role="group"] .btn.btn-sm {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  // Stack cards vertically on mobile
+  .row.g-3 {
+    .col-auto {
+      width: 100%;
+    }
+  }
+}
+
+// Additional global button group fixes
+.btn-group .btn {
+  position: relative;
+  
+  &:not(:first-child) {
+    margin-left: -1px;
+  }
+  
+  &:hover {
+    z-index: 1;
+  }
+}
+
+// Fallback styling for view buttons if the above doesn't work
+:host ::ng-deep .btn-group[role="group"] {
+  .btn {
+    border: none !important;
+    margin: 0 !important;
+    
+    &.btn-sm {
+      font-size: 0.8rem !important;
+      padding: 0.375rem 0.75rem !important;
+      font-weight: 500 !important;
+    }
+    
+    &.btn-primary {
+      background-color: #2d3f9f !important;
+      color: white !important;
+    }
+    
+    &.btn-secondary {
+      background-color: #6c757d !important;
+      color: white !important;
+    }
+    
+    &.btn-info {
+      background-color: #0dcaf0 !important;
+      color: #212529 !important;
+    }
+    
+    &.btn-outline-primary {
+      background-color: #f8f9fa !important;
+      color: #2d3f9f !important;
+      border: 1px solid transparent !important;
+    }
+    
+    &.btn-outline-secondary {
+      background-color: #f8f9fa !important;
+      color: #6c757d !important;
+      border: 1px solid transparent !important;
+    }
+    
+    &.btn-outline-info {
+      background-color: #f8f9fa !important;
+      color: #0dcaf0 !important;
+      border: 1px solid transparent !important;
+    }
+    
+    &:first-child {
+      border-top-left-radius: 0.375rem !important;
+      border-bottom-left-radius: 0.375rem !important;
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    
+    &:last-child {
+      border-top-right-radius: 0.375rem !important;
+      border-bottom-right-radius: 0.375rem !important;
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+    }
+    
+    &:not(:first-child):not(:last-child) {
+      border-radius: 0 !important;
+    }
   }
 }
 

@@ -7,7 +7,7 @@ namespace OneDc.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "ADMIN")]
-public class AdminController : ControllerBase
+public class AdminController : BaseController
 {
     private readonly IAdminService _adminService;
 

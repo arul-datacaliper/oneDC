@@ -83,6 +83,17 @@ public class TimesheetService : ITimesheetService
         return entry;
     }
 
+    public async Task DeleteAsync(Guid userId, Guid entryId)
+    {
+        var entry = await _repo.GetByIdAsync(entryId) ?? throw new InvalidOperationException("Entry not found.");
+        if (entry.UserId != userId) throw new UnauthorizedAccessException("Cannot delete another user's timesheet.");
+        if (entry.Status != TimesheetStatus.DRAFT && entry.Status != TimesheetStatus.REJECTED) 
+            throw new InvalidOperationException("Only DRAFT and REJECTED entries can be deleted.");
+
+        await _repo.DeleteAsync(entryId);
+        await _repo.SaveChangesAsync();
+    }
+
     // --- helpers ---
     private static void ValidateHours(decimal hours)
     {
@@ -101,5 +112,15 @@ public class TimesheetService : ITimesheetService
         var total = existing.Where(e => e.EntryId != excludeEntryId).Sum(e => e.Hours) + newHours;
         if (total > DAILY_CAP)
             throw new InvalidOperationException($"Daily cap exceeded: {total}h > {DAILY_CAP}h.");
+    }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetAllAsync(DateOnly from, DateOnly to)
+    {
+        return await _repo.GetByRangeAsync(from, to);
+    }
+
+    public async Task<IEnumerable<TimesheetEntry>> GetForProjectAsync(Guid projectId, DateOnly from, DateOnly to)
+    {
+        return await _repo.GetByProjectAndRangeAsync(projectId, from, to);
     }
 }

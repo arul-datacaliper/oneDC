@@ -41,6 +41,7 @@ public class AppUser
     
     public bool IsActive { get; set; } = true;
     public string? PasswordHash { get; set; } // PBKDF2 hash (format: iterations.salt.hash)
+    public bool MustChangePassword { get; set; } = false; // Flag to force password change on next login
     public Guid? ManagerId { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

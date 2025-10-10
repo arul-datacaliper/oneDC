@@ -1,0 +1,17 @@
+# Icons Directory
+
+This folder contains application icons and small graphical elements.
+
+## Preferred Format
+- SVG files are preferred for scalability and small file size
+- PNG files for complex icons that don't work well as SVG
+
+## Naming Convention
+- Use descriptive names: `calendar-icon.svg`, `user-profile.svg`
+- Include state variations: `menu-open.svg`, `menu-closed.svg`
+
+## Common Icon Categories
+- Navigation icons (menu, back, forward)
+- Action icons (edit, delete, save, cancel)
+- Status icons (success, error, warning, info)
+- Feature icons (calendar, timesheet, reports, settings)

@@ -62,6 +62,27 @@ public class ApprovalRepository : IApprovalRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<TimesheetEntry>> GetAllPendingAsync(DateOnly from, DateOnly to, Guid? projectId = null, Guid? userId = null)
+    {
+        var query = _db.TimesheetEntries
+            .Include(t => t.User)
+            .Include(t => t.Project)
+            .Include(t => t.Task)
+            .Where(t => (t.Status == TimesheetStatus.SUBMITTED || t.Status == TimesheetStatus.REJECTED)
+                     && t.WorkDate >= from && t.WorkDate <= to);
+
+        // Apply optional filters
+        if (projectId.HasValue)
+            query = query.Where(t => t.ProjectId == projectId.Value);
+        if (userId.HasValue)
+            query = query.Where(t => t.UserId == userId.Value);
+
+        return await query
+            .OrderBy(t => t.WorkDate).ThenBy(t => t.UserId).ThenBy(t => t.ProjectId)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public Task<TimesheetEntry?> GetByIdAsync(Guid entryId) =>
         _db.TimesheetEntries.FirstOrDefaultAsync(t => t.EntryId == entryId);
 

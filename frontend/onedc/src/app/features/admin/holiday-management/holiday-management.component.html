@@ -1,9 +1,9 @@
 <div class="holiday-management-container">
-  <!-- Header -->
+  <!-- Header with Year Filter -->
   <div class="card mb-4">
     <div class="card-body">
       <div class="row align-items-center">
-        <div class="col-md-8">
+        <div class="col-md-6">
           <h4 class="card-title mb-2">
             <i class="bi bi-calendar-event-fill"></i> Holiday Management
           </h4>
@@ -11,29 +11,23 @@
             Manage company holidays and leave calendar
           </p>
         </div>
-        <div class="col-md-4 text-end">
-          <button type="button" class="btn btn-primary me-2" (click)="openCreateModal()">
-            <i class="bi bi-plus-circle"></i> Add Holiday
-          </button>
-          <button type="button" class="btn btn-outline-success" (click)="bulkAddDefaultHolidays()">
-            <i class="bi bi-calendar-plus"></i> Add Defaults
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Year Filter -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="row align-items-center">
         <div class="col-md-6">
-          <h6 class="mb-0">Holiday Calendar for:</h6>
-        </div>
-        <div class="col-md-6">
-          <select class="form-select" [value]="selectedYear()" (change)="onYearSelectionChange($event)">
-            <option *ngFor="let year of availableYears()" [value]="year">{{ year }}</option>
-          </select>
+          <div class="row align-items-center">
+            <div class="col-md-6">
+              <label class="form-label mb-1">Holiday Calendar for:</label>
+              <select class="form-select" [value]="selectedYear()" (change)="onYearSelectionChange($event)">
+                <option *ngFor="let year of availableYears()" [value]="year">{{ year }}</option>
+              </select>
+            </div>
+            <div class="col-md-6 text-end">
+              <button type="button" class="btn btn-primary me-2" (click)="openCreateModal()">
+                <i class="bi bi-plus-circle"></i> Add Holiday
+              </button>
+              <button type="button" class="btn btn-outline-success" (click)="bulkAddDefaultHolidays()">
+                <i class="bi bi-calendar-plus"></i> Add Defaults
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -143,13 +137,15 @@
                 <span class="badge bg-primary">{{ holiday.region }}</span>
               </td>
               <td>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-sm btn-outline-primary" 
-                          (click)="openEditModal(holiday)">
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-outline-primary" 
+                          (click)="openEditModal(holiday)"
+                          title="Edit holiday">
                     <i class="bi bi-pencil"></i>
                   </button>
-                  <button type="button" class="btn btn-sm btn-outline-danger" 
-                          (click)="deleteHoliday(holiday)">
+                  <button class="btn btn-sm btn-outline-danger" 
+                          (click)="deleteHoliday(holiday)"
+                          title="Delete holiday">
                     <i class="bi bi-trash"></i>
                   </button>
                 </div>

@@ -5,11 +5,12 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } 
 import { ClientsService } from '../../core/services/clients.service';
 import { Client } from '../../shared/models';
 import { ToastrService } from 'ngx-toastr';
+import { ConfirmationDialogComponent, ConfirmationDialogData } from '../../shared/components/confirmation-dialog.component';
 
 @Component({
   selector: 'app-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ConfirmationDialogComponent],
   templateUrl: './clients.component.html',
   styleUrl: './clients.component.scss'
 })
@@ -25,6 +26,7 @@ export class ClientsComponent implements OnInit {
   clients = signal<Client[]>([]);
   filteredClients = signal<Client[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   editingClient = signal<Client | null>(null);
   searchTerm = signal<string>('');
@@ -48,6 +50,14 @@ export class ClientsComponent implements OnInit {
 
   // Form
   clientForm: FormGroup;
+
+  // Confirmation dialog
+  showConfirmDialog = signal<boolean>(false);
+  confirmDialogData = signal<ConfirmationDialogData>({
+    title: '',
+    message: ''
+  });
+  clientToDelete: Client | null = null;
 
   constructor() {
     this.clientForm = this.fb.group({
@@ -154,7 +164,8 @@ export class ClientsComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.clientForm.valid) {
+    if (this.clientForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.clientForm.value;
       
       if (this.editingClient()) {
@@ -182,6 +193,9 @@ export class ClientsComponent implements OnInit {
           error: (err) => {
             console.error('Failed to update client:', err);
             this.toastr.error('Failed to update client');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -209,6 +223,9 @@ export class ClientsComponent implements OnInit {
           error: (err) => {
             console.error('Failed to create client:', err);
             this.toastr.error('Failed to create client');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }
@@ -216,18 +233,89 @@ export class ClientsComponent implements OnInit {
   }
 
   deleteClient(client: Client) {
-    if (confirm(`Are you sure you want to delete "${client.name}"? This action cannot be undone.`)) {
-      this.clientsService.delete(client.clientId).subscribe({
-        next: () => {
-          this.toastr.success('Client deleted successfully');
-          this.loadClients();
-        },
-        error: (err) => {
-          console.error('Failed to delete client:', err);
-          this.toastr.error('Failed to delete client');
+    this.clientToDelete = client;
+    
+    // First check for dependencies
+    this.clientsService.checkDependencies(client.clientId).subscribe({
+      next: (dependencyInfo) => {
+        if (!dependencyInfo.canDelete) {
+          // Show information dialog about why deletion is not possible
+          const projectDetails = dependencyInfo.dependencies.projects 
+            ? dependencyInfo.dependencies.projects.map(p => `${p.name} (${p.status})`)
+            : [];
+          
+          this.confirmDialogData.set({
+            title: 'Cannot Delete Client',
+            message: dependencyInfo.message,
+            type: 'info',
+            details: projectDetails.length > 0 ? ['Associated projects:', ...projectDetails] : undefined,
+            confirmText: undefined,
+            cancelText: 'OK'
+          });
+          this.showConfirmDialog.set(true);
+          return;
         }
-      });
+
+        // If client can be deleted, show confirmation
+        this.confirmDialogData.set({
+          title: 'Confirm Deletion',
+          message: `Are you sure you want to delete "${client.name}"? This action cannot be undone.`,
+          type: 'danger',
+          confirmText: 'Delete',
+          cancelText: 'Cancel'
+        });
+        this.showConfirmDialog.set(true);
+      },
+      error: (err) => {
+        console.error('Failed to check dependencies:', err);
+        // Fallback to direct confirmation
+        this.confirmDialogData.set({
+          title: 'Confirm Deletion',
+          message: `Are you sure you want to delete "${client.name}"? This action cannot be undone.`,
+          type: 'danger',
+          confirmText: 'Delete',
+          cancelText: 'Cancel'
+        });
+        this.showConfirmDialog.set(true);
+      }
+    });
+  }
+
+  onDeleteConfirmed() {
+    if (this.clientToDelete) {
+      this.performDelete(this.clientToDelete);
     }
+    this.showConfirmDialog.set(false);
+    this.clientToDelete = null;
+  }
+
+  onDeleteCancelled() {
+    this.showConfirmDialog.set(false);
+    this.clientToDelete = null;
+  }
+
+  private performDelete(client: Client) {
+    this.clientsService.delete(client.clientId).subscribe({
+      next: () => {
+        this.toastr.success('Client deleted successfully');
+        this.loadClients();
+      },
+      error: (err) => {
+        console.error('Failed to delete client:', err);
+        
+        // Handle specific error cases
+        if (err.status === 400 && err.error?.errorCode === 'FOREIGN_KEY_CONSTRAINT') {
+          this.toastr.error(err.error.message, 'Cannot Delete Client', {
+            timeOut: 8000,
+            extendedTimeOut: 2000
+          });
+        } else if (err.status === 400) {
+          this.toastr.error(err.error?.message || 'Cannot delete client due to existing dependencies', 'Delete Failed');
+        } else {
+          this.toastr.error('Failed to delete client. Please try again later.', 'Error');
+        }
+      }
+    });
   }
 
   // Pagination methods

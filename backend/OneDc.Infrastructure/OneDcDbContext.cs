@@ -20,6 +20,7 @@ public class OneDcDbContext : DbContext
     public DbSet<UserSkill> UserSkills => Set<UserSkill>();
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
+    public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -324,6 +325,26 @@ public class OneDcDbContext : DbContext
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => new { e.Otp, e.UserId });
             entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // ===== FileBlob =====
+        b.Entity<FileBlob>(e =>
+        {
+            e.ToTable("file_blob");
+            e.HasKey(x => x.FileBlobId);
+            e.Property(x => x.FileName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.OriginalFileName).HasMaxLength(255).IsRequired();
+            e.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+            e.Property(x => x.FileSize).IsRequired();
+            e.Property(x => x.Data).IsRequired();
+            e.Property(x => x.Container).HasMaxLength(100).IsRequired().HasDefaultValue("default");
+            e.Property(x => x.CreatedAt).IsRequired();
+            e.Property(x => x.LastAccessedAt);
+            
+            // Indexes
+            e.HasIndex(x => new { x.Container, x.FileName }).IsUnique();
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.LastAccessedAt);
         });
     }
 }

@@ -1,0 +1,18 @@
+# Default Avatar Placeholder
+
+This folder contains default avatar images for users who haven't uploaded their own profile pictures.
+
+## Included Files
+- `default-user.png` - Generic user avatar
+- `default-male.png` - Male-oriented default avatar (optional)
+- `default-female.png` - Female-oriented default avatar (optional)
+- `default-neutral.png` - Gender-neutral default avatar
+
+## Usage
+Reference these images when user profile pictures are not available:
+
+```typescript
+getAvatarUrl(user: User): string {
+  return user.profilePicture || 'assets/images/avatars/default-user.png';
+}
+```

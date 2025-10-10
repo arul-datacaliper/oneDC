@@ -1,10 +1,12 @@
-import { Component, computed, OnInit, OnDestroy, inject, HostListener } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
+import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface TimesheetEntry {
   date: string;
@@ -24,8 +26,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private adminService = inject(AdminService);
   private employeeService = inject(EmployeeService);
+  private onboardingService = inject(OnboardingService);
   private router = inject(Router);
   private routerSubscription?: Subscription;
+
+  // User profile data
+  userProfile = signal<UserProfile | null>(null);
 
   // Admin dashboard data
   adminMetrics: AdminDashboardMetrics | null = null;
@@ -90,6 +96,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadDashboardData() {
+    // Load user profile for profile photo
+    this.loadUserProfile();
+    
     if (this.isAdmin()) {
       this.loadAdminDashboard();
     } else {
@@ -458,5 +467,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Navigate to user profile page
   navigateToProfile(): void {
     this.router.navigate(['/profile']);
+  }
+
+  // Load user profile for profile photo
+  private loadUserProfile(): void {
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser?.userId) {
+      this.onboardingService.getUserProfile(currentUser.userId).subscribe({
+        next: (profile) => {
+          this.userProfile.set(profile);
+        },
+        error: (error) => {
+          console.error('Error loading user profile:', error);
+          this.userProfile.set(null);
+        }
+      });
+    }
+  }
+
+  // Get the profile photo URL with correct base URL
+  getProfilePhotoUrl(): string | null {
+    const profile = this.userProfile();
+    if (profile?.profilePhotoUrl) {
+      // The profilePhotoUrl from database storage contains the relative path: /api/files/profile-photos/{filename}
+      // If the URL is relative, prepend the API base URL
+      if (profile.profilePhotoUrl.startsWith('/')) {
+        // Use environment configuration for the base URL
+        const baseUrl = environment.apiBaseUrl.replace('/api', ''); // Remove /api to get just the server URL
+        return `${baseUrl}${profile.profilePhotoUrl}`;
+      }
+      // If it's already a full URL, return as is
+      return profile.profilePhotoUrl;
+    }
+    return null;
   }
 }

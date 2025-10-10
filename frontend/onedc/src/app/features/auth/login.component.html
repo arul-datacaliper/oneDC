@@ -1,22 +1,27 @@
 <div class="login-container">
   <!-- Left Side - Branding -->
-  <div class="login-branding">
+  <div class="left-section">
     <div class="branding-content">
-      <div class="logo-container">
-        <div class="logo-icon">
-          <i class="bi bi-box"></i>
-        </div>
-      </div>
-      <h1 class="brand-title">OneDC Portal</h1>
+      <h1 class="brand-title">OneDC</h1>
       <p class="brand-subtitle">A unified platform for internal operations and team collaboration.</p>
+      <div class="decorative-elements">
+        <div class="geometric-shape shape-1"></div>
+        <div class="geometric-shape shape-2"></div>
+        <div class="geometric-shape shape-3"></div>
+      </div>
     </div>
   </div>
 
   <!-- Right Side - Login Form -->
-  <div class="login-form-section">
+  <div class="right-section">
     <div class="form-container">
+      <!-- Logo above form -->
+      <div class="logo-container">
+        <img src="assets/images/logos/datacaliper_Logo.png" alt="DataCaliper Logo" class="company-logo">
+      </div>
+      
       <div class="form-header">
-        <h2 class="form-title">Sign In</h2>
+        <h2 class="form-title">Hello! Welcome back</h2>
       </div>
       
       <form (ngSubmit)="submit()" novalidate class="login-form">

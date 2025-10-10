@@ -33,34 +33,30 @@ public record UserSkillDto(
     bool IsPrimary);
 
 public record CreateUserProfileRequest(
+    // User-editable fields only
     string? Bio,
-    string? Department,
-    string? JobTitle,
     string? PhoneNumber,
     string? Location,
-    string? DateOfJoining, // YYYY-MM-DD
-    string? EmployeeId,
-    string? ReportingManager,
     int? TotalExperienceYears,
     string? EducationBackground,
     string? Certifications,
     string? LinkedInProfile,
     string? GitHubProfile);
+    // Note: Admin-managed fields (Department, JobTitle, EmployeeId, DateOfJoining, ReportingManager) 
+    // are not included here as they come from the AppUser table and are managed by admins
 
 public record UpdateUserProfileRequest(
+    // User-editable fields only
     string? Bio,
-    string? Department,
-    string? JobTitle,
     string? PhoneNumber,
     string? Location,
-    string? DateOfJoining, // YYYY-MM-DD
-    string? EmployeeId,
-    string? ReportingManager,
     int? TotalExperienceYears,
     string? EducationBackground,
     string? Certifications,
     string? LinkedInProfile,
     string? GitHubProfile);
+    // Note: Admin-managed fields (Department, JobTitle, EmployeeId, DateOfJoining, ReportingManager) 
+    // are not included here as they come from the AppUser table and are managed by admins
 
 public record CreateUserSkillRequest(
     string SkillName,

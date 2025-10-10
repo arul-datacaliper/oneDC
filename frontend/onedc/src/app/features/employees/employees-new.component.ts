@@ -1,19 +1,85 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { EmployeesService } from '../../core/services/employees.service';
 import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
 import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/models';
+import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+
+// Custom validators for date validation
+function notFutureDateValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+    
+    if (selectedDate > today) {
+      return { futureDate: true };
+    }
+    return null;
+  };
+}
+
+function minimumAgeValidator(minAge: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const birthDate = new Date(control.value);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    let actualAge = age;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      actualAge--;
+    }
+    
+    if (actualAge < minAge) {
+      return { minimumAge: { requiredAge: minAge, actualAge } };
+    }
+    return null;
+  };
+}
+
+function joiningDateValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const joiningDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Allow today as valid joining date
+    
+    // Allow future dates for joining date (for planned hires) but not too far in future
+    const maxFutureDate = new Date();
+    maxFutureDate.setFullYear(maxFutureDate.getFullYear() + 1); // Allow up to 1 year in future
+    
+    if (joiningDate > maxFutureDate) {
+      return { tooFarInFuture: true };
+    }
+    
+    // Don't allow joining dates too far in the past (more than 50 years)
+    const minPastDate = new Date();
+    minPastDate.setFullYear(minPastDate.getFullYear() - 50);
+    
+    if (joiningDate < minPastDate) {
+      return { tooFarInPast: true };
+    }
+    
+    return null;
+  };
+}
 
 @Component({
   selector: 'app-employees',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule, SearchableDropdownComponent],
   templateUrl: './employees.component.html',
   styleUrl: './employees.component.scss'
 })
@@ -31,6 +97,7 @@ export class EmployeesComponent implements OnInit {
   employees = signal<Employee[]>([]);
   filteredEmployees = signal<Employee[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   showProfileModal = signal<boolean>(false);
   editingEmployee = signal<Employee | null>(null);
@@ -42,6 +109,8 @@ export class EmployeesComponent implements OnInit {
   roleFilter = signal<string>('');
   statusFilter = signal<string>('');
   departmentFilter = signal<string>('');
+  currentStatusView = signal<string>('active'); // Status view filter (active, inactive, all)
+  employeeCounts = signal<{ active: number; inactive: number; total: number }>({ active: 0, inactive: 0, total: 0 }); // Employee counts from API
   
   // Form state
   sameAsPresentAddress = signal<boolean>(false);
@@ -58,13 +127,7 @@ export class EmployeesComponent implements OnInit {
     return this.filteredEmployees().slice(start, end);
   });
 
-  // Statistics
-  totalEmployees = computed(() => this.employees().length);
-  activeEmployees = computed(() => this.employees().filter(e => e.isActive).length);
-  inactiveEmployees = computed(() => this.employees().filter(e => !e.isActive).length);
-  adminEmployees = computed(() => this.employees().filter(e => e.role === UserRole.ADMIN).length);
-  approverEmployees = computed(() => this.employees().filter(e => e.role === UserRole.APPROVER).length);
-  employeeRoles = computed(() => this.employees().filter(e => e.role === UserRole.EMPLOYEE).length);
+  // Note: Employee counts now come from API via employeeCounts signal
 
   // Form
   employeeForm: FormGroup;
@@ -125,8 +188,8 @@ export class EmployeesComponent implements OnInit {
       firstName: ['', [Validators.required, Validators.maxLength(80)]],
       lastName: ['', [Validators.required, Validators.maxLength(80)]],
       gender: [''],
-      dateOfBirth: [''],
-      dateOfJoining: ['', Validators.required],
+      dateOfBirth: ['', [notFutureDateValidator(), minimumAgeValidator(16)]], // Must be 16+ and not future date
+      dateOfJoining: ['', [Validators.required, joiningDateValidator()]], // Cannot be too far in past/future
       jobTitle: ['', [Validators.required, Validators.maxLength(100)]],
       role: [UserRole.EMPLOYEE, Validators.required],
       department: ['', [Validators.required, Validators.maxLength(100)]],
@@ -158,11 +221,58 @@ export class EmployeesComponent implements OnInit {
 
   ngOnInit() {
     this.loadEmployees();
+    this.loadEmployeeCounts();
+  }
+
+  private loadEmployeeCounts() {
+    this.employeesService.getCounts().subscribe({
+      next: (counts) => {
+        this.employeeCounts.set(counts);
+      },
+      error: (error) => {
+        console.error('Error loading employee counts:', error);
+      }
+    });
+  }
+
+  // Method to switch to active employees view
+  showActiveEmployees() {
+    this.currentStatusView.set('active');
+    this.loadEmployees();
+  }
+
+  // Method to switch to inactive employees view
+  showInactiveEmployees() {
+    this.currentStatusView.set('inactive');
+    this.loadEmployees();
+  }
+
+  // Method to show all employees
+  showAllEmployees() {
+    this.currentStatusView.set('all');
+    this.loadEmployees();
+  }
+
+  // Method to reactivate an employee
+  reactivateEmployee(employee: Employee) {
+    if (confirm(`Are you sure you want to reactivate ${employee.firstName} ${employee.lastName}?`)) {
+      this.employeesService.reactivate(employee.userId).subscribe({
+        next: () => {
+          this.toastr.success('Employee reactivated successfully');
+          this.loadEmployees();
+          this.loadEmployeeCounts();
+        },
+        error: (error) => {
+          console.error('Error reactivating employee:', error);
+          this.toastr.error('Error reactivating employee');
+        }
+      });
+    }
   }
 
   private loadEmployees() {
     this.loading.set(true);
-    this.employeesService.getAll().subscribe({
+    this.employeesService.getAll(this.currentStatusView()).subscribe({
       next: (employees) => {
         this.employees.set(employees);
         this.applyFilters();
@@ -346,7 +456,8 @@ export class EmployeesComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.employeeForm.valid) {
+    if (this.employeeForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.employeeForm.value;
       
       const employeeData = {
@@ -382,6 +493,9 @@ export class EmployeesComponent implements OnInit {
           error: (err) => {
             console.error('Failed to update employee:', err);
             this.toastr.error('Failed to update employee');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -396,6 +510,9 @@ export class EmployeesComponent implements OnInit {
           error: (err) => {
             console.error('Failed to create employee:', err);
             this.toastr.error('Failed to create employee');
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }
@@ -444,6 +561,10 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['required']) return `${fieldName} is required`;
       if (field.errors['email']) return 'Invalid email format';
       if (field.errors['maxlength']) return `${fieldName} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['futureDate']) return 'Date cannot be in the future';
+      if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
+      if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
+      if (field.errors['tooFarInPast']) return 'Joining date cannot be more than 50 years in the past';
     }
     return '';
   }

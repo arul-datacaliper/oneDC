@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidatorFn } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 
 import { ProjectsService } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
@@ -12,7 +13,7 @@ import { ToastrService } from 'ngx-toastr';
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
   templateUrl: './projects.component.html',
   styleUrl: './projects.component.scss'
 })
@@ -32,10 +33,12 @@ export class ProjectsComponent implements OnInit {
   users = signal<AppUser[]>([]);
   filteredProjects = signal<Project[]>([]);
   loading = signal<boolean>(false);
+  submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
   editingProject = signal<Project | null>(null);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
+  clientFilter = signal<string>('');
   
   // Pagination
   pageSize = signal<number>(10);
@@ -49,6 +52,13 @@ export class ProjectsComponent implements OnInit {
     return this.filteredProjects().slice(start, end);
   });
 
+  usersWithDisplayName = computed(() => {
+    return this.users().map(user => ({
+      ...user,
+      displayName: `${user.firstName} ${user.lastName}`
+    }));
+  });
+
   // Form
   projectForm: FormGroup;
 
@@ -59,12 +69,58 @@ export class ProjectsComponent implements OnInit {
       clientId: ['', Validators.required],
       status: ['ACTIVE', Validators.required],
       billable: [true],
-      defaultApprover: [''],
+      defaultApprover: ['', Validators.required],
       startDate: [''],
       endDate: [''],
       plannedReleaseDate: [''],
       budgetHours: ['', [Validators.min(0)]],
       budgetCost: ['', [Validators.min(0)]]
+    });
+
+    // Add date validation
+    this.setupDateValidation();
+  }
+
+  // Custom date validators
+  private dateAfterValidator(startDateControlName: string): ValidatorFn {
+    return (control: AbstractControl): {[key: string]: any} | null => {
+      if (!control.parent) return null;
+      
+      const startDateControl = control.parent.get(startDateControlName);
+      if (!startDateControl || !startDateControl.value || !control.value) return null;
+      
+      const startDate = new Date(startDateControl.value);
+      const endDate = new Date(control.value);
+      
+      if (endDate < startDate) {
+        return { 'dateAfter': { 
+          actualDate: control.value, 
+          requiredAfter: startDateControl.value,
+          message: 'Date must be after start date'
+        }};
+      }
+      
+      return null;
+    };
+  }
+
+  private setupDateValidation(): void {
+    // Add validators to end date and planned release date
+    const endDateControl = this.projectForm.get('endDate');
+    const plannedReleaseDateControl = this.projectForm.get('plannedReleaseDate');
+
+    if (endDateControl) {
+      endDateControl.setValidators([this.dateAfterValidator('startDate')]);
+    }
+
+    if (plannedReleaseDateControl) {
+      plannedReleaseDateControl.setValidators([this.dateAfterValidator('startDate')]);
+    }
+
+    // Re-validate when start date changes
+    this.projectForm.get('startDate')?.valueChanges.subscribe(() => {
+      endDateControl?.updateValueAndValidity();
+      plannedReleaseDateControl?.updateValueAndValidity();
     });
   }
 
@@ -96,7 +152,9 @@ export class ProjectsComponent implements OnInit {
     this.clientsService.getAll().subscribe({
       next: (data) => {
         console.log('Clients loaded successfully from API:', data);
-        this.clients.set(data);
+        // Filter to only include ACTIVE clients for project creation
+        const activeClients = data.filter(client => client.status === 'ACTIVE');
+        this.clients.set(activeClients);
       },
       error: (err) => {
         console.error('Failed to load clients from API:', err);
@@ -139,6 +197,10 @@ export class ProjectsComponent implements OnInit {
       filtered = filtered.filter(p => p.status === this.statusFilter());
     }
     
+    if (this.clientFilter()) {
+      filtered = filtered.filter(p => p.clientId === this.clientFilter());
+    }
+    
     this.filteredProjects.set(filtered);
     this.pageIndex.set(0); // Reset to first page when filtering
   }
@@ -152,6 +214,12 @@ export class ProjectsComponent implements OnInit {
   onStatusFilterChange(event: Event) {
     const target = event.target as HTMLSelectElement;
     this.statusFilter.set(target.value);
+    this.applyFilters();
+  }
+
+  onClientFilterChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.clientFilter.set(target.value);
     this.applyFilters();
   }
 
@@ -189,7 +257,8 @@ export class ProjectsComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.projectForm.valid) {
+    if (this.projectForm.valid && !this.submitting()) {
+      this.submitting.set(true); // Prevent multiple submissions
       const formData = this.projectForm.value;
       
       if (this.editingProject()) {
@@ -219,7 +288,24 @@ export class ProjectsComponent implements OnInit {
           },
           error: (err) => {
             console.error('Update failed:', err);
-            this.toastr.error(`Failed to update project: ${err.error?.title || err.message}`);
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate project code
+              this.toastr.error(err.error?.detail || 'A project with this code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to update project: ${err.error?.title || err.error?.detail || err.message}`);
+            }
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       } else {
@@ -248,7 +334,24 @@ export class ProjectsComponent implements OnInit {
           },
           error: (err) => {
             console.error('Create failed:', err);
-            this.toastr.error(`Failed to create project: ${err.error?.title || err.message}`);
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate project code
+              this.toastr.error(err.error?.detail || 'A project with this code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to create project: ${err.error?.title || err.error?.detail || err.message}`);
+            }
+          },
+          complete: () => {
+            this.submitting.set(false); // Reset submitting state
           }
         });
       }
@@ -354,9 +457,33 @@ export class ProjectsComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.projectForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) {
+        // Custom messages for specific fields
+        switch (fieldName) {
+          case 'defaultApprover':
+            return 'Project Manager is required';
+          case 'clientId':
+            return 'Client is required';
+          case 'code':
+            return 'Project Code is required';
+          case 'name':
+            return 'Project Name is required';
+          default:
+            return `${fieldName} is required`;
+        }
+      }
       if (field.errors['maxlength']) return `${fieldName} is too long`;
       if (field.errors['min']) return `${fieldName} must be positive`;
+      if (field.errors['dateAfter']) {
+        switch (fieldName) {
+          case 'endDate':
+            return 'End date must be after start date';
+          case 'plannedReleaseDate':
+            return 'Planned release date must be after start date';
+          default:
+            return field.errors['dateAfter'].message || 'Date must be after start date';
+        }
+      }
     }
     return '';
   }

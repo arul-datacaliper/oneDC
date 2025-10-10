@@ -111,42 +111,62 @@
     <div class="card-body">
       <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
         <div class="row g-3">
-          <!-- Basic Information -->
+          <!-- HR-Managed Information -->
           <div class="col-12">
-            <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
+            <h6 class="border-bottom pb-2 mb-3">
+              <i class="bi bi-building me-2 text-info"></i>
+              HR-Managed Information
+              <small class="text-muted ms-2">(These fields are managed by HR and cannot be edited)</small>
+            </h6>
           </div>
           
           <div class="col-md-6">
-            <label class="form-label">Job Title <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" formControlName="jobTitle"
-                   [class.is-invalid]="isFieldInvalid(profileForm, 'jobTitle')"
-                   placeholder="e.g., Software Engineer">
-            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'jobTitle')">
-              {{ getFieldError(profileForm, 'jobTitle') }}
-            </div>
+            <label class="form-label">Job Title 
+              <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
+            </label>
+            <input type="text" class="form-control bg-light" formControlName="jobTitle" readonly>
+            <small class="text-muted">This field is managed by HR and cannot be edited</small>
           </div>
           
           <div class="col-md-6">
-            <label class="form-label">Department</label>
-            <input type="text" class="form-control" formControlName="department"
-                   placeholder="e.g., Engineering">
+            <label class="form-label">Department
+              <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
+            </label>
+            <input type="text" class="form-control bg-light" formControlName="department" readonly>
+            <small class="text-muted">This field is managed by HR and cannot be edited</small>
           </div>
           
           <div class="col-md-6">
-            <label class="form-label">Employee ID</label>
-            <input type="text" class="form-control" formControlName="employeeId"
-                   placeholder="e.g., EMP001">
+            <label class="form-label">Employee ID
+              <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
+            </label>
+            <input type="text" class="form-control bg-light" formControlName="employeeId" readonly>
+            <small class="text-muted">This field is managed by HR and cannot be edited</small>
           </div>
           
           <div class="col-md-6">
-            <label class="form-label">Reporting Manager</label>
-            <input type="text" class="form-control" formControlName="reportingManager"
-                   placeholder="Manager name">
+            <label class="form-label">Reporting Manager
+              <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
+            </label>
+            <input type="text" class="form-control bg-light" formControlName="reportingManager" readonly>
+            <small class="text-muted">This field is managed by HR and cannot be edited</small>
           </div>
           
           <div class="col-md-6">
-            <label class="form-label">Date of Joining</label>
-            <input type="date" class="form-control" formControlName="dateOfJoining">
+            <label class="form-label">Date of Joining
+              <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
+            </label>
+            <input type="text" class="form-control bg-light" formControlName="dateOfJoining" readonly>
+            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+          </div>
+          
+          <!-- User-Editable Information -->
+          <div class="col-12 mt-4">
+            <h6 class="border-bottom pb-2 mb-3">
+              <i class="bi bi-person-check me-2 text-success"></i>
+              Personal Information
+              <small class="text-muted ms-2">(You can edit these fields)</small>
+            </h6>
           </div>
           
           <div class="col-md-6">

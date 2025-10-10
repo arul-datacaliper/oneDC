@@ -28,10 +28,12 @@ public class AllocationsController : ControllerBase
             return BadRequest("Invalid date format. Use YYYY-MM-DD.");
         }
 
+        var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+
         var allocations = await _context.WeeklyAllocations
             .Include(wa => wa.Project)
             .Include(wa => wa.User)
-            .Where(wa => wa.WeekStartDate == startDate)
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
             .Select(wa => new WeeklyAllocationDto
             {
                 AllocationId = wa.AllocationId.ToString(),
@@ -52,15 +54,6 @@ public class AllocationsController : ControllerBase
         return Ok(allocations);
     }
 
-    // POST: api/allocations
-    /// <summary>
-    /// Creates a new weekly allocation
-    /// Business Rules:
-    /// - Standard work week: 45 hours (9 hours/day × 5 working days)
-    /// - Maximum allowed: 67.5 hours (150% utilization, includes reasonable overtime)
-    /// - Minimum: 1 hour (for partial allocations)
-    /// - Based on standard labor practices and employee wellbeing guidelines
-    /// </summary>
     [HttpPost]
     public async Task<ActionResult<WeeklyAllocation>> CreateAllocation(CreateAllocationRequest request)
     {
@@ -86,15 +79,21 @@ public class AllocationsController : ControllerBase
                 return BadRequest("Invalid date format. Use YYYY-MM-DD.");
             }
 
-            // Check if allocation already exists for this project, user, and week
+            if (!DateOnly.TryParse(request.WeekEndDate, out var weekEndDate))
+            {
+                return BadRequest("Invalid end date format. Use YYYY-MM-DD.");
+            }
+
+            // Check if allocation already exists for this project, user, and period
             var existingAllocation = await _context.WeeklyAllocations
                 .FirstOrDefaultAsync(wa => wa.ProjectId == projectId && 
                                          wa.UserId == userId && 
-                                         wa.WeekStartDate == weekStartDate);
+                                         wa.WeekStartDate == weekStartDate &&
+                                         wa.WeekEndDate == weekEndDate);
 
             if (existingAllocation != null)
             {
-                return Conflict("Allocation already exists for this project, user, and week.");
+                return Conflict("Allocation already exists for this project, user, and period.");
             }
 
             var allocation = new WeeklyAllocation
@@ -103,7 +102,7 @@ public class AllocationsController : ControllerBase
                 UserId = userId,
                 AllocatedHours = request.AllocatedHours,
                 WeekStartDate = weekStartDate,
-                WeekEndDate = weekStartDate.AddDays(6), // Sunday + 6 = Saturday
+                WeekEndDate = weekEndDate,
                 UtilizationPercentage = Math.Round((decimal)request.AllocatedHours / 45 * 100, 2),
                 Status = "ACTIVE"
             };
@@ -210,9 +209,11 @@ public class AllocationsController : ControllerBase
             return BadRequest("Invalid date format. Use YYYY-MM-DD.");
         }
 
+        var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+
         var summary = await _context.WeeklyAllocations
             .Include(wa => wa.Project)
-            .Where(wa => wa.WeekStartDate == startDate)
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
             .GroupBy(wa => new { wa.ProjectId, wa.Project!.Name })
             .Select(g => new AllocationSummaryDto
             {
@@ -236,9 +237,11 @@ public class AllocationsController : ControllerBase
             return BadRequest("Invalid date format. Use YYYY-MM-DD.");
         }
 
+        var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+
         var summary = await _context.WeeklyAllocations
             .Include(wa => wa.User)
-            .Where(wa => wa.WeekStartDate == startDate)
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
             .GroupBy(wa => new { wa.UserId, wa.User!.FirstName, wa.User.LastName })
             .Select(g => new EmployeeAllocationSummaryDto
             {
@@ -259,11 +262,13 @@ public class AllocationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<AvailableProjectDto>>> GetAvailableProjects()
     {
         var projects = await _context.Projects
+            .Include(p => p.Client)
             .Where(p => p.Status.ToLower() == "active")
             .Select(p => new AvailableProjectDto
             {
                 ProjectId = p.ProjectId.ToString(),
                 ProjectName = p.Name,
+                ClientName = p.Client != null ? p.Client.Name : "Unknown Client",
                 Status = p.Status
             })
             .OrderBy(p => p.ProjectName)
@@ -301,12 +306,82 @@ public class AllocationsController : ControllerBase
             return BadRequest("Invalid parameters format.");
         }
 
+        var weekEnd = weekStart.AddDays(6);
+
         var exists = await _context.WeeklyAllocations
             .AnyAsync(wa => wa.ProjectId == projId && 
                            wa.UserId == usrId && 
-                           wa.WeekStartDate == weekStart);
+                           wa.WeekStartDate <= weekEnd && wa.WeekEndDate >= weekStart); // Overlaps with the week
 
         return Ok(exists);
+    }
+
+    // GET: api/allocations/export/csv
+    [HttpGet("export/csv")]
+    public async Task<IActionResult> ExportToCsv(
+        [FromQuery] string from,
+        [FromQuery] string to,
+        [FromQuery] string? projectId = null,
+        [FromQuery] string? userId = null)
+    {
+        if (!DateOnly.TryParse(from, out var fromDate) || !DateOnly.TryParse(to, out var toDate))
+        {
+            return BadRequest("Invalid date format. Use YYYY-MM-DD.");
+        }
+
+        var query = _context.WeeklyAllocations
+            .Include(wa => wa.Project)
+            .Include(wa => wa.User)
+            .Where(wa => wa.WeekStartDate >= fromDate && wa.WeekStartDate <= toDate);
+
+        // Apply filters
+        if (!string.IsNullOrEmpty(projectId) && Guid.TryParse(projectId, out var projId))
+        {
+            query = query.Where(wa => wa.ProjectId == projId);
+        }
+
+        if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var usrId))
+        {
+            query = query.Where(wa => wa.UserId == usrId);
+        }
+
+        var allocations = await query
+            .OrderBy(wa => wa.WeekStartDate)
+            .ThenBy(wa => wa.Project!.Name)
+            .ThenBy(wa => wa.User!.FirstName)
+            .Select(wa => new
+            {
+                ProjectCode = wa.Project!.Code,
+                ProjectName = wa.Project!.Name,
+                EmployeeName = wa.User!.FirstName + " " + wa.User.LastName,
+                EmployeeRole = wa.User.Role,
+                WeekStartDate = wa.WeekStartDate.ToString("yyyy-MM-dd"),
+                WeekEndDate = wa.WeekEndDate.ToString("yyyy-MM-dd"),
+                AllocatedHours = wa.AllocatedHours,
+                UtilizationPercentage = wa.UtilizationPercentage,
+                Status = wa.Status,
+                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            })
+            .ToListAsync();
+
+        // Generate CSV content
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Project Code,Project Name,Employee Name,Employee Role,Week Start Date,Week End Date,Allocated Hours,Utilization %,Status,Created At");
+
+        foreach (var allocation in allocations)
+        {
+            csv.AppendLine($"\"{allocation.ProjectCode}\",\"{allocation.ProjectName}\",\"{allocation.EmployeeName}\",\"{allocation.EmployeeRole}\",\"{allocation.WeekStartDate}\",\"{allocation.WeekEndDate}\",{allocation.AllocatedHours},{allocation.UtilizationPercentage},\"{allocation.Status}\",\"{allocation.CreatedAt}\"");
+        }
+
+        var fileName = $"allocations-{fromDate:yyyy-MM-dd}-to-{toDate:yyyy-MM-dd}";
+        if (!string.IsNullOrEmpty(projectId))
+        {
+            var project = await _context.Projects.FindAsync(Guid.Parse(projectId));
+            fileName += $"-{project?.Code ?? "project"}";
+        }
+        fileName += ".csv";
+
+        return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
     }
 }
 
@@ -337,6 +412,9 @@ public class CreateAllocationRequest
     
     [Required]
     public string WeekStartDate { get; set; } = string.Empty;
+    
+    [Required]
+    public string WeekEndDate { get; set; } = string.Empty;
     
     [Required]
     [Range(1, 67.5, ErrorMessage = "Allocated hours must be between 1 and 67.5 hours per week (9 hrs/day × 5 days + overtime)")]
@@ -374,6 +452,7 @@ public class AvailableProjectDto
 {
     public string ProjectId { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
+    public string ClientName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
 }
 

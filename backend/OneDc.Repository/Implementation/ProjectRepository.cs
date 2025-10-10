@@ -16,6 +16,9 @@ public class ProjectRepository : IProjectRepository
     public async Task<Project?> GetByIdAsync(Guid id) =>
         await _db.Projects.Include(p => p.Client).FirstOrDefaultAsync(p => p.ProjectId == id);
 
+    public async Task<bool> ExistsByCodeAsync(string code) =>
+        await _db.Projects.AnyAsync(p => p.Code == code);
+
     public async Task AddAsync(Project project) => await _db.Projects.AddAsync(project);
 
     public Task UpdateAsync(Project project)

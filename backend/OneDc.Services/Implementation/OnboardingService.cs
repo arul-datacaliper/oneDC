@@ -8,17 +8,66 @@ namespace OneDc.Services.Implementation;
 public class OnboardingService : IOnboardingService
 {
     private readonly IOnboardingRepository _repository;
+    private readonly IFileStorageService _fileStorageService;
     private readonly string _photoUploadPath;
 
-    public OnboardingService(IOnboardingRepository repository, IConfiguration configuration)
+    public OnboardingService(IOnboardingRepository repository, IFileStorageService fileStorageService, IConfiguration configuration)
     {
         _repository = repository;
+        _fileStorageService = fileStorageService;
         _photoUploadPath = configuration["FileStorage:ProfilePhotosPath"] ?? "uploads/profile-photos";
     }
 
     public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
     {
         var profile = await _repository.GetUserProfileAsync(userId);
+        var appUser = await _repository.GetAppUserAsync(userId);
+        
+        if (profile == null && appUser == null)
+            return null;
+            
+        // Get manager name if available
+        var managerName = await _repository.GetManagerNameAsync(appUser?.ManagerId);
+            
+        // If no user profile exists, create a default one with admin data
+        if (profile == null && appUser != null)
+        {
+            var defaultProfile = new UserProfile
+            {
+                UserProfileId = Guid.NewGuid(),
+                UserId = userId,
+                // Populate admin-managed fields from AppUser
+                EmployeeId = appUser.EmployeeId,
+                JobTitle = appUser.JobTitle,
+                Department = appUser.Department,
+                DateOfJoining = appUser.DateOfJoining,
+                ReportingManager = managerName,
+                // Leave user-editable fields empty for now
+                Bio = null,
+                PhoneNumber = null,
+                Location = null,
+                TotalExperienceYears = null,
+                EducationBackground = null,
+                Certifications = null,
+                LinkedInProfile = null,
+                GitHubProfile = null,
+                IsOnboardingComplete = false
+            };
+            
+            return defaultProfile.ToDto();
+        }
+        
+        // If profile exists, override admin-managed fields with current AppUser data
+        if (profile != null && appUser != null)
+        {
+            profile.EmployeeId = appUser.EmployeeId;
+            profile.JobTitle = appUser.JobTitle;
+            profile.Department = appUser.Department;
+            profile.DateOfJoining = appUser.DateOfJoining;
+            profile.ReportingManager = managerName;
+            // Note: We don't save these changes to keep the profile table clean of admin data
+        }
+        
         return profile?.ToDto();
     }
 
@@ -31,18 +80,28 @@ public class OnboardingService : IOnboardingService
         if (existingProfile != null)
             throw new InvalidOperationException("User profile already exists");
 
+        // Get admin-managed data from AppUser
+        var appUser = await _repository.GetAppUserAsync(userId);
+        if (appUser == null)
+            throw new ArgumentException("Employee data not found");
+
+        // Get manager name
+        var managerName = await _repository.GetManagerNameAsync(appUser.ManagerId);
+
         var profile = new UserProfile
         {
             UserProfileId = Guid.NewGuid(),
             UserId = userId,
+            // Admin-managed fields - these come from AppUser, not from request
+            EmployeeId = appUser.EmployeeId,
+            JobTitle = appUser.JobTitle,
+            Department = appUser.Department,
+            DateOfJoining = appUser.DateOfJoining,
+            ReportingManager = managerName,
+            // User-editable fields from request
             Bio = request.Bio,
-            Department = request.Department,
-            JobTitle = request.JobTitle,
             PhoneNumber = request.PhoneNumber,
             Location = request.Location,
-            DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null,
-            EmployeeId = request.EmployeeId,
-            ReportingManager = request.ReportingManager,
             TotalExperienceYears = request.TotalExperienceYears,
             EducationBackground = request.EducationBackground,
             Certifications = request.Certifications,
@@ -60,19 +119,30 @@ public class OnboardingService : IOnboardingService
         if (profile == null)
             throw new ArgumentException("User profile not found");
 
+        // Get current admin-managed data from AppUser
+        var appUser = await _repository.GetAppUserAsync(userId);
+        if (appUser == null)
+            throw new ArgumentException("Employee data not found");
+
+        // Get manager name
+        var managerName = await _repository.GetManagerNameAsync(appUser.ManagerId);
+
+        // Update only user-editable fields
         profile.Bio = request.Bio;
-        profile.Department = request.Department;
-        profile.JobTitle = request.JobTitle;
         profile.PhoneNumber = request.PhoneNumber;
         profile.Location = request.Location;
-        profile.DateOfJoining = !string.IsNullOrEmpty(request.DateOfJoining) ? DateOnly.Parse(request.DateOfJoining) : null;
-        profile.EmployeeId = request.EmployeeId;
-        profile.ReportingManager = request.ReportingManager;
         profile.TotalExperienceYears = request.TotalExperienceYears;
         profile.EducationBackground = request.EducationBackground;
         profile.Certifications = request.Certifications;
         profile.LinkedInProfile = request.LinkedInProfile;
         profile.GitHubProfile = request.GitHubProfile;
+
+        // Ensure admin-managed fields remain from AppUser (don't update from request)
+        profile.EmployeeId = appUser.EmployeeId;
+        profile.JobTitle = appUser.JobTitle;
+        profile.Department = appUser.Department;
+        profile.DateOfJoining = appUser.DateOfJoining;
+        profile.ReportingManager = managerName;
 
         var updatedProfile = await _repository.UpdateUserProfileAsync(profile);
         return updatedProfile.ToDto();
@@ -94,32 +164,17 @@ public class OnboardingService : IOnboardingService
         if (!allowedTypes.Contains(contentType.ToLower()))
             throw new ArgumentException("Invalid file type. Only JPEG, PNG, and GIF are allowed.");
 
-        // Create uploads directory if it doesn't exist
-        Directory.CreateDirectory(_photoUploadPath);
-
-        // Generate unique filename
-        var extension = Path.GetExtension(fileName);
-        var uniqueFileName = $"{userId}_{Guid.NewGuid()}{extension}";
-        var filePath = Path.Combine(_photoUploadPath, uniqueFileName);
-
-        // Save file
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await photoStream.CopyToAsync(fileStream);
-        }
-
         // Delete old photo if exists
         if (!string.IsNullOrEmpty(profile.ProfilePhotoUrl))
         {
-            var oldFilePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
-            if (File.Exists(oldFilePath))
-            {
-                File.Delete(oldFilePath);
-            }
+            await _fileStorageService.DeleteFileAsync(profile.ProfilePhotoUrl, "profile-photos");
         }
 
+        // Upload new photo using the file storage service
+        var uploadResult = await _fileStorageService.UploadFileAsync(photoStream, fileName, contentType, "profile-photos");
+
         // Update profile with new photo URL
-        profile.ProfilePhotoUrl = $"/uploads/profile-photos/{uniqueFileName}";
+        profile.ProfilePhotoUrl = uploadResult.FileUrl;
         await _repository.UpdateUserProfileAsync(profile);
 
         return profile.ProfilePhotoUrl;
@@ -130,11 +185,7 @@ public class OnboardingService : IOnboardingService
         var profile = await _repository.GetUserProfileAsync(userId);
         if (profile?.ProfilePhotoUrl != null)
         {
-            var filePath = Path.Combine(_photoUploadPath, Path.GetFileName(profile.ProfilePhotoUrl));
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
+            await _fileStorageService.DeleteFileAsync(profile.ProfilePhotoUrl, "profile-photos");
 
             profile.ProfilePhotoUrl = null;
             await _repository.UpdateUserProfileAsync(profile);

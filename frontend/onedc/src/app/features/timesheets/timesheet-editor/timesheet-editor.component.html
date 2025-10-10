@@ -29,6 +29,58 @@
 
     <hr>
 
+    <!-- Admin Controls -->
+    <div *ngIf="isAdmin()" class="admin-controls mb-4">
+      <div class="d-flex align-items-center gap-3">
+        <div class="admin-badge">
+          <i class="bi bi-shield-check"></i>
+          <span>Admin View</span>
+        </div>
+        
+        <div class="filter-controls d-flex gap-3 align-items-center">
+          <div class="filter-group">
+            <label class="form-label small mb-1">View by Employee:</label>
+            <app-searchable-dropdown 
+              [ngModel]="selectedUserId()" 
+              (ngModelChange)="onUserSelectionChange($event)"
+              [options]="userOptions()"
+              placeholder="All employees"
+              [allowEmpty]="true"
+              emptyLabel="All employees"
+              noResultsText="No employees found"
+              [searchFields]="['label', 'searchableText']"
+              [style.minWidth.px]="200">
+            </app-searchable-dropdown>
+          </div>
+          
+          <div class="filter-separator">OR</div>
+          
+          <div class="filter-group">
+            <label class="form-label small mb-1">View by Project:</label>
+            <app-searchable-dropdown 
+              [ngModel]="selectedProjectId()" 
+              (ngModelChange)="onProjectFilterChange($event)"
+              [options]="projectFilterOptions()"
+              placeholder="All projects"
+              [allowEmpty]="true"
+              emptyLabel="All projects"
+              noResultsText="No projects found"
+              [searchFields]="['label', 'searchableText']"
+              [style.minWidth.px]="200">
+            </app-searchable-dropdown>
+          </div>
+          
+          <button type="button" class="btn btn-outline-secondary btn-sm" 
+                  (click)="clearFilters()" 
+                  title="Clear all filters"
+                  [disabled]="!selectedUserId() && !selectedProjectId()">
+            <i class="bi bi-x-circle"></i> Clear
+          </button>
+        </div>
+      </div>
+      <hr class="mt-3">
+    </div>
+
     <div class="new-row">
       <div class="title">
         <i class="bi bi-plus-circle-fill"></i> New entry
@@ -42,22 +94,28 @@
 
         <div class="col-md-3">
           <label class="form-label">Project *</label>
-          <select class="form-select" [formControl]="newRow.controls.projectId">
-            <option value="">Select project</option>
-            <option *ngFor="let p of projects()" [value]="p.projectId">
-              {{ p.code }} — {{ p.name }}
-            </option>
-          </select>
+          <app-searchable-dropdown 
+            [formControl]="newRow.controls.projectId"
+            [options]="projectOptions()"
+            placeholder="Search for project..."
+            [allowEmpty]="true"
+            emptyLabel="Select project"
+            noResultsText="No projects found"
+            [searchFields]="['label', 'searchableText']">
+          </app-searchable-dropdown>
         </div>
 
         <div class="col-md-3" *ngIf="newRow.get('projectId')?.value">
           <label class="form-label">Task</label>
-          <select class="form-select" [formControl]="newRow.controls.taskId">
-            <option value="">-- None --</option>
-            <option *ngFor="let t of getTasksForProject(newRow.get('projectId')?.value)" [value]="t.taskId">
-              {{ t.title }}
-            </option>
-          </select>
+          <app-searchable-dropdown 
+            [formControl]="newRow.controls.taskId"
+            [options]="taskOptions()"
+            placeholder="Search for task..."
+            [allowEmpty]="true"
+            emptyLabel="-- None --"
+            noResultsText="No tasks found"
+            [searchFields]="['label', 'searchableText']">
+          </app-searchable-dropdown>
         </div>
 
         <div class="col-md-2">
@@ -89,8 +147,10 @@
         </div>
 
         <div class="col-md-1">
-          <button type="button" class="btn btn-primary w-100" (click)="addRow()">
-            <i class="bi bi-plus-circle"></i> Add
+          <button type="button" class="btn btn-primary w-100" (click)="addRow()" [disabled]="submitting()">
+            <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i *ngIf="!submitting()" class="bi bi-plus-circle"></i> 
+            {{ submitting() ? 'Adding...' : 'Add' }}
           </button>
         </div>
       </div>
@@ -116,7 +176,7 @@
       <p class="text-muted">Use the form above to add your first entry.</p>
     </div>
 
-    <div class="table-responsive" *ngIf="!loading() && items.controls.length > 0">
+    <div class="table-responsive table-dropdown-friendly" *ngIf="!loading() && items.controls.length > 0">
       <table class="table table-hover">
         <thead class="table-light">
           <tr>
@@ -132,29 +192,43 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let g of items.controls; let i = index">
+          <tr *ngFor="let g of items.controls; let i = index" [class.editing-row]="isRowInEditMode(i)">
             <td>{{ g.get('workDate')!.value }}</td>
             <td>
               <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
             </td>
             <td>
-              <select [disabled]="!isEditable(g.get('status')!.value)"
-                      class="form-select form-select-sm"
-                      [value]="g.get('taskId')!.value"
-                      (change)="onFieldChange(g, 'taskId', $any($event.target).value)">
-                <option value="">-- None --</option>
-                <option *ngFor="let t of getTasksForProject(g.get('projectId')!.value)" [value]="t.taskId">{{ t.title }}</option>
-              </select>
+              <!-- Display mode: Show as text input (read-only) -->
+              <input *ngIf="!isRowInEditMode(i)"
+                     type="text"
+                     class="form-control form-control-sm"
+                     [value]="getTaskTitle(g.get('projectId')!.value, g.get('taskId')!.value)"
+                     readonly
+                     style="border: none; background: transparent; padding: 0; box-shadow: none;"
+                     placeholder="No task selected">
+              
+              <!-- Edit mode: Show as searchable dropdown -->
+              <div *ngIf="isRowInEditMode(i)" class="task-dropdown-wrapper">
+                <app-searchable-dropdown 
+                        [options]="getTaskOptionsForProject(g.get('projectId')!.value)"
+                        [formControl]="$any(g.get('taskId'))"
+                        placeholder="Search for task..."
+                        [allowEmpty]="true"
+                        emptyLabel="-- None --"
+                        noResultsText="No tasks found"
+                        [searchFields]="['label', 'searchableText']">
+                </app-searchable-dropdown>
+              </div>
             </td>
             <td>
-              <input [readonly]="!isEditable(g.get('status')!.value)"
+              <input [readonly]="!isRowInEditMode(i)"
                      class="form-control form-control-sm"
                      type="number" min="0" max="24" step="0.25"
                      [value]="g.get('hours')!.value"
                      (input)="onFieldChange(g, 'hours', $any($event.target).value)" />
             </td>
             <td>
-              <select [disabled]="!isEditable(g.get('status')!.value)"
+              <select [disabled]="!isRowInEditMode(i)"
                       class="form-select form-select-sm"
                       [value]="g.get('taskType')!.value"
                       (change)="onFieldChange(g, 'taskType', +$any($event.target).value)">
@@ -164,13 +238,13 @@
               </select>
             </td>
             <td>
-              <input [readonly]="!isEditable(g.get('status')!.value)"
+              <input [readonly]="!isRowInEditMode(i)"
                      class="form-control form-control-sm" 
                      [value]="g.get('description')!.value"
                      (input)="onFieldChange(g, 'description', $any($event.target).value)" />
             </td>
             <td>
-              <input [readonly]="!isEditable(g.get('status')!.value)"
+              <input [readonly]="!isRowInEditMode(i)"
                      class="form-control form-control-sm" 
                      [value]="g.get('ticketRef')!.value"
                      (input)="onFieldChange(g, 'ticketRef', $any($event.target).value)" />
@@ -180,18 +254,39 @@
                 {{ statusLabel(g.get('status')!.value) }}
               </span>
             </td>
-            <td class="text-center">
-              <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
-                        [disabled]="!isEditable(g.get('status')!.value) || !g.get('dirty')!.value"
+            <td class="text-center actions-cell">
+              <div class="d-flex align-items-center justify-content-center gap-1">
+                <!-- Edit button - only show when not in edit mode and entry is editable -->
+                <button *ngIf="!isRowInEditMode(i) && isEditable(g.get('status')!.value)" 
+                        type="button" class="btn btn-outline-secondary btn-sm" (click)="enterEditMode(i)"
+                        title="Edit entry">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                
+                <!-- Cancel button - only show when in edit mode -->
+                <button *ngIf="isRowInEditMode(i)" 
+                        type="button" class="btn btn-outline-secondary btn-sm" (click)="exitEditMode()"
+                        title="Cancel editing">
+                  <i class="bi bi-x"></i>
+                </button>
+                
+                <!-- Save button - only show when in edit mode -->
+                <button *ngIf="isRowInEditMode(i)" 
+                        type="button" class="btn btn-outline-primary btn-sm" (click)="saveRow(i)"
+                        [disabled]="!g.get('dirty')!.value"
                         title="Save changes">
                   <i class="bi bi-save"></i>
                 </button>
-                <button type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
+                
+                <!-- Submit button - only show when not in edit mode -->
+                <button *ngIf="!isRowInEditMode(i)" 
+                        type="button" class="btn btn-outline-success btn-sm" (click)="submitRow(i)"
                         [disabled]="!isEditable(g.get('status')!.value) || g.get('dirty')!.value"
                         title="Submit for approval (save changes first)">
                   <i class="bi bi-send"></i>
                 </button>
+                
+                <!-- Delete button - always show if entry is editable -->
                 <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteRow(i)"
                         [disabled]="!isEditable(g.get('status')!.value)" 
                         title="Delete entry">

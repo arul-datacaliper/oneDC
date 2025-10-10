@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export type TaskStatus = 'NEW'|'IN_PROGRESS'|'BLOCKED'|'COMPLETED'|'CANCELLED';
 
@@ -32,16 +33,45 @@ export interface UpdateTaskRequest extends CreateTaskRequest {
   status: TaskStatus;
 }
 
+export interface TasksPaginationInfo {
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface TasksResponse {
+  tasks: ProjectTask[];
+  pagination: TasksPaginationInfo;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TasksService {
   private http = inject(HttpClient);
   private base = environment.apiBaseUrl;
 
-  list(projectId: string, opts: { assignedUserId?: string; status?: TaskStatus } = {}): Observable<ProjectTask[]> {
+  list(projectId: string, opts: { assignedUserId?: string; status?: TaskStatus; page?: number; pageSize?: number } = {}): Observable<TasksResponse> {
     let params = new HttpParams();
     if (opts.assignedUserId) params = params.set('assignedUserId', opts.assignedUserId);
     if (opts.status) params = params.set('status', opts.status);
-    return this.http.get<ProjectTask[]>(`${this.base}/projects/${projectId}/tasks`, { params });
+    if (opts.page) params = params.set('page', opts.page.toString());
+    if (opts.pageSize) params = params.set('pageSize', opts.pageSize.toString());
+    
+    return this.http.get<ProjectTask[]>(`${this.base}/projects/${projectId}/tasks`, { 
+      params, 
+      observe: 'response' 
+    }).pipe(
+      map((response: HttpResponse<ProjectTask[]>) => {
+        const tasks = response.body || [];
+        const pagination: TasksPaginationInfo = {
+          totalCount: parseInt(response.headers.get('X-Total-Count') || '0'),
+          page: parseInt(response.headers.get('X-Page') || '1'),
+          pageSize: parseInt(response.headers.get('X-Page-Size') || '15'),
+          totalPages: parseInt(response.headers.get('X-Total-Pages') || '0')
+        };
+        return { tasks, pagination };
+      })
+    );
   }
   get(taskId: string) {
     return this.http.get<ProjectTask>(`${this.base}/tasks/${taskId}`);

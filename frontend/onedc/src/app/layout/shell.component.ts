@@ -74,10 +74,6 @@ export class ShellComponent implements OnInit {
     }
   }
 
-  toggleTheme() {
-    this.theme.set(this.theme() === 'light' ? 'dark' : 'light');
-  }
-
   // Toggle user dropdown
   toggleUserDropdown() {
     this.userDropdownOpen.set(!this.userDropdownOpen());

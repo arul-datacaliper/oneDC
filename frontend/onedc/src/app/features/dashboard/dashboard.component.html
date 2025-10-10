@@ -3,8 +3,8 @@
   <!-- Dashboard Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h2 class="mb-1">Admin Dashboard</h2>
-      <p class="text-muted mb-0">Overview of system metrics and top performing projects</p>
+      <h2 class="mb-1">Dashboard</h2>
+      <p class="text-muted mb-0">Overview of system metrics and key information</p>
     </div>
     <button class="btn btn-outline-primary" (click)="ngOnInit()" [disabled]="isLoadingAdminMetrics">
       <i class="bi bi-arrow-clockwise" [class.spin]="isLoadingAdminMetrics"></i>
@@ -123,27 +123,22 @@
             <p class="text-muted mt-2 mb-0">No project data available</p>
           </div>
 
-          <div *ngIf="!adminLoading() && topProjects.length > 0" class="table-responsive">
+          <div *ngIf="!adminLoading() && topProjects.length > 0" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table table-hover mb-0">
-              <thead class="table-light">
+              <thead class="table-light sticky-top">
                 <tr>
                   <th class="border-0">Project</th>
                   <th class="border-0">Client</th>
                   <th class="border-0 text-center">Open Tasks</th>
                   <th class="border-0 text-center">Total Tasks</th>
                   <th class="border-0 text-center">Completion</th>
-                  <th class="border-0 text-center">Type</th>
-                  <th class="border-0 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let project of topProjects; let i = index">
                   <td>
-                    <div>
-                      <div class="fw-medium project-name-link" (click)="navigateToProjectTasks(project)">
-                        {{ project.projectName }}
-                      </div>
-                      <small class="text-muted">{{ project.projectCode }}</small>
+                    <div class="fw-medium project-name-link" (click)="navigateToProjectTasks(project)">
+                      {{ project.projectName }}
                     </div>
                   </td>
                   <td>
@@ -160,17 +155,17 @@
                       {{ project.utilizationPercentage | number:'1.0-1' }}%
                     </span>
                   </td>
-                  <td class="text-center">
-                    <span [class]="project.isBillable ? 'badge bg-success' : 'badge bg-info'">
-                      {{ project.isBillable ? 'Billable' : 'Internal' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="badge bg-success">{{ project.status }}</span>
-                  </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+          
+          <!-- Scroll indicator for projects table -->
+          <div *ngIf="!adminLoading() && topProjects.length > 8" class="px-3 py-2 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-arrow-down-circle me-1"></i>
+              Showing {{ topProjects.length }} projects - scroll to view all
+            </small>
           </div>
         </div>
       </div>
@@ -201,9 +196,9 @@
             <p class="text-muted mt-2 mb-0">No project release data available</p>
           </div>
 
-          <div *ngIf="!isLoadingProjectsReleaseInfo && projectsWithReleaseInfo.length > 0" class="table-responsive">
+          <div *ngIf="!isLoadingProjectsReleaseInfo && projectsWithReleaseInfo.length > 0" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table table-hover mb-0">
-              <thead class="table-light">
+              <thead class="table-light sticky-top">
                 <tr>
                   <th class="border-0">Project Name</th>
                   <th class="border-0">Manager Name</th>
@@ -236,6 +231,14 @@
               </tbody>
             </table>
           </div>
+          
+          <!-- Scroll indicator for release dates table -->
+          <div *ngIf="!isLoadingProjectsReleaseInfo && projectsWithReleaseInfo.length > 8" class="px-3 py-2 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-arrow-down-circle me-1"></i>
+              Showing {{ projectsWithReleaseInfo.length }} projects - scroll to view all
+            </small>
+          </div>
         </div>
       </div>
     </div>
@@ -248,14 +251,8 @@
     <!-- Dashboard Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
-        <h2 class="mb-1">
-          <span *ngIf="canApprove()">Approver Dashboard</span>
-          <span *ngIf="!canApprove()">My Dashboard</span>
-        </h2>
-        <p class="text-muted mb-0">
-          <span *ngIf="canApprove()">Your timesheet overview and team approvals</span>
-          <span *ngIf="!canApprove()">Your timesheet and project utilization</span>
-        </p>
+        <h2 class="mb-1">Dashboard</h2>
+        <p class="text-muted mb-0">Your overview and key information</p>
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-outline-secondary btn-sm" (click)="toggleDateRange()">
@@ -277,10 +274,18 @@
           <div class="card-body text-center text-white p-4">
             <!-- Avatar -->
             <div class="mb-3">
-              <div class="rounded-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center" 
-                   style="width: 80px; height: 80px;">
-                <i class="bi bi-person-fill fs-1 text-white"></i>
+              <div *ngIf="getProfilePhotoUrl(); else defaultAvatar">
+                <img [src]="getProfilePhotoUrl()" 
+                     alt="Profile Photo" 
+                     class="rounded-circle border border-white border-3"
+                     style="width: 80px; height: 80px; object-fit: cover;">
               </div>
+              <ng-template #defaultAvatar>
+                <div class="rounded-circle bg-white bg-opacity-20 d-inline-flex align-items-center justify-content-center" 
+                     style="width: 80px; height: 80px;">
+                  <i class="bi bi-person-fill fs-1 text-white"></i>
+                </div>
+              </ng-template>
             </div>
             
             <!-- User Info -->
@@ -400,8 +405,8 @@
       </div>
     </div>
 
-    <!-- Dashboard Tables Row for Employee -->
-    <div class="row g-4 mb-4" *ngIf="!canApprove()">
+    <!-- Dashboard Tables Row for Employee and Approvers -->
+    <div class="row g-4 mb-4">
       <!-- My Tasks Table -->
       <div class="col-lg-6">
         <div class="card shadow-sm h-100">
@@ -519,7 +524,7 @@
     </div>
 
     <!-- Full Project Utilization Table -->
-    <div class="card shadow-sm mb-4" *ngIf="!canApprove()">
+    <div class="card shadow-sm mb-4">
       <div class="card-header bg-white">
         <h5 class="card-title mb-0">Complete Project Utilization</h5>
         <p class="text-muted mb-0 small">Detailed view of your time allocation across all projects</p>
@@ -589,23 +594,53 @@
 
     <!-- Approver-specific section -->
     <div *ngIf="canApprove()" class="mt-4">
-      <div class="card shadow-sm">
-        <div class="card-header bg-warning bg-opacity-10">
-          <h5 class="card-title mb-0 text-warning">
-            <i class="bi bi-clipboard-check me-2"></i>
-            Pending Approvals
-          </h5>
-          <p class="text-muted mb-0 small">Timesheets awaiting your approval</p>
+      <!-- Section Divider -->
+      <div class="d-flex align-items-center mb-4">
+        <hr class="flex-grow-1">
+        <span class="mx-3 text-muted fw-medium">
+          <i class="bi bi-shield-check me-2"></i>
+          Approver Responsibilities
+        </span>
+        <hr class="flex-grow-1">
+      </div>
+      
+      <div class="card shadow-sm border-warning">
+        <div class="card-header bg-warning bg-opacity-10 border-warning">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="card-title mb-1 text-warning">
+                <i class="bi bi-clipboard-check me-2"></i>
+                Pending Approvals
+              </h5>
+              <p class="text-muted mb-0 small">Timesheets awaiting your approval</p>
+            </div>
+            <span class="badge bg-warning text-dark fs-6">
+              {{ adminMetrics?.pendingApprovals || 0 }} pending
+            </span>
+          </div>
         </div>
-        <div class="card-body text-center">
-          <i class="bi bi-clock-history text-warning fs-1"></i>
-          <p class="text-muted mt-2">
-            You have <strong>{{ adminMetrics?.pendingApprovals || 0 }}</strong> timesheets pending approval
-          </p>
-          <a routerLink="/approvals" class="btn btn-warning">
-            <i class="bi bi-eye me-2"></i>
-            Review Approvals
-          </a>
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-clock-history text-warning fs-1 me-3"></i>
+                <div>
+                  <p class="mb-1">
+                    You have <strong class="text-warning">{{ adminMetrics?.pendingApprovals || 0 }}</strong> timesheets awaiting your approval.
+                  </p>
+                  <small class="text-muted">
+                    Regular approval helps maintain project timelines and team productivity.
+                  </small>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+              <a routerLink="/approvals" class="btn btn-warning">
+                <i class="bi bi-eye me-2"></i>
+                Review Approvals
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

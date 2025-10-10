@@ -50,6 +50,96 @@
     </div>
   </div>
 
+  <!-- Export Section -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">
+          <i class="bi bi-download me-2"></i>
+          Export Allocations
+        </h6>
+        <div class="d-flex align-items-center gap-2">
+          <button 
+            class="btn btn-sm" 
+            [class.btn-primary]="selectedExportPeriod() === 'prev-month'"
+            [class.btn-outline-secondary]="selectedExportPeriod() !== 'prev-month'"
+            (click)="setPreviousMonth()" 
+            title="Previous Month">
+            <i class="bi bi-calendar-minus"></i> Prev Month
+          </button>
+          <button 
+            class="btn btn-sm" 
+            [class.btn-primary]="selectedExportPeriod() === 'this-month'"
+            [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-month'"
+            (click)="setCurrentMonth()" 
+            title="Current Month">
+            <i class="bi bi-calendar-check"></i> This Month
+          </button>
+          <button 
+            class="btn btn-sm" 
+            [class.btn-primary]="selectedExportPeriod() === 'this-quarter'"
+            [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-quarter'"
+            (click)="setCurrentQuarter()" 
+            title="Current Quarter">
+            <i class="bi bi-calendar3"></i> This Quarter
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small">From Date</label>
+          <input 
+            type="date" 
+            class="form-control form-control-sm" 
+            [(ngModel)]="exportFromDate"
+            (ngModelChange)="onExportDateChange()"
+            [disabled]="isExporting()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">To Date</label>
+          <input 
+            type="date" 
+            class="form-control form-control-sm" 
+            [(ngModel)]="exportToDate"
+            (ngModelChange)="onExportDateChange()"
+            [disabled]="isExporting()">
+        </div>
+        <div class="col-md-3" *ngIf="viewMode() === 'project'">
+          <label class="form-label small">Selected Project</label>
+          <div class="form-control form-control-sm bg-light">
+            {{ getSelectedProjectName() || 'All Projects' }}
+          </div>
+        </div>
+        <div class="col-md-3" *ngIf="viewMode() === 'employee'">
+          <label class="form-label small">Selected Employee</label>
+          <div class="form-control form-control-sm bg-light">
+            {{ getSelectedEmployeeName() || 'All Employees' }}
+          </div>
+        </div>
+        <div class="col-md-2">
+          <button 
+            class="btn btn-success btn-sm w-100" 
+            (click)="exportToCsv()" 
+            [disabled]="!exportFromDate() || !exportToDate() || isExporting()">
+            <span *ngIf="isExporting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <i *ngIf="!isExporting()" class="bi bi-file-earmark-excel me-2"></i>
+            {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
+          </button>
+        </div>
+      </div>
+      <div class="mt-2">
+        <small class="text-muted">
+          <i class="bi bi-info-circle me-1"></i>
+          Export allocations for the selected date range
+          <span *ngIf="viewMode() === 'project' && selectedProjectId()"> for the selected project</span>
+          <span *ngIf="viewMode() === 'employee' && selectedUserId()"> for the selected employee</span>
+        </small>
+      </div>
+    </div>
+  </div>
+
   <!-- View Mode Tabs -->
   <div class="card mb-4">
     <div class="card-header border-bottom-0">
@@ -193,9 +283,12 @@
               placeholder="Search and select a project..."
               [clearable]="true"
               [searchable]="true"
-              bindLabel="projectName"
+              bindLabel="displayName"
               bindValue="projectId"
-              [items]="availableProjects()">
+              [items]="availableProjectsWithDisplayName()">
+              <ng-option *ngFor="let project of availableProjectsWithDisplayName()" [value]="project.projectId">
+                <span>{{ project.projectName }} <small class="text-muted">- {{ project.clientName }}</small></span>
+              </ng-option>
             </ng-select>
           </div>
         </div>
@@ -349,9 +442,12 @@
                   placeholder="Search and select a project..."
                   [clearable]="false"
                   [searchable]="true"
-                  bindLabel="projectName"
+                  bindLabel="displayName"
                   bindValue="projectId"
-                  [items]="availableProjects()">
+                  [items]="availableProjectsWithDisplayName()">
+                  <ng-option *ngFor="let project of availableProjectsWithDisplayName()" [value]="project.projectId">
+                    <span>{{ project.projectName }} <small class="text-muted">- {{ project.clientName }}</small></span>
+                  </ng-option>
                 </ng-select>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('projectId')?.invalid && allocationForm.get('projectId')?.touched">
@@ -360,28 +456,71 @@
               </div>
             </div>
             
-            <div class="col-md-6">
+            <div class="col-md-3">
               <div class="mb-3">
                 <label class="form-label">Week Start Date *</label>
                 <input 
                   type="date" 
                   class="form-control" 
                   formControlName="weekStartDate"
-                  [disabled]="!!editingAllocation()">
+                  [disabled]="!!editingAllocation()"
+                  (change)="onWeekStartDateChange($any($event.target).value)">
                 <div class="form-text">
-                  <!-- Select the Sunday that starts the work week -->
-                  <div *ngIf="allocationForm.get('weekStartDate')?.value" class="mt-1">
-                    <small class="text-primary">
-                      Week: {{ allocationForm.get('weekStartDate')?.value | date:'mediumDate' }} - 
-                      {{ selectedWeekEndDate() | date:'mediumDate' }}
-                    </small>
-                  </div>
+                  <small class="text-muted">Select the Sunday that starts the work week</small>
                 </div>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('weekStartDate')?.invalid && allocationForm.get('weekStartDate')?.touched">
                   Week start date is required
                 </div>
               </div>
+            </div>
+            
+            <div class="col-md-3">
+              <div class="mb-3">
+                <label class="form-label">Week End Date *</label>
+                <input 
+                  type="date" 
+                  class="form-control" 
+                  formControlName="weekEndDate"
+                  [disabled]="!!editingAllocation()"
+                  (change)="onWeekEndDateChange($any($event.target).value)">
+                <div class="form-text">
+                  <small class="text-muted">Auto-calculated, but editable if needed</small>
+                </div>
+                <div class="invalid-feedback d-block" 
+                     *ngIf="allocationForm.get('weekEndDate')?.invalid && allocationForm.get('weekEndDate')?.touched">
+                  Week end date is required
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi-Month Week Detection -->
+          <div *ngIf="isMultiMonthWeek() && !editingAllocation()" class="mb-4">
+            <div class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>Multi-Month Week Detected!</strong>
+                <p class="mb-2">This week spans multiple months. Separate allocations will be created for each month period for more accurate monthly reporting.</p>
+                <div class="row g-2">
+                  <div class="col-md-12">
+                    <strong>Month Periods:</strong>
+                    <ul class="mb-0 mt-1">
+                      <li *ngFor="let period of monthPeriods()">
+                        {{ period.month }}: {{ period.startDate | date:'shortDate' }} - {{ period.endDate | date:'shortDate' }} ({{ period.days }} days)
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Month Period Allocation Note -->
+          <div *ngIf="isMultiMonthWeek() && monthPeriods().length > 0 && !editingAllocation()" class="mb-4">
+            <div class="alert alert-warning">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Note:</strong> Since this week spans multiple months, separate allocation records will be created for each month period. Each employee will have separate rows for each month period below.
             </div>
           </div>
 
@@ -414,35 +553,75 @@
                 <thead class="table-light">
                   <tr>
                     <th>Employee Name</th>
+                    <th *ngIf="isMultiMonthWeek()">Period</th>
                     <th style="width: 200px;">Allocated Hours</th>
                     <th style="width: 100px;" class="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let employee of selectedEmployeeAllocations(); trackBy: trackByUserId">
-                    <td>
-                      <div class="fw-medium">{{ employee.userName }}</div>
-                    </td>
-                    <td>
-                      <input 
-                        type="number" 
-                        class="form-control" 
-                        [value]="employee.allocatedHours"
-                        (input)="updateEmployeeHours(employee.userId, +$any($event.target).value)"
-                        min="0" 
-                        placeholder="Hours">
-                      <!-- <div class="form-text small">Min: 0h</div> -->
-                    </td>
-                    <td class="text-center">
-                      <button 
-                        type="button" 
-                        class="btn btn-sm btn-outline-danger"
-                        (click)="removeEmployeeAllocation(employee.userId)"
-                        title="Remove employee">
-                        <i class="bi bi-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
+                  <!-- Standard single week view -->
+                  <ng-container *ngIf="!isMultiMonthWeek()">
+                    <tr *ngFor="let employee of selectedEmployeeAllocations(); trackBy: trackByUserId">
+                      <td>
+                        <div class="fw-medium">{{ employee.userName }}</div>
+                      </td>
+                      <td>
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          [value]="employee.allocatedHours"
+                          (input)="updateEmployeeHours(employee.userId, +$any($event.target).value)"
+                          min="0" 
+                          placeholder="Hours">
+                      </td>
+                      <td class="text-center">
+                        <button 
+                          type="button" 
+                          class="btn btn-sm btn-outline-danger"
+                          (click)="removeEmployeeAllocation(employee.userId)"
+                          title="Remove employee">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </ng-container>
+                  
+                  <!-- Multi-month view with multiple rows per employee -->
+                  <ng-container *ngIf="isMultiMonthWeek()">
+                    <ng-container *ngFor="let employee of selectedEmployeeAllocations(); trackBy: trackByUserId">
+                      <tr *ngFor="let period of monthPeriods(); let periodIndex = index; trackBy: trackByPeriodIndex" 
+                          [class.table-secondary]="periodIndex === 0">
+                        <td>
+                          <div class="fw-medium" *ngIf="periodIndex === 0">{{ employee.userName }}</div>
+                          <div *ngIf="periodIndex > 0" class="text-muted" style="padding-left: 20px;">└─ Additional Period</div>
+                        </td>
+                        <td>
+                          <div class="fw-medium">{{ period.month }}</div>
+                          <small class="text-muted">{{ period.startDate | date:'shortDate' }} - {{ period.endDate | date:'shortDate' }} ({{ period.days }} days)</small>
+                        </td>
+                        <td>
+                          <input 
+                            type="number" 
+                            class="form-control" 
+                            [value]="getEmployeePeriodHours(employee.userId, periodIndex)"
+                            (input)="updateEmployeePeriodHours(employee.userId, periodIndex, +$any($event.target).value)"
+                            min="0" 
+                            placeholder="Hours">
+                          <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 40) }} hours</div>
+                        </td>
+                        <td class="text-center">
+                          <button 
+                            *ngIf="periodIndex === 0"
+                            type="button" 
+                            class="btn btn-sm btn-outline-danger"
+                            (click)="removeEmployeeAllocation(employee.userId)"
+                            title="Remove employee">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </ng-container>
+                  </ng-container>
                 </tbody>
               </table>
             </div>

@@ -3,26 +3,48 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
+using OneDc.Services.Interfaces;
+using System.Security.Claims;
 
 namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api")]
 [Authorize]
-public class TasksController : ControllerBase
+public class TasksController : BaseController
 {
     private readonly OneDcDbContext _db;
-    public TasksController(OneDcDbContext db) => _db = db;
+    private readonly IEmailService _emailService;
+    
+    public TasksController(OneDcDbContext db, IEmailService emailService)
+    {
+        _db = db;
+        _emailService = emailService;
+    }
 
     // GET /api/projects/{projectId}/tasks
     [HttpGet("projects/{projectId:guid}/tasks")] 
-    public async Task<ActionResult<IEnumerable<TaskDto>>> List(Guid projectId, [FromQuery] Guid? assignedUserId, [FromQuery] OneDc.Domain.Entities.TaskStatus? status)
+    public async Task<ActionResult<IEnumerable<TaskDto>>> List(Guid projectId, [FromQuery] Guid? assignedUserId, [FromQuery] OneDc.Domain.Entities.TaskStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 15)
     {
         var q = _db.ProjectTasks.AsNoTracking().Where(t => t.ProjectId == projectId);
+        
+        // Role-based filtering: Regular employees can only see tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            q = q.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
         if (assignedUserId.HasValue) q = q.Where(t => t.AssignedUserId == assignedUserId);
         if (status.HasValue) q = q.Where(t => t.Status == status);
 
+        // Apply pagination - sorted by creation date (latest first)
+        var totalCount = await q.CountAsync();
+        var skip = (page - 1) * pageSize;
+        
         var rows = await q.OrderByDescending(t => t.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
             .Select(t => new TaskDto {
                 TaskId = t.TaskId,
                 ProjectId = t.ProjectId,
@@ -37,6 +59,13 @@ public class TasksController : ControllerBase
                 AssignedUserName = t.AssignedUser != null ? t.AssignedUser.FirstName + " " + t.AssignedUser.LastName : null
             })
             .ToListAsync();
+            
+        // Return pagination metadata along with data
+        Response.Headers["X-Total-Count"] = totalCount.ToString();
+        Response.Headers["X-Page"] = page.ToString();
+        Response.Headers["X-Page-Size"] = pageSize.ToString();
+        Response.Headers["X-Total-Pages"] = Math.Ceiling((double)totalCount / pageSize).ToString();
+        
         return Ok(rows);
     }
 
@@ -44,10 +73,19 @@ public class TasksController : ControllerBase
     [HttpGet("tasks/{taskId:guid}")]
     public async Task<ActionResult<TaskDto>> Get(Guid taskId)
     {
-        var t = await _db.ProjectTasks.AsNoTracking()
-            .Include(x => x.AssignedUser)
+        var baseQuery = _db.ProjectTasks.AsNoTracking();
+        
+        // Role-based filtering: Regular employees can only access tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            baseQuery = baseQuery.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
+        var t = await baseQuery.Include(x => x.AssignedUser)
             .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
         return new TaskDto {
             TaskId = t.TaskId,
             ProjectId = t.ProjectId,
@@ -67,10 +105,34 @@ public class TasksController : ControllerBase
     [HttpPost("projects/{projectId:guid}/tasks")] 
     public async Task<ActionResult<TaskDto>> Create(Guid projectId, CreateTaskRequest req)
     {
-        var projectExists = await _db.Projects.AnyAsync(p => p.ProjectId == projectId);
-        if (!projectExists) return BadRequest("Project not found");
+        // Only admin and approver users can create tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can create tasks.");
+        }
+        
+        // Validate date range first (no DB query needed)
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
             return BadRequest("EndDate must be after StartDate");
+
+        // Single optimized query to get project and assignee info if needed
+        var projectQuery = _db.Projects.AsNoTracking().Where(p => p.ProjectId == projectId);
+        AppUser? assignee = null;
+        
+        if (req.AssignedUserId.HasValue)
+        {
+            assignee = await _db.AppUsers.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+        }
+        
+        var project = await projectQuery.FirstOrDefaultAsync();
+        if (project == null) return BadRequest("Project not found");
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && !CanManageProjectTasks(project.DefaultApprover))
+        {
+            return Forbid("You can only create tasks for projects where you are assigned as the project manager.");
+        }
 
         var entity = new ProjectTask {
             TaskId = Guid.NewGuid(),
@@ -86,6 +148,33 @@ public class TasksController : ControllerBase
         };
         _db.ProjectTasks.Add(entity);
         await _db.SaveChangesAsync();
+
+        // Send email notification asynchronously (fire-and-forget) to avoid blocking
+        if (req.AssignedUserId.HasValue && assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
+                    await _emailService.SendTaskAssignmentNotificationAsync(
+                        assignee.WorkEmail,
+                        assigneeName,
+                        entity.Title,
+                        entity.Description ?? "",
+                        project.Name,
+                        entity.StartDate,
+                        entity.EndDate
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the task creation
+                    Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+                }
+            });
+        }
+
         return CreatedAtAction(nameof(Get), new { taskId = entity.TaskId }, new { entity.TaskId });
     }
 
@@ -93,10 +182,30 @@ public class TasksController : ControllerBase
     [HttpPut("tasks/{taskId:guid}")]
     public async Task<IActionResult> Update(Guid taskId, UpdateTaskRequest req)
     {
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        // Only admin and approver users can edit tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can edit tasks.");
+        }
+        
+        var t = await _db.ProjectTasks
+            .Include(x => x.Project)
+            .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && t.Project != null && !CanManageProjectTasks(t.Project.DefaultApprover))
+        {
+            return Forbid("You can only edit tasks for projects where you are assigned as the project manager.");
+        }
+        
         if (req.EndDate.HasValue && req.StartDate.HasValue && req.EndDate < req.StartDate)
             return BadRequest("EndDate must be after StartDate");
+
+        // Check if assignee changed
+        var previousAssigneeId = t.AssignedUserId;
+        var newAssigneeId = req.AssignedUserId;
+        var assigneeChanged = previousAssigneeId != newAssigneeId;
 
         t.Title = req.Title.Trim();
         t.Description = req.Description?.Trim();
@@ -108,6 +217,39 @@ public class TasksController : ControllerBase
         t.Status = req.Status;
         t.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Send email notification asynchronously if task assignee changed and is now assigned to someone
+        if (assigneeChanged && req.AssignedUserId.HasValue)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var assignee = await _db.AppUsers.AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.UserId == req.AssignedUserId.Value);
+                    
+                    if (assignee != null && !string.IsNullOrEmpty(assignee.WorkEmail))
+                    {
+                        var assigneeName = $"{assignee.FirstName} {assignee.LastName}";
+                        await _emailService.SendTaskAssignmentNotificationAsync(
+                            assignee.WorkEmail,
+                            assigneeName,
+                            t.Title,
+                            t.Description ?? "",
+                            t.Project?.Name ?? "Unknown Project",
+                            t.StartDate,
+                            t.EndDate
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the task update
+                    Console.WriteLine($"Failed to send task assignment email: {ex.Message}");
+                }
+            });
+        }
+
         return NoContent();
     }
 
@@ -115,8 +257,18 @@ public class TasksController : ControllerBase
     [HttpPatch("tasks/{taskId:guid}/status")] 
     public async Task<IActionResult> UpdateStatus(Guid taskId, UpdateTaskStatusRequest req)
     {
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        var baseQuery = _db.ProjectTasks.AsQueryable();
+        
+        // Role-based filtering: Regular employees can only update status of tasks assigned to them
+        if (!IsAdminOrApprover())
+        {
+            var currentUserId = GetCurrentUserId();
+            baseQuery = baseQuery.Where(t => t.AssignedUserId == currentUserId);
+        }
+        
+        var t = await baseQuery.FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
         t.Status = req.Status;
         t.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
@@ -127,8 +279,23 @@ public class TasksController : ControllerBase
     [HttpDelete("tasks/{taskId:guid}")]
     public async Task<IActionResult> Delete(Guid taskId)
     {
-        var t = await _db.ProjectTasks.FirstOrDefaultAsync(x => x.TaskId == taskId);
+        // Only admin and approver users can delete tasks
+        if (!IsAdminOrApprover())
+        {
+            return Forbid("Only administrators and approvers can delete tasks.");
+        }
+        
+        var t = await _db.ProjectTasks
+            .Include(x => x.Project)
+            .FirstOrDefaultAsync(x => x.TaskId == taskId);
         if (t == null) return NotFound();
+        
+        // Additional check: If user is approver, ensure they can manage this project
+        if (IsApprover() && t.Project != null && !CanManageProjectTasks(t.Project.DefaultApprover))
+        {
+            return Forbid("You can only delete tasks for projects where you are assigned as the project manager.");
+        }
+        
         _db.ProjectTasks.Remove(t);
         await _db.SaveChangesAsync();
         return NoContent();

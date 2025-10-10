@@ -20,16 +20,6 @@
   padding: 0.25em 0.5em !important;
 }
 
-// Button font sizes
-.btn {
-  font-size: 0.8rem !important;
-  
-  &.btn-sm {
-    font-size: 0.75rem !important;
-    padding: 0.25rem 0.5rem !important;
-  }
-}
-
 // Table font sizes
 .table {
   font-size: 0.8rem !important;
@@ -169,10 +159,6 @@ h2 {
     vertical-align: middle;
     padding: 1rem 0.75rem;
     border-bottom: 1px solid #f3f4f6;
-    
-    &:first-child {
-      border-left: 3px solid var(--custom-primary);
-    }
   }
   
   tbody tr {
@@ -226,53 +212,6 @@ h2 {
 .invalid-feedback {
   font-size: 0.875rem;
   margin-top: 0.25rem;
-}
-
-// Button styling
-.btn {
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-
-  &:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  &.btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-
-    &:hover {
-      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-    }
-  }
-
-  &.btn-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-  }
-}
-
-// Button group styling
-.btn-group {
-  .btn {
-    border-radius: 0.375rem;
-    margin-right: 0.25rem;
-    transition: all 0.2s ease;
-    
-    &:hover {
-      transform: translateY(-1px);
-    }
-    
-    i {
-      font-size: 0.875rem;
-    }
-  }
 }
 
 // Badge styling
@@ -396,24 +335,13 @@ h2 {
 
 // Responsive design
 @media (max-width: 768px) {
-  .card-body {
-    padding: 1rem;
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 1rem;
   }
   
   .table-responsive {
-    font-size: 0.875rem;
-  }
-  
-  .btn-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    width: 100%;
-    
-    .btn {
-      margin-right: 0;
-      width: 100%;
-    }
+    font-size: 0.8rem;
   }
   
   .modal-dialog {

@@ -21,6 +21,12 @@ public interface IOnboardingRepository
     // User existence check
     Task<bool> UserExistsAsync(Guid userId);
     
+    // Get AppUser data for admin-managed fields
+    Task<AppUser?> GetAppUserAsync(Guid userId);
+    
+    // Get manager name
+    Task<string?> GetManagerNameAsync(Guid? managerId);
+    
     // Bulk operations for admin
     Task<IEnumerable<(Guid UserId, string Email, string FirstName, string LastName, bool HasProfile, bool HasSkills)>> GetAllUsersOnboardingDataAsync();
 }

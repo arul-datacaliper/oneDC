@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 
 @Component({
   selector: 'app-admin',
@@ -10,9 +10,4 @@ import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/rou
   styleUrl: './admin.component.scss'
 })
 export class AdminComponent {
-  private router = inject(Router);
-
-  hasActiveChildRoute(): boolean {
-    return this.router.url !== '/admin' && this.router.url.startsWith('/admin/');
-  }
 }

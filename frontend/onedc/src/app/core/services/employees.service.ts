@@ -10,8 +10,16 @@ export class EmployeesService {
   private http = inject(HttpClient);
   private base = `${environment.apiBaseUrl}/employees`; // Back to /employees
 
-  getAll() {
-    return this.http.get<Employee[]>(this.base);
+  getAll(status: string = 'active') {
+    return this.http.get<Employee[]>(`${this.base}?status=${status}`);
+  }
+
+  getCounts() {
+    return this.http.get<{ active: number; inactive: number; total: number }>(`${this.base}/counts`);
+  }
+
+  reactivate(id: string) {
+    return this.http.put(`${this.base}/${id}/reactivate`, {});
   }
 
   getById(id: string) {

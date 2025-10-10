@@ -23,16 +23,6 @@ $primary-color: #2d3f9f;
   padding: 0.25em 0.5em !important;
 }
 
-// Button font sizes
-.btn {
-  font-size: 0.8rem !important;
-  
-  &.btn-sm {
-    font-size: 0.75rem !important;
-    padding: 0.25rem 0.5rem !important;
-  }
-}
-
 // Table font sizes
 .table {
   font-size: 0.8rem !important;
@@ -77,16 +67,6 @@ $primary-color: #2d3f9f;
 
 .card-text {
   font-size: 0.8rem !important;
-}
-
-.btn-primary {
-  background-color: $primary-color;
-  border-color: $primary-color;
-  
-  &:hover, &:focus, &:active {
-    background-color: darken($primary-color, 10%);
-    border-color: darken($primary-color, 10%);
-  }
 }
 
 .text-primary {
@@ -272,13 +252,6 @@ $primary-color: #2d3f9f;
 @media (max-width: 768px) {
   .table-responsive {
     font-size: 0.875rem;
-  }
-  
-  .btn-group {
-    .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.75rem;
-    }
   }
   
   .modal-dialog {

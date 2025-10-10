@@ -8,6 +8,8 @@ export const ADMIN_ROUTES: Routes = [
     component: AdminComponent,
     canActivate: [adminGuard],
     children: [
+      // Default redirect to Holiday Management
+      { path: '', redirectTo: 'holidays', pathMatch: 'full' },
       // Holiday Management
       { 
         path: 'holidays', 
