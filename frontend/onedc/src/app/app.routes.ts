@@ -23,6 +23,7 @@ export const routes: Routes = [
       { path: 'timesheets',loadChildren: () => import('./features/timesheets/routes').then(m => m.TIMESHEETS_ROUTES) },
       { path: 'approvals', loadChildren: () => import('./features/approvals/routes').then(m => m.APPROVALS_ROUTES) },
       { path: 'allocations', loadComponent: () => import('./features/allocations/allocations.component').then(m => m.AllocationsComponent) },
+      { path: 'leave-management', loadComponent: () => import('./features/leave-management/leave-management.component').then(m => m.LeaveManagementComponent) },
       { path: 'reports',   loadChildren: () => import('./features/reports/routes').then(m => m.REPORTS_ROUTES), canActivate: [adminGuard] },
       { path: 'admin',     loadChildren: () => import('./features/admin/routes').then(m => m.ADMIN_ROUTES) },
       { path: 'onboarding', loadChildren: () => import('./features/onboarding/routes').then(m => m.ONBOARDING_ROUTES) },

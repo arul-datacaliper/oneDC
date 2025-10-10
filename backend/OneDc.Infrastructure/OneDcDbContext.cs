@@ -21,6 +21,7 @@ public class OneDcDbContext : DbContext
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
     public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -345,6 +346,45 @@ public class OneDcDbContext : DbContext
             e.HasIndex(x => new { x.Container, x.FileName }).IsUnique();
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.LastAccessedAt);
+        });
+
+        // ===== LeaveRequest =====
+        b.Entity<LeaveRequest>(e =>
+        {
+            e.ToTable("leave_request");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.EmployeeId).IsRequired();
+            e.Property(x => x.StartDate).IsRequired();
+            e.Property(x => x.EndDate).IsRequired();
+            e.Property(x => x.LeaveType).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue("Pending");
+            e.Property(x => x.ApproverId);
+            e.Property(x => x.ApprovedDate);
+            e.Property(x => x.ApproverComments).HasMaxLength(500);
+            e.Property(x => x.CreatedDate).IsRequired();
+            e.Property(x => x.ModifiedDate);
+            e.Property(x => x.TotalDays).IsRequired();
+            e.Property(x => x.IsHalfDay).IsRequired().HasDefaultValue(false);
+            e.Property(x => x.HalfDayPeriod).HasMaxLength(20);
+
+            // Relationships
+            e.HasOne(x => x.Employee)
+                .WithMany()
+                .HasForeignKey(x => x.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.Approver)
+                .WithMany()
+                .HasForeignKey(x => x.ApproverId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            e.HasIndex(x => x.EmployeeId);
+            e.HasIndex(x => x.ApproverId);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => new { x.StartDate, x.EndDate });
+            e.HasIndex(x => x.CreatedDate);
         });
     }
 }

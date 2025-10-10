@@ -47,6 +47,10 @@ Console.WriteLine($"DATABASE_CONNECTION_STRING loaded: {!string.IsNullOrEmpty(te
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddOpenApi();
+
+// Configure Npgsql to use UTC for DateTime conversion
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+
 // DbContext  
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING") ?? 
                        builder.Configuration.GetConnectionString("OneDcDb");
@@ -78,6 +82,9 @@ builder.Services.AddScoped<IUnlockRepository, UnlockRepository>();
 builder.Services.AddScoped<IUnlockService, UnlockService>();
 builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+builder.Services.AddScoped<ILeaveRepository, LeaveRepository>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
+builder.Services.AddScoped<OneDc.Repository.Interfaces.IUserRepository, OneDc.Repository.Implementation.UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 // File Storage Services - Database blob storage for both dev and prod
@@ -127,6 +134,9 @@ builder.Services.AddControllers()
         // Ensure DateOnly serializes as YYYY-MM-DD format
         options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new NullableDateOnlyJsonConverter());
+        // Ensure DateTime is handled as UTC
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeJsonConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
 

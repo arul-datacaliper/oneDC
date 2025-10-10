@@ -80,7 +80,15 @@
         </a>
       </li>
       
-      <!-- 8. Employees -->
+      <!-- 8. Leave Management -->
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/leave-management" routerLinkActive="active">
+          <i class="bi bi-calendar-week"></i>
+          <span class="nav-text">Leave Management</span>
+        </a>
+      </li>
+      
+      <!-- 9. Employees -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/employees" routerLinkActive="active">
           <i class="bi bi-people"></i>
@@ -88,7 +96,7 @@
         </a>
       </li>
       
-      <!-- 9. Reports -->
+      <!-- 10. Reports -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/reports" routerLinkActive="active">
           <i class="bi bi-graph-up"></i>
@@ -96,7 +104,7 @@
         </a>
       </li>
       
-      <!-- 10. Admin -->
+      <!-- 11. Admin -->
       <li class="nav-item" *ngIf="isAdmin()">
         <a class="nav-link" routerLink="/admin" routerLinkActive="active">
           <i class="bi bi-gear"></i>
