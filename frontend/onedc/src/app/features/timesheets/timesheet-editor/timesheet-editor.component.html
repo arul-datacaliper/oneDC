@@ -10,7 +10,9 @@
           <div class="label">Date</div>
           <div class="value">{{ selectedDate() }}</div>
         </div>
-        <button type="button" class="btn btn-outline-primary" (click)="nextDay()">
+        <button type="button" class="btn btn-outline-primary" (click)="nextDay()" 
+                [disabled]="isNextDayFuture()" 
+                [title]="isNextDayFuture() ? 'Cannot navigate to future dates' : 'Next day'">
           Next <i class="bi bi-chevron-right"></i>
         </button>
       </div>
@@ -89,7 +91,17 @@
         <div class="col-md-2">
           <label class="form-label">Date</label>
           <input type="date" class="form-control" [formControl]="newRow.controls.workDate" 
-                 (change)="onDateChange($event)" />
+                 [max]="getTodayDateString()"
+                 (change)="onDateChange($event)"
+                 [class.is-invalid]="newRow.controls.workDate.invalid && newRow.controls.workDate.touched" />
+          <div class="invalid-feedback" *ngIf="newRow.controls.workDate.invalid && newRow.controls.workDate.touched">
+            <div *ngIf="newRow.controls.workDate.errors?.['futureDate']">
+              {{ newRow.controls.workDate.errors?.['futureDate'].message }}
+            </div>
+            <div *ngIf="newRow.controls.workDate.errors?.['required']">
+              Date is required
+            </div>
+          </div>
         </div>
 
         <div class="col-md-3">
@@ -129,11 +141,18 @@
 
         <div class="col-md-2">
           <label class="form-label">Task Type *</label>
-          <select class="form-select" [formControl]="newRow.controls.taskType">
+          <select class="form-select" [formControl]="newRow.controls.taskType"
+                  [class.is-invalid]="newRow.controls.taskType.invalid && newRow.controls.taskType.touched">
+            <option value="" disabled>Select task type</option>
             <option *ngFor="let type of taskTypes" [value]="type.value">
               {{ type.label }}
             </option>
           </select>
+          <div class="invalid-feedback" *ngIf="newRow.controls.taskType.invalid && newRow.controls.taskType.touched">
+            <div *ngIf="newRow.controls.taskType.errors?.['required']">
+              Task type is required
+            </div>
+          </div>
         </div>
 
         <div class="col-md-2">

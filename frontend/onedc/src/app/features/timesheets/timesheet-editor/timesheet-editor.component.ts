@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators, AbstractControl } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
@@ -88,14 +88,21 @@ export class TimesheetEditorComponent implements OnInit {
   // Computed property for task dropdown options based on selected project
   taskOptions = computed<DropdownOption[]>(() => {
     const selectedProjectId = this.newRow.get('projectId')?.value;
-    if (!selectedProjectId) return [];
     
-    const tasks = this.getTasksForProject(selectedProjectId);
-    return tasks.map(task => ({
+    if (!selectedProjectId) {
+      return [];
+    }
+    
+    // Always use the tasks signal as the primary source for reactivity
+    const tasks = this.tasks();
+    
+    const options = tasks.map(task => ({
       value: task.taskId,
       label: task.title,
       searchableText: task.title.toLowerCase()
     }));
+    
+    return options;
   });
 
   // Admin dropdown options
@@ -122,24 +129,54 @@ export class TimesheetEditorComponent implements OnInit {
   taskTypes = getTaskTypes();
   getTaskTypeDisplayName = getTaskTypeDisplayName;
 
+  // Custom validator to prevent future dates
+  futureDateValidator = (control: AbstractControl) => {
+    if (!control.value) return null;
+    
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate > today) {
+      return { futureDate: { message: 'Cannot enter timesheets for future dates' } };
+    }
+    
+    return null;
+  };
+
   // forms
   form = this.fb.group({ items: this.fb.array<FormGroup>([]) });
   get items() { return this.form.get('items') as FormArray<FormGroup>; }
 
   // header add-row form
   newRow = this.fb.group({
-    workDate: [new Date().toISOString().slice(0, 10)],
+    workDate: [new Date().toISOString().slice(0, 10), [Validators.required, this.futureDateValidator]],
     projectId: ['', Validators.required],
     taskId: [''],
     hours: [0, [Validators.min(0), Validators.max(24)]],
     description: [''],
     ticketRef: [''],
-    taskType: [TaskType.DEV, Validators.required]
+    taskType: ['', Validators.required] // Empty string as default, require user selection
   });
 
   onDateChange(event: any) {
     const newDateStr = event.target.value; // YYYY-MM-DD format
     if (newDateStr && newDateStr !== this.selectedDate()) {
+      // Validate that the date is not in the future
+      const selectedDate = new Date(newDateStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate > today) {
+        this.showNotification('Cannot select future dates for timesheets', 'error');
+        // Reset to today's date
+        const todayStr = new Date().toISOString().slice(0, 10);
+        this.newRow.patchValue({ workDate: todayStr }, { emitEvent: false });
+        return;
+      }
+      
       this.selectedDate.set(newDateStr);
       this.load(); // Refresh entries for the new date
     }
@@ -159,9 +196,17 @@ export class TimesheetEditorComponent implements OnInit {
       .reduce((sum, row) => sum + (row.hours || 0), 0);
   });
 
+  // Check if the next day would be in the future
+  isNextDayFuture = computed(() => {
+    const selectedDateStr = this.selectedDate();
+    const utcDate = this.utcDateStringToUtcDate(selectedDateStr);
+    utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+    const nextDateStr = this.toUtcDateString(utcDate);
+    const today = this.getTodayDateString();
+    return nextDateStr > today;
+  });
+
   ngOnInit(): void {
-    console.log('TimesheetEditorComponent: Initializing...'); // Debug log
-    
     // Check if user is admin
     this.isAdmin.set(this.authSvc.isAdmin());
     
@@ -193,14 +238,13 @@ export class TimesheetEditorComponent implements OnInit {
   loadProjects() {
     this.projSvc.getAll().subscribe({
       next: (ps: any[]) => {
-        console.log('Loaded projects:', ps); // Debug log
         // Filter only active projects
         const activeProjects = ps.filter((p: any) => p.status === 'ACTIVE' || !p.status);
         this.projects.set(activeProjects);
       },
       error: (err) => {
         console.error('Failed to load projects:', err);
-                this.showNotification('Failed to load projects', 'error');
+        this.showNotification('Failed to load projects', 'error');
         // Set some mock data for development
         this.projects.set([
           { projectId: '1', clientId: 'client1', code: 'DEMO', name: 'Demo Project', status: 'ACTIVE', billable: true },
@@ -211,7 +255,6 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   load() {
-    console.log('Loading timesheets for date:', this.selectedDate()); // Debug log
     this.loading.set(true);
     
     // Determine which service method to call based on admin status and selections
@@ -238,7 +281,6 @@ export class TimesheetEditorComponent implements OnInit {
     
     timesheetObservable.subscribe({
       next: (data: any[]) => {
-        console.log('Loaded timesheets:', data); // Debug log
         this.rows.set(data as TimesheetEntry[]);
         
         // rebuild form array
@@ -249,12 +291,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.loadTasksForCurrentProjects();
         
         this.loading.set(false);
-        
-        if (data.length === 0) {
-          console.log('No timesheet entries found for this date');
-        } else {
-          console.log(`Loaded ${data.length} timesheet entries for ${this.selectedDate()}`);
-        }
       },
       error: (err) => {
         console.error('Failed to load timesheets:', err);
@@ -271,12 +307,40 @@ export class TimesheetEditorComponent implements OnInit {
 
   private loadTasksForProject(projectId: string) {
     if (!projectId) return;
-    if (this.tasksByProject[projectId]) return; // cache
-    this.tasksSvc.list(projectId).subscribe(response => {
-      this.tasksByProject[projectId] = response.tasks;
+    
+    // Create cache key based on project and user context
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
+    // Check cache with appropriate key
+    if (this.tasksByProject[cacheKey]) {
+      // If we have cached data, use it
       if (projectId === this.newRow.get('projectId')?.value) {
-        // trigger change detection if needed
-        this.tasks.set(response.tasks);
+        this.tasks.set(this.tasksByProject[cacheKey]);
+      }
+      return;
+    }
+    
+    // For non-admin users, filter tasks by the current user's assignments
+    const filterOptions: { assignedUserId?: string } = {};
+    
+    // Only filter by current user if not an admin
+    if (isUserSpecific) {
+      filterOptions.assignedUserId = currentUser.userId;
+    }
+    
+    this.tasksSvc.list(projectId, filterOptions).subscribe({
+      next: response => {
+        // Cache with the appropriate key
+        this.tasksByProject[cacheKey] = response.tasks;
+        
+        if (projectId === this.newRow.get('projectId')?.value) {
+          this.tasks.set(response.tasks);
+        }
+      },
+      error: error => {
+        console.error('Error loading tasks:', error);
       }
     });
   }
@@ -294,16 +358,36 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   getTasksForProject(projectId: string | null | undefined): ProjectTask[] {
-    if (!projectId) return [];
-    return this.tasksByProject[projectId] || [];
+    if (!projectId) {
+      return [];
+    }
+    
+    // Use the same cache key logic as loadTasksForProject
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
+    const result = this.tasksByProject[cacheKey] || [];
+    
+    // If this is for the currently selected project, update the signal to trigger reactivity
+    if (projectId === this.newRow.get('projectId')?.value && result.length > 0) {
+      this.tasks.set(result);
+    }
+    
+    return result;
   }
 
   // Get task options for a specific project (used in edit mode)
   getTaskOptionsForProject(projectId: string | null | undefined): DropdownOption[] {
     if (!projectId) return [];
     
+    // Use the same cache key logic
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
     // Ensure tasks are loaded for this project
-    if (!this.tasksByProject[projectId]) {
+    if (!this.tasksByProject[cacheKey]) {
       this.loadTasksForProject(projectId);
       return [];
     }
@@ -319,7 +403,7 @@ export class TimesheetEditorComponent implements OnInit {
   buildRow(r: TimesheetEntry) {
     const g = this.fb.group({
       entryId: [r.entryId],
-      workDate: [r.workDate, Validators.required],
+      workDate: [r.workDate, [Validators.required, this.futureDateValidator]],
       projectId: [r.projectId, Validators.required],
       taskId: [r.taskId || ''],
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
@@ -340,9 +424,7 @@ export class TimesheetEditorComponent implements OnInit {
   addRow() : void {
     if (this.submitting()) return; // Prevent multiple submissions
     
-    console.log('addRow: Starting...'); // Debug log
     const val = this.newRow.value;
-    console.log('addRow: Form value:', val); // Debug log
     
     // validations
     const hours = Number(val.hours ?? 0);
@@ -358,6 +440,10 @@ export class TimesheetEditorComponent implements OnInit {
       this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
+    if (val.taskType === null || val.taskType === undefined || val.taskType === '') {
+      this.showNotification('Please select a task type', 'OK', { duration: 2000 });
+      return;
+    }
 
     this.submitting.set(true); // Set submitting state
 
@@ -367,15 +453,12 @@ export class TimesheetEditorComponent implements OnInit {
       hours,
       description: val.description?.trim() || undefined,
       ticketRef: val.ticketRef?.trim() || undefined,
-      taskType: val.taskType ?? TaskType.DEV,
+      taskType: Number(val.taskType) as TaskType,
       taskId: val.taskId || undefined
     };
 
-    console.log('addRow: DTO to send:', dto); // Debug log
-
     this.tsSvc.create(dto).subscribe({
       next: (created: any) => {
-        console.log('addRow: Created entry:', created); // Debug log
         this.showNotification('Draft entry created', 'OK', { duration: 1500 });
         this.newRow.reset({
           workDate: this.selectedDate(), // Already in YYYY-MM-DD format
@@ -384,16 +467,13 @@ export class TimesheetEditorComponent implements OnInit {
           hours: 0,
           description: '',
           ticketRef: '',
-          taskType: TaskType.DEV
+          taskType: ''
         });
         
         // Instead of manually adding to rows/items, reload the data to ensure consistency
-        console.log('addRow: Reloading data to ensure UI consistency'); // Debug log
         this.load();
       },
       error: err => {
-        console.error('addRow: Error creating entry:', err); // Debug log
-        
         // Handle specific error messages
         let errorMessage = 'Failed to create entry';
         if (err?.error?.includes && err.error.includes('Daily cap exceeded')) {
@@ -526,13 +606,30 @@ export class TimesheetEditorComponent implements OnInit {
     const selectedDateStr = this.selectedDate();
     const utcDate = this.utcDateStringToUtcDate(selectedDateStr);
     utcDate.setUTCDate(utcDate.getUTCDate() + 1); 
-    this.selectedDate.set(this.toUtcDateString(utcDate)); 
+    
+    const nextDateStr = this.toUtcDateString(utcDate);
+    const today = this.getTodayDateString();
+    
+    // Don't allow navigation to future dates
+    if (nextDateStr > today) {
+      this.showNotification('Cannot navigate to future dates', 'OK', { duration: 2000 });
+      return;
+    }
+    
+    this.selectedDate.set(nextDateStr); 
     this.updateNewRowDate();
     this.load(); 
   }
 
   // UTC Date handling methods
   
+  /**
+   * Gets today's date as a string in YYYY-MM-DD format for use in date input max attribute
+   */
+  getTodayDateString(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   /**
    * Converts a local Date object to UTC date string (YYYY-MM-DD)
    * This treats the input as a "date" rather than a timestamp
@@ -642,8 +739,13 @@ export class TimesheetEditorComponent implements OnInit {
   getTaskTitle(projectId: string | null | undefined, taskId: string | null | undefined): string {
     if (!taskId || !projectId) return 'No task selected';
     
+    // Use the same cache key logic
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
     // If tasks aren't loaded for this project yet, try to load them
-    if (!this.tasksByProject[projectId]) {
+    if (!this.tasksByProject[cacheKey]) {
       this.loadTasksForProject(projectId);
       return 'Loading...';
     }
