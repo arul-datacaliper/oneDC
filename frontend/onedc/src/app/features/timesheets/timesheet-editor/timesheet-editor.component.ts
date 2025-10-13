@@ -473,15 +473,35 @@ export class TimesheetEditorComponent implements OnInit {
         // Instead of manually adding to rows/items, reload the data to ensure consistency
         this.load();
       },
-      error: err => {
+      error: (err) => {
+        console.error('Create entry error:', err); // Keep for debugging
+        
         // Handle specific error messages
         let errorMessage = 'Failed to create entry';
+        
+        // Check for specific daily cap error first
         if (err?.error?.includes && err.error.includes('Daily cap exceeded')) {
           errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
-        } else if (err?.message) {
-          errorMessage = err.message;
-        } else if (err?.error) {
-          errorMessage = err.error;
+        } else {
+          // Use the same error extraction logic as submit
+          if (err?.error) {
+            if (typeof err.error === 'string') {
+              errorMessage = err.error;
+            } else if (typeof err.error === 'object' && err.error?.error) {
+              errorMessage = err.error.error;
+            } else if (typeof err.error === 'object' && err.error?.message) {
+              errorMessage = err.error.message;
+            } else if (typeof err.error === 'object') {
+              const errorObj = err.error;
+              if (errorObj.error || errorObj.message || errorObj.details) {
+                errorMessage = errorObj.error || errorObj.message || errorObj.details;
+              } else {
+                errorMessage = Object.values(errorObj)[0] as string || 'Failed to create entry';
+              }
+            }
+          } else if (err?.message) {
+            errorMessage = err.message;
+          }
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 4000 });
@@ -540,7 +560,33 @@ export class TimesheetEditorComponent implements OnInit {
         this.showNotification('Saved', 'OK', { duration: 1200 });
         this.exitEditMode(); // Exit edit mode after successful save
       },
-      error: err => this.showNotification(err?.error ?? 'Save failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Update entry error:', err); // Keep for debugging
+        
+        // Extract error message using the same logic as other operations
+        let errorMessage = 'Save failed';
+        
+        if (err?.error) {
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          } else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          } else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          } else if (typeof err.error === 'object') {
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              errorMessage = Object.values(errorObj)[0] as string || 'Save failed';
+            }
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 2500 });
+      }
     });
   }
 
@@ -565,7 +611,44 @@ export class TimesheetEditorComponent implements OnInit {
         
         this.showNotification('Submitted for approval', 'OK', { duration: 1500 });
       },
-      error: err => this.showNotification(err?.error ?? 'Submit failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Submit error:', err); // Keep for debugging
+        
+        // Extract error message from various possible error structures
+        let errorMessage = 'Submit failed';
+        
+        if (err?.error) {
+          // Handle string error response
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          }
+          // Handle object error response with 'error' property (like {"error":"Cannot submit another user's timesheet."})
+          else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          }
+          // Handle object error response with 'message' property  
+          else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          }
+          // Handle plain object that might be a JSON response
+          else if (typeof err.error === 'object') {
+            // If it's a JSON object, try to extract meaningful message
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              // Fallback: stringify the object but make it user-friendly
+              errorMessage = Object.values(errorObj)[0] as string || 'Submit failed';
+            }
+          }
+        } 
+        // Handle error with direct message property
+        else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 3000 });
+      }
     });
   }
 
@@ -588,7 +671,33 @@ export class TimesheetEditorComponent implements OnInit {
         
         this.showNotification('Deleted', 'OK', { duration: 1200 });
       },
-      error: err => this.showNotification(err?.error ?? 'Delete failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Delete entry error:', err); // Keep for debugging
+        
+        // Extract error message using the same logic as other operations
+        let errorMessage = 'Delete failed';
+        
+        if (err?.error) {
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          } else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          } else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          } else if (typeof err.error === 'object') {
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              errorMessage = Object.values(errorObj)[0] as string || 'Delete failed';
+            }
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 2500 });
+      }
     });
   }
 
