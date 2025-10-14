@@ -16,5 +16,7 @@ public class Project
   public decimal? BudgetCost { get; set; }
   public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     
-     public Client? Client { get; set; }
+  // Navigation properties
+  public Client? Client { get; set; }
+  public ICollection<ProjectMember> ProjectMembers { get; set; } = new List<ProjectMember>();
 }

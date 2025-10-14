@@ -22,6 +22,7 @@ public class OneDcDbContext : DbContext
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
     public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -346,6 +347,31 @@ public class OneDcDbContext : DbContext
             e.HasIndex(x => new { x.Container, x.FileName }).IsUnique();
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.LastAccessedAt);
+        });
+
+        // ===== ProjectMember =====
+        b.Entity<ProjectMember>(e =>
+        {
+            e.ToTable("project_member");
+            e.HasKey(x => new { x.ProjectId, x.UserId }); // Composite primary key
+            e.Property(x => x.ProjectRole).IsRequired();
+            e.Property(x => x.CreatedAt).IsRequired();
+
+            // 🔗 ProjectMember → Project (many-to-one)
+            e.HasOne(pm => pm.Project)
+             .WithMany(p => p.ProjectMembers)
+             .HasForeignKey(pm => pm.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // 🔗 ProjectMember → AppUser (many-to-one)
+            e.HasOne(pm => pm.User)
+             .WithMany(u => u.ProjectMemberships)
+             .HasForeignKey(pm => pm.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.UserId);
         });
 
         // ===== LeaveRequest =====

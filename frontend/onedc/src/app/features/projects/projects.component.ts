@@ -3,12 +3,17 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 
-import { ProjectsService } from '../../core/services/projects.service';
+import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
 import { UsersService } from '../../core/services/users.service';
 import { Project, Client } from '../../shared/models';
 import { AppUser } from '../../core/services/users.service';
 import { ToastrService } from 'ngx-toastr';
+
+// Interface for project members
+export interface ProjectMember extends AppUser {
+  projectRole?: 'MEMBER' | 'LEAD' | 'CONTRIBUTOR' | 'REVIEWER';
+}
 
 @Component({
   selector: 'app-projects',
@@ -28,17 +33,23 @@ export class ProjectsComponent implements OnInit {
   Math = Math;
 
   // Signals for reactive state management
-  projects = signal<Project[]>([]);
+  projects = signal<ProjectResponseDto[]>([]);
   clients = signal<Client[]>([]);
   users = signal<AppUser[]>([]);
-  filteredProjects = signal<Project[]>([]);
+  filteredProjects = signal<ProjectResponseDto[]>([]);
   loading = signal<boolean>(false);
   submitting = signal<boolean>(false); // Add submitting state to prevent duplicate submissions
   showModal = signal<boolean>(false);
-  editingProject = signal<Project | null>(null);
+  editingProject = signal<ProjectResponseDto | null>(null);
+  showViewModal = signal<boolean>(false);
+  viewingProject = signal<ProjectResponseDto | null>(null);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
   clientFilter = signal<string>('');
+  
+  // Project members functionality
+  selectedProjectMembers = signal<ProjectMember[]>([]);
+  selectedMemberToAdd = signal<string | null>(null);
   
   // Pagination
   pageSize = signal<number>(10);
@@ -57,6 +68,15 @@ export class ProjectsComponent implements OnInit {
       ...user,
       displayName: `${user.firstName} ${user.lastName}`
     }));
+  });
+
+  availableMembersForSelection = computed(() => {
+    const allUsers = this.users().map(user => ({
+      ...user,
+      displayName: `${user.firstName} ${user.lastName}`
+    }));
+    const selectedMemberIds = this.selectedProjectMembers().map(member => member.userId);
+    return allUsers.filter(user => !selectedMemberIds.includes(user.userId));
   });
 
   // Form
@@ -132,7 +152,7 @@ export class ProjectsComponent implements OnInit {
 
   loadProjects() {
     this.loading.set(true);
-    this.projectsService.getAll().subscribe({
+    this.projectsService.getAllWithMembers().subscribe({
       next: (data) => {
         console.log('Projects loaded:', data);
         this.projects.set(data);
@@ -177,7 +197,9 @@ export class ProjectsComponent implements OnInit {
 
   loadUsers() {
     this.usersService.list(true).subscribe({
-      next: (data) => this.users.set(data),
+      next: (data) => {
+        this.users.set(data);
+      },
       error: (err) => console.error('Failed to load users:', err)
     });
   }
@@ -229,10 +251,12 @@ export class ProjectsComponent implements OnInit {
       status: 'ACTIVE',
       billable: true
     });
+    this.selectedProjectMembers.set([]);
+    this.selectedMemberToAdd.set(null);
     this.showModal.set(true);
   }
 
-  openEditModal(project: Project) {
+  openEditModal(project: ProjectResponseDto) {
     this.editingProject.set(project);
     this.projectForm.patchValue({
       code: project.code,
@@ -247,13 +271,85 @@ export class ProjectsComponent implements OnInit {
       budgetHours: project.budgetHours || '',
       budgetCost: project.budgetCost || ''
     });
+    
+    // Load existing project members
+    const existingMembers: ProjectMember[] = project.projectMembers.map(pm => ({
+      userId: pm.userId,
+      firstName: pm.firstName,
+      lastName: pm.lastName,
+      email: pm.email,
+      role: pm.role,
+      isActive: true,
+      jobTitle: pm.jobTitle,
+      department: pm.department,
+      projectRole: pm.projectRole
+    }));
+    
+    this.selectedProjectMembers.set(existingMembers);
+    this.selectedMemberToAdd.set(null);
+    
     this.showModal.set(true);
   }
 
   closeModal() {
     this.showModal.set(false);
     this.editingProject.set(null);
+    this.selectedProjectMembers.set([]);
+    this.selectedMemberToAdd.set(null);
     this.projectForm.reset();
+  }
+
+  // View Modal Methods
+  openViewModal(project: ProjectResponseDto) {
+    this.viewingProject.set(project);
+    this.showViewModal.set(true);
+  }
+
+  closeViewModal() {
+    this.showViewModal.set(false);
+    this.viewingProject.set(null);
+  }
+
+  openEditModalFromView() {
+    const project = this.viewingProject();
+    if (project) {
+      this.closeViewModal();
+      this.openEditModal(project);
+    }
+  }
+
+  // Project Members Methods
+  onMemberAdd(userId: string | null) {
+    if (!userId) return;
+    
+    const user = this.users().find(u => u.userId === userId);
+    if (!user) return;
+    
+    const projectMember: ProjectMember = {
+      ...user,
+      projectRole: 'MEMBER'
+    };
+    
+    this.selectedProjectMembers.update(members => [...members, projectMember]);
+    this.selectedMemberToAdd.set(null);
+  }
+
+  removeMember(userId: string) {
+    this.selectedProjectMembers.update(members => 
+      members.filter(member => member.userId !== userId)
+    );
+  }
+
+  updateMemberProjectRole(userId: string, role: 'MEMBER' | 'LEAD' | 'CONTRIBUTOR' | 'REVIEWER') {
+    this.selectedProjectMembers.update(members =>
+      members.map(member =>
+        member.userId === userId ? { ...member, projectRole: role } : member
+      )
+    );
+  }
+
+  trackByMemberId(index: number, member: ProjectMember): string {
+    return member.userId;
   }
 
   onSubmit() {
@@ -261,10 +357,16 @@ export class ProjectsComponent implements OnInit {
       this.submitting.set(true); // Prevent multiple submissions
       const formData = this.projectForm.value;
       
+      // Prepare project members data
+      const projectMembers: ProjectMemberDto[] = this.selectedProjectMembers().map(member => ({
+        userId: member.userId,
+        projectRole: member.projectRole || 'MEMBER'
+      }));
+      
       if (this.editingProject()) {
-        // Update existing project - send complete object
-        const projectData = {
-          ...this.editingProject()!, // Start with existing project data
+        // Update existing project with members
+        const projectUpdateDto: ProjectUpdateDto = {
+          projectId: this.editingProject()!.projectId,
           code: formData.code,
           name: formData.name,
           clientId: formData.clientId,
@@ -275,12 +377,13 @@ export class ProjectsComponent implements OnInit {
           endDate: formData.endDate || undefined,
           plannedReleaseDate: formData.plannedReleaseDate || undefined,
           budgetHours: formData.budgetHours ? parseFloat(formData.budgetHours) : undefined,
-          budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined
+          budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined,
+          projectMembers: projectMembers
         };
         
-        console.log('Updating project with data:', projectData);
+        console.log('Updating project with members:', projectUpdateDto);
         
-        this.projectsService.update(this.editingProject()!.projectId, projectData).subscribe({
+        this.projectsService.updateWithMembers(this.editingProject()!.projectId, projectUpdateDto).subscribe({
           next: () => {
             this.toastr.success('Project updated successfully');
             this.loadProjects();
@@ -309,8 +412,8 @@ export class ProjectsComponent implements OnInit {
           }
         });
       } else {
-        // Create new project
-        const projectData = {
+        // Create new project with members
+        const projectCreateDto: ProjectCreateDto = {
           code: formData.code,
           name: formData.name,
           clientId: formData.clientId,
@@ -321,12 +424,13 @@ export class ProjectsComponent implements OnInit {
           endDate: formData.endDate || undefined,
           plannedReleaseDate: formData.plannedReleaseDate || undefined,
           budgetHours: formData.budgetHours ? parseFloat(formData.budgetHours) : undefined,
-          budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined
+          budgetCost: formData.budgetCost ? parseFloat(formData.budgetCost) : undefined,
+          projectMembers: projectMembers
         };
         
-        console.log('Creating project with data:', projectData);
+        console.log('Creating project with members:', projectCreateDto);
         
-        this.projectsService.create(projectData).subscribe({
+        this.projectsService.createWithMembers(projectCreateDto).subscribe({
           next: () => {
             this.toastr.success('Project created successfully');
             this.loadProjects();
@@ -360,7 +464,7 @@ export class ProjectsComponent implements OnInit {
     }
   }
 
-  deleteProject(project: Project) {
+  deleteProject(project: ProjectResponseDto) {
     if (confirm(`Are you sure you want to delete project "${project.name}"?`)) {
       this.projectsService.delete(project.projectId).subscribe({
         next: () => {
@@ -407,11 +511,11 @@ export class ProjectsComponent implements OnInit {
   }
 
   // Helper methods
-  trackByProjectId(index: number, project: Project): string {
+  trackByProjectId(index: number, project: ProjectResponseDto): string {
     return project.projectId;
   }
 
-  getClientName(clientId: string, project?: Project): string {
+  getClientName(clientId: string, project?: ProjectResponseDto): string {
     // Primary approach: Use client data loaded with the project
     if (project?.client) {
       return project.client.name;
@@ -486,5 +590,37 @@ export class ProjectsComponent implements OnInit {
       }
     }
     return '';
+  }
+
+  // Utility methods for view modal
+  formatDate(dateString: string | undefined): string {
+    if (!dateString) return 'Not set';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid date';
+    }
+  }
+
+  getProjectManagerName(userId: string): string {
+    if (!userId) return 'Not assigned';
+    const user = this.users().find(u => u.userId === userId);
+    return user ? `${user.firstName} ${user.lastName}` : 'Unknown user';
+  }
+
+  getProjectRoleBadgeClass(role: string): string {
+    switch (role) {
+      case 'LEAD': return 'bg-primary';
+      case 'CONTRIBUTOR': return 'bg-info';
+      case 'REVIEWER': return 'bg-warning text-dark';
+      case 'MEMBER': 
+      default: return 'bg-secondary';
+    }
   }
 }

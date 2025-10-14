@@ -3,6 +3,56 @@
   font-size: 0.85rem;
 }
 
+// Clickable table rows
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  background-color: rgba(13, 110, 253, 0.05) !important;
+}
+
+// Dropdown visibility fixes
+.table-responsive {
+  overflow: visible !important;
+}
+
+.card-body {
+  overflow: visible !important;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute !important;
+  z-index: 1050 !important;
+  min-width: 160px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  background-color: white !important;
+}
+
+// Ensure dropdown shows on top
+.dropdown-menu.show {
+  display: block !important;
+  top: 100% !important;
+  right: 0 !important;
+}
+
+// Table and container overflow fixes
+td .dropdown {
+  overflow: visible !important;
+}
+
+.container-fluid,
+.row,
+.col-12,
+.col-md-6 {
+  overflow: visible !important;
+}
+
 // Reduced font sizes for all form elements
 .form-label {
   font-size: 0.75rem !important;

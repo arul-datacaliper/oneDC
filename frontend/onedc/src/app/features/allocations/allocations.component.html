@@ -122,11 +122,13 @@
                     <th>Project</th>
                     <th class="text-center">Employees</th>
                     <th class="text-center">Hours</th>
-                    <th class="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let project of projectSummary()">
+                  <tr *ngFor="let project of projectSummary()" 
+                      class="cursor-pointer" 
+                      (click)="onProjectSelect(project.projectId)"
+                      title="Click to view project details">
                     <td>
                       <div class="fw-medium">{{ project.projectName }}</div>
                       <small class="text-muted">{{ project.utilizationPercentage }}% utilized</small>
@@ -135,13 +137,6 @@
                       <span class="badge bg-secondary">{{ project.totalEmployees }}</span>
                     </td>
                     <td class="text-center">{{ project.totalAllocatedHours }}h</td>
-                    <td class="text-center">
-                      <button 
-                        class="btn btn-sm btn-outline-primary"
-                        (click)="onProjectSelect(project.projectId)">
-                        View Details
-                      </button>
-                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -163,11 +158,13 @@
                     <th>Employee</th>
                     <th class="text-center">Projects</th>
                     <th class="text-center">Hours</th>
-                    <th class="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let employee of employeeSummary()">
+                  <tr *ngFor="let employee of employeeSummary()" 
+                      class="cursor-pointer" 
+                      (click)="onEmployeeSelect(employee.userId)"
+                      title="Click to view employee details">
                     <td>
                       <div class="fw-medium">{{ employee.userName }}</div>
                       <small class="text-muted">{{ employee.utilizationPercentage }}% capacity</small>
@@ -176,13 +173,6 @@
                       <span class="badge bg-info">{{ employee.totalProjects }}</span>
                     </td>
                     <td class="text-center">{{ employee.totalAllocatedHours }}h</td>
-                    <td class="text-center">
-                      <button 
-                        class="btn btn-sm btn-outline-primary"
-                        (click)="onEmployeeSelect(employee.userId)">
-                        View Details
-                      </button>
-                    </td>
                   </tr>
                 </tbody>
               </table>
