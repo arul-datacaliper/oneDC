@@ -503,16 +503,62 @@
             </div>
           </div>
 
+          <!-- Project Members Information -->
+          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length > 0" class="mb-4">
+            <div class="alert alert-success d-flex align-items-start">
+              <i class="bi bi-people-fill me-2 mt-1"></i>
+              <div class="flex-grow-1">
+                <strong>Project Team Members Auto-Added!</strong>
+                <p class="mb-2">{{ projectMembers().length }} team members have been automatically added to the allocation:</p>
+                <div class="row g-2">
+                  <div class="col-md-12">
+                    <ul class="mb-0 mt-1">
+                      <li *ngFor="let member of projectMembers()">
+                        <strong>{{ member.userName }}</strong> - {{ member.projectRole }} 
+                        <small class="text-muted">({{ member.role }})</small>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Please enter allocation hours for each team member. You can also add additional members or remove members as needed below.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Members Not Found -->
+          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length === 0" class="mb-4">
+            <div class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>No Project Team Members Found</strong>
+                <p class="mb-0">This project doesn't have any team members assigned. You can manually add employees for allocation using the dropdown below.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Employee Selection Section -->
           <div *ngIf="!editingAllocation()" class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h6 class="mb-0">Employee Allocations</h6>
               <div class="d-flex align-items-center gap-3">
+                <button 
+                  *ngIf="allocationForm.get('projectId')?.value && projectMembers().length > 0"
+                  type="button" 
+                  class="btn btn-outline-primary btn-sm"
+                  (click)="resetToProjectDefaults()"
+                  title="Reset to project team defaults">
+                  <i class="bi bi-arrow-clockwise me-1"></i>
+                  Reset to Project Defaults
+                </button>
+                <small class="text-muted me-2">Add additional members:</small>
                 <ng-select 
                   [ngModel]="selectedEmployeeForDropdown()"
                   (ngModelChange)="onEmployeeAdd($event)"
                   [ngModelOptions]="{standalone: true}"
-                  placeholder="Search and select an employee to add..."
+                  placeholder="Search and add more employees..."
                   [clearable]="true"
                   [searchable]="true"
                   bindLabel="userName"

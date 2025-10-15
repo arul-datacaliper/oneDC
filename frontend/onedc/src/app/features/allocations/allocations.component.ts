@@ -59,6 +59,7 @@ export class AllocationsComponent implements OnInit {
   employeeSummary = signal<EmployeeAllocationSummary[]>([]);
   availableProjects = signal<{projectId: string, projectName: string, clientName: string, status: string}[]>([]);
   availableEmployees = signal<{userId: string, userName: string, role: string}[]>([]);
+  projectMembers = signal<{userId: string, userName: string, role: string, projectRole: string}[]>([]);
   
   // Computed properties
   availableProjectsWithDisplayName = computed(() => {
@@ -183,6 +184,13 @@ export class AllocationsComponent implements OnInit {
       }
     });
 
+    // Track project selection changes and load project members
+    this.allocationForm.get('projectId')?.valueChanges.subscribe(projectId => {
+      if (projectId && !this.editingAllocation()) {
+        this.loadProjectMembers(projectId);
+      }
+    });
+
     // Initialize with current week
     const today = new Date();
     this.currentWeekStart.set(this.allocationService.getWeekStartDate(today));
@@ -284,6 +292,68 @@ export class AllocationsComponent implements OnInit {
       },
       error: (error) => console.error('Error loading employees:', error)
     });
+  }
+
+  private loadProjectMembers(projectId: string) {
+    if (!projectId) {
+      this.projectMembers.set([]);
+      return;
+    }
+
+    this.projectService.getByIdWithMembers(projectId).subscribe({
+      next: (projectDetails) => {
+        const members = projectDetails.projectMembers.map(member => ({
+          userId: member.userId,
+          userName: `${member.firstName} ${member.lastName}`,
+          role: member.role,
+          projectRole: member.projectRole
+        }));
+        this.projectMembers.set(members);
+        
+        // Auto-add project members to the allocation list with default hours
+        this.autoAddProjectMembers(members);
+      },
+      error: (error) => {
+        console.error('Error loading project members:', error);
+        this.projectMembers.set([]);
+      }
+    });
+  }
+
+  private autoAddProjectMembers(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
+    // Clear existing allocations first
+    this.selectedEmployeeAllocations.set([]);
+    
+    // Add all project members without default hours - let users enter appropriate hours
+    const allocations: EmployeeAllocation[] = members.map(member => {
+      const allocation: EmployeeAllocation = {
+        userId: member.userId,
+        userName: member.userName,
+        allocatedHours: 0 // No default hours - users should enter appropriate values
+      };
+
+      // Initialize periodHours if multi-month week is detected
+      if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+        allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+      }
+
+      return allocation;
+    });
+
+    this.selectedEmployeeAllocations.set(allocations);
+    this.updateAvailableEmployeesForSelection();
+    
+    if (members.length > 0) {
+      this.toastr.info(`Auto-added ${members.length} project team members. Please enter allocation hours for each member.`);
+    }
+  }
+
+  resetToProjectDefaults() {
+    const projectMembers = this.projectMembers();
+    if (projectMembers.length > 0) {
+      this.autoAddProjectMembers(projectMembers);
+      this.toastr.success('Reset to project team defaults successfully');
+    }
   }
 
   onWeekChange(direction: 'prev' | 'next') {
@@ -393,6 +463,7 @@ export class AllocationsComponent implements OnInit {
     });
     this.formWeekStartDate.set(currentWeek); // Update signal manually for initial value
     this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]); // Clear project members
     this.selectedEmployeeForDropdown.set(null);
     this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
@@ -428,6 +499,7 @@ export class AllocationsComponent implements OnInit {
     this.showCreateModal.set(false);
     this.editingAllocation.set(null);
     this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]); // Clear project members
     this.formWeekStartDate.set(''); // Clear the signal
     this.allocationForm.reset();
   }
