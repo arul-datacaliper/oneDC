@@ -12,7 +12,8 @@ namespace OneDc.Services.Implementation
         private readonly ILogger<LeaveService> _logger;
 
         // Leave policies - these could be moved to configuration
-        private const int ANNUAL_LEAVE_DAYS = 25;
+        private const int ANNUAL_LEAVE_DAYS_SENIOR = 25; // For employees with 1+ years of service
+        private const int ANNUAL_LEAVE_DAYS_JUNIOR = 15; // For employees with less than 1 year of service
         private readonly string[] LEAVE_TYPES = { "Annual", "Sick", "Personal", "Emergency", "Maternity", "Paternity", "Bereavement" };
 
         public LeaveService(ILeaveRepository leaveRepository, IUserRepository userRepository, ILogger<LeaveService> logger)
@@ -24,11 +25,11 @@ namespace OneDc.Services.Implementation
 
         public async Task<LeaveRequest> CreateLeaveRequestAsync(LeaveRequestCreateDto dto)
         {
-            // Validate the request
-            var isValid = await ValidateLeaveRequestAsync(dto);
-            if (!isValid)
+            // Validate the request with detailed error messages
+            var validationResult = await ValidateLeaveRequestWithDetailsAsync(dto);
+            if (!validationResult.IsValid)
             {
-                throw new InvalidOperationException("Invalid leave request");
+                throw new InvalidOperationException(validationResult.ErrorMessage);
             }
 
             // Get the employee details to find their manager
@@ -87,10 +88,10 @@ namespace OneDc.Services.Implementation
             }
 
             // Validate the updated request
-            var isValid = await ValidateLeaveRequestAsync(dto, employeeId);
-            if (!isValid)
+            var validationResult = await ValidateLeaveRequestUpdateWithDetailsAsync(dto, employeeId);
+            if (!validationResult.IsValid)
             {
-                throw new InvalidOperationException("Invalid leave request update");
+                throw new InvalidOperationException(validationResult.ErrorMessage);
             }
 
             // Calculate total days
@@ -238,7 +239,78 @@ namespace OneDc.Services.Implementation
                 return false;
             }
 
+            // Check leave balance
+            var employee = await _userRepository.GetByIdAsync(dto.EmployeeId);
+            if (employee == null || employee.DateOfJoining == null)
+            {
+                return false;
+            }
+
+            var requestedDays = CalculateLeaveDays(dto.StartDate, dto.EndDate, dto.IsHalfDay);
+            var currentYear = dto.StartDate.Year;
+            var balance = await GetLeaveBalanceAsync(dto.EmployeeId, currentYear);
+            
+            if (requestedDays > balance.RemainingDays)
+            {
+                return false; // Insufficient leave balance
+            }
+
             return true;
+        }
+
+        private async Task<(bool IsValid, string ErrorMessage)> ValidateLeaveRequestWithDetailsAsync(LeaveRequestCreateDto dto)
+        {
+            // Basic validation
+            if (dto.StartDate > dto.EndDate)
+            {
+                return (false, "Start date cannot be after end date");
+            }
+
+            if (dto.StartDate < DateTime.Today)
+            {
+                return (false, "Cannot apply for leave in the past");
+            }
+
+            if (!LEAVE_TYPES.Contains(dto.LeaveType))
+            {
+                return (false, "Invalid leave type selected");
+            }
+
+            if (dto.IsHalfDay && (dto.EndDate != dto.StartDate))
+            {
+                return (false, "Half day leave can only be for a single day");
+            }
+
+            if (dto.IsHalfDay && string.IsNullOrEmpty(dto.HalfDayPeriod))
+            {
+                return (false, "Half day period must be specified for half day leave");
+            }
+
+            // Check for overlapping leaves
+            var hasOverlapping = await _leaveRepository.HasOverlappingLeaveAsync(dto.EmployeeId, dto.StartDate, dto.EndDate);
+            if (hasOverlapping)
+            {
+                return (false, "You already have a leave request for the selected dates");
+            }
+
+            // Check leave balance
+            var employee = await _userRepository.GetByIdAsync(dto.EmployeeId);
+            if (employee == null || employee.DateOfJoining == null)
+            {
+                return (false, "Employee information not found or joining date not available");
+            }
+
+            var requestedDays = CalculateLeaveDays(dto.StartDate, dto.EndDate, dto.IsHalfDay);
+            var currentYear = dto.StartDate.Year;
+            var balance = await GetLeaveBalanceAsync(dto.EmployeeId, currentYear);
+            
+            if (requestedDays > balance.RemainingDays)
+            {
+                _logger.LogWarning($"Leave request exceeds balance: Employee {dto.EmployeeId}, Requested: {requestedDays}, Available: {balance.RemainingDays}");
+                // Allow the request to proceed but log the warning
+            }
+
+            return (true, string.Empty);
         }
 
         public async Task<bool> ValidateLeaveRequestAsync(LeaveRequestUpdateDto dto, Guid employeeId)
@@ -276,13 +348,101 @@ namespace OneDc.Services.Implementation
                 return false;
             }
 
+            // Check leave balance (excluding current request)
+            var employee = await _userRepository.GetByIdAsync(employeeId);
+            if (employee == null || employee.DateOfJoining == null)
+            {
+                return false;
+            }
+
+            var requestedDays = CalculateLeaveDays(dto.StartDate, dto.EndDate, dto.IsHalfDay);
+            var currentYear = dto.StartDate.Year;
+            
+            // Get current balance and add back the days from the current request being updated
+            var balance = await GetLeaveBalanceAsync(employeeId, currentYear);
+            var currentRequest = await _leaveRepository.GetLeaveRequestByIdAsync(dto.Id);
+            var currentRequestDays = currentRequest?.TotalDays ?? 0;
+            
+            var availableDays = balance.RemainingDays + currentRequestDays;
+            
+            if (requestedDays > availableDays)
+            {
+                return false; // Insufficient leave balance
+            }
+
             return true;
+        }
+
+        private async Task<(bool IsValid, string ErrorMessage)> ValidateLeaveRequestUpdateWithDetailsAsync(LeaveRequestUpdateDto dto, Guid employeeId)
+        {
+            // Basic validation
+            if (dto.StartDate > dto.EndDate)
+            {
+                return (false, "Start date cannot be after end date");
+            }
+
+            if (dto.StartDate < DateTime.Today)
+            {
+                return (false, "Cannot apply for leave in the past");
+            }
+
+            if (!LEAVE_TYPES.Contains(dto.LeaveType))
+            {
+                return (false, "Invalid leave type selected");
+            }
+
+            if (dto.IsHalfDay && (dto.EndDate != dto.StartDate))
+            {
+                return (false, "Half day leave can only be for a single day");
+            }
+
+            if (dto.IsHalfDay && string.IsNullOrEmpty(dto.HalfDayPeriod))
+            {
+                return (false, "Half day period must be specified for half day leave");
+            }
+
+            // Check for overlapping leaves (excluding current request)
+            var hasOverlapping = await _leaveRepository.HasOverlappingLeaveAsync(employeeId, dto.StartDate, dto.EndDate, dto.Id);
+            if (hasOverlapping)
+            {
+                return (false, "You already have a leave request for the selected dates");
+            }
+
+            // Check leave balance (excluding current request)
+            var employee = await _userRepository.GetByIdAsync(employeeId);
+            if (employee == null || employee.DateOfJoining == null)
+            {
+                return (false, "Employee information not found or joining date not available");
+            }
+
+            var requestedDays = CalculateLeaveDays(dto.StartDate, dto.EndDate, dto.IsHalfDay);
+            var currentYear = dto.StartDate.Year;
+            
+            // Get current balance and add back the days from the current request being updated
+            var balance = await GetLeaveBalanceAsync(employeeId, currentYear);
+            var currentRequest = await _leaveRepository.GetLeaveRequestByIdAsync(dto.Id);
+            var currentRequestDays = currentRequest?.TotalDays ?? 0;
+            
+            var availableDays = balance.RemainingDays + currentRequestDays;
+            
+            if (requestedDays > availableDays)
+            {
+                _logger.LogWarning($"Leave request update exceeds balance: Employee {employeeId}, Requested: {requestedDays}, Available: {availableDays}");
+                // Allow the request to proceed but log the warning
+            }
+
+            return (true, string.Empty);
         }
 
         public async Task<LeaveStatisticsDto> GetLeaveStatisticsAsync(Guid employeeId, int year)
         {
+            var employee = await _userRepository.GetByIdAsync(employeeId);
+            if (employee == null || employee.DateOfJoining == null)
+                throw new InvalidOperationException("Employee not found or joining date not available");
+
             var leaveStats = await _leaveRepository.GetLeaveStatisticsByEmployeeAsync(employeeId, year);
             var approvedDays = await _leaveRepository.GetApprovedLeaveDaysInYearAsync(employeeId, year);
+            var entitlement = CalculateLeaveEntitlement(employee.DateOfJoining.Value);
 
             var statistics = new LeaveStatisticsDto
             {
@@ -291,7 +451,7 @@ namespace OneDc.Services.Implementation
                 PendingLeaves = leaveStats.GetValueOrDefault("Pending", 0),
                 RejectedLeaves = leaveStats.GetValueOrDefault("Rejected", 0),
                 TotalDaysUsed = approvedDays,
-                RemainingDays = Math.Max(0, ANNUAL_LEAVE_DAYS - approvedDays),
+                RemainingDays = Math.Max(0, entitlement - approvedDays),
                 LeaveTypeBreakdown = new Dictionary<string, int>()
             };
 
@@ -327,8 +487,74 @@ namespace OneDc.Services.Implementation
 
         public async Task<int> GetRemainingLeaveDaysAsync(Guid employeeId, int year)
         {
+            var employee = await _userRepository.GetByIdAsync(employeeId);
+            if (employee == null || employee.DateOfJoining == null)
+                throw new InvalidOperationException("Employee not found or joining date not available");
+
+            var entitlement = CalculateLeaveEntitlement(employee.DateOfJoining.Value);
             var usedDays = await _leaveRepository.GetApprovedLeaveDaysInYearAsync(employeeId, year);
-            return Math.Max(0, ANNUAL_LEAVE_DAYS - usedDays);
+            return Math.Max(0, entitlement - usedDays);
+        }
+
+        public async Task<LeaveBalanceDto> GetLeaveBalanceAsync(Guid employeeId, int year)
+        {
+            var employee = await _userRepository.GetByIdAsync(employeeId);
+            if (employee == null || employee.DateOfJoining == null)
+                throw new InvalidOperationException("Employee not found or joining date not available");
+
+            var entitlement = CalculateLeaveEntitlement(employee.DateOfJoining.Value);
+            var yearsOfService = CalculateYearsOfService(employee.DateOfJoining.Value);
+            
+            // Get approved leave days for the year
+            var approvedDays = await _leaveRepository.GetApprovedLeaveDaysInYearAsync(employeeId, year);
+            
+            // Calculate pending days by getting all pending leaves and filtering by year
+            var allLeaves = await _leaveRepository.GetLeaveRequestsByEmployeeIdAsync(employeeId);
+            var pendingDays = allLeaves
+                .Where(lr => lr.Status == "Pending" && lr.StartDate.Year == year)
+                .Sum(lr => lr.TotalDays);
+            
+            return new LeaveBalanceDto
+            {
+                TotalEntitlement = entitlement,
+                UsedDays = approvedDays,
+                PendingDays = pendingDays,
+                RemainingDays = Math.Max(0, entitlement - approvedDays - pendingDays),
+                JoiningDate = employee.DateOfJoining.Value.ToString("yyyy-MM-dd"),
+                YearsOfService = yearsOfService,
+                CurrentYear = year
+            };
+        }
+
+        private int CalculateLeaveEntitlement(DateOnly joiningDate)
+        {
+            var yearsOfService = CalculateYearsOfService(joiningDate);
+            var entitlement = yearsOfService >= 1 ? ANNUAL_LEAVE_DAYS_SENIOR : ANNUAL_LEAVE_DAYS_JUNIOR;
+            
+            _logger.LogInformation($"Calculating leave entitlement: Years={yearsOfService}, Entitlement={entitlement}");
+            
+            return entitlement;
+        }
+
+        private int CalculateYearsOfService(DateOnly joiningDate)
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            
+            // Calculate the difference in years
+            var years = today.Year - joiningDate.Year;
+            
+            // If the anniversary hasn't occurred this year, subtract 1
+            var anniversaryThisYear = joiningDate.AddYears(years);
+            if (today < anniversaryThisYear)
+            {
+                years--;
+            }
+            
+            var result = Math.Max(0, years);
+            
+            _logger.LogInformation($"Calculating years of service: Joining={joiningDate}, Today={today}, Anniversary={anniversaryThisYear}, Years={result}");
+            
+            return result;
         }
 
         private int CalculateLeaveDays(DateTime startDate, DateTime endDate, bool isHalfDay)

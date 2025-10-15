@@ -69,6 +69,68 @@
     </li>
   </ul>
 
+  <!-- Leave Balance Summary Card -->
+  <div *ngIf="activeTab() === 'my-leaves' || activeTab() === 'apply-leave'" class="row mb-4">
+    <div class="col-12">
+      <div class="card border-primary">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h6 class="mb-2">
+                <i class="bi bi-calendar-range me-2"></i>
+                Leave Balance for {{ getCurrentYear() }}
+              </h6>
+              <div *ngIf="leaveBalance(); else loadingBalance">
+                <p class="mb-1 text-muted">{{ getLeaveBalanceInfo() }}</p>
+                <div class="row text-center">
+                  <div class="col-3">
+                    <div class="fw-bold text-primary fs-5">{{ leaveBalance()?.totalEntitlement || 0 }}</div>
+                    <small class="text-muted">Total Entitled</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold text-info fs-5">{{ leaveBalance()?.usedDays || 0 }}</div>
+                    <small class="text-muted">Used</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold text-warning fs-5">{{ leaveBalance()?.pendingDays || 0 }}</div>
+                    <small class="text-muted">Pending</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold fs-5" [class]="getLeaveBalanceClass()">{{ leaveBalance()?.remainingDays || 0 }}</div>
+                    <small class="text-muted">Remaining</small>
+                  </div>
+                </div>
+              </div>
+              <ng-template #loadingBalance>
+                <div class="d-flex align-items-center">
+                  <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <span class="text-muted">Loading leave balance...</span>
+                </div>
+              </ng-template>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="d-flex flex-column align-items-end gap-2">
+                <button 
+                  class="btn btn-primary px-4 py-2 fw-medium"
+                  style="width: auto; min-width: 140px;"
+                  (click)="setActiveTab('apply-leave')"
+                  [disabled]="(leaveBalance()?.remainingDays || 0) <= 0">
+                  <i class="bi bi-plus-circle me-2"></i>
+                  Apply for Leave
+                </button>
+                <small class="text-muted text-end" *ngIf="(leaveBalance()?.remainingDays || 0) <= 0">
+                  No remaining leave days
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- My Leave Requests Tab -->
   <div *ngIf="activeTab() === 'my-leaves'" class="tab-content">
     <div class="card shadow-sm">

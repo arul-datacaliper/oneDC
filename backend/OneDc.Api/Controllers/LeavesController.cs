@@ -551,6 +551,28 @@ namespace OneDc.Api.Controllers
         }
 
         /// <summary>
+        /// Get comprehensive leave balance for current user
+        /// </summary>
+        [HttpGet("balance")]
+        public async Task<ActionResult<object>> GetLeaveBalance([FromQuery] int year = 0)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                var currentYear = year > 0 ? year : DateTime.Now.Year;
+                
+                var balance = await _leaveService.GetLeaveBalanceAsync(currentUserId, currentYear);
+                
+                return Ok(new { success = true, data = balance });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting leave balance");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+
+        /// <summary>
         /// Get upcoming leaves (Approver/Admin only)
         /// </summary>
         [HttpGet("upcoming")]

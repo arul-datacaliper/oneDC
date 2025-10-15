@@ -1,8 +1,9 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { LeaveService, LeaveRequest, LeaveRequestCreate } from '../../core/services/leave.service';
+import { LeaveService, LeaveRequest, LeaveRequestCreate, LeaveBalance } from '../../core/services/leave.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
 
 @Component({
   selector: 'app-leave-management',
@@ -18,6 +19,7 @@ export class LeaveManagementComponent implements OnInit {
   leaveTypes = signal<string[]>([]);
   isLoading = signal(false);
   error = signal<string | null>(null);
+  leaveBalance = signal<LeaveBalance | null>(null);
   
   // Admin employee records
   employees = signal<any[]>([]);
@@ -40,7 +42,8 @@ export class LeaveManagementComponent implements OnInit {
   constructor(
     private leaveService: LeaveService,
     private authService: AuthService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private confirmationDialogService: ConfirmationDialogService
   ) {
     this.leaveForm = this.fb.group({
       startDate: ['', [Validators.required]],
@@ -73,7 +76,30 @@ export class LeaveManagementComponent implements OnInit {
       if (this.leaveForm.get('isHalfDay')?.value && startDate) {
         this.leaveForm.get('endDate')?.setValue(startDate);
       }
+      // Validate balance when dates change
+      this.validateFormBalance();
     });
+
+    // Watch for end date changes to validate balance
+    this.leaveForm.get('endDate')?.valueChanges.subscribe(() => {
+      this.validateFormBalance();
+    });
+
+    // Watch for half day changes to validate balance
+    this.leaveForm.get('isHalfDay')?.valueChanges.subscribe(() => {
+      this.validateFormBalance();
+    });
+  }
+
+  private validateFormBalance() {
+    // This method now only triggers UI updates but doesn't make form invalid
+    // The warning will be shown in the UI but form remains submittable
+    const startDate = this.leaveForm.get('startDate')?.value;
+    const endDate = this.leaveForm.get('endDate')?.value;
+    const balance = this.leaveBalance();
+    
+    // We keep this method for potential future use or UI updates
+    // but we don't set form errors anymore
   }
 
   ngOnInit() {
@@ -88,6 +114,7 @@ export class LeaveManagementComponent implements OnInit {
       // Load data sequentially to better handle errors
       await this.loadMyLeaveRequests();
       await this.loadLeaveTypes();
+      await this.loadLeaveBalance();
 
       // Load approvals if user is approver or admin
       if (this.isApprover() || this.isAdmin()) {
@@ -144,6 +171,54 @@ export class LeaveManagementComponent implements OnInit {
       // Fallback to default leave types if API fails
       this.leaveTypes.set(['Annual', 'Sick', 'Personal', 'Emergency', 'Maternity', 'Paternity', 'Bereavement']);
     }
+  }
+
+  async loadLeaveBalance() {
+    try {
+      console.log('LeaveManagement: Loading leave balance...');
+      const response = await this.leaveService.getLeaveBalance().toPromise();
+      if (response.success) {
+        this.leaveBalance.set(response.data);
+        console.log('LeaveManagement: Leave balance loaded:', response.data);
+        console.log('Years of service:', response.data.yearsOfService);
+        console.log('Total entitlement:', response.data.totalEntitlement);
+        console.log('Joining date:', response.data.joiningDate);
+        
+        // Trigger form validation after balance is loaded
+        this.validateFormBalance();
+      }
+    } catch (error) {
+      console.error('LeaveManagement: Error loading leave balance:', error);
+      // Calculate leave balance locally if API fails
+      this.calculateLeaveBalanceLocally();
+    }
+  }
+
+  private calculateLeaveBalanceLocally() {
+    const currentUser = this.currentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    // For now, since joiningDate is not available in AuthResult, 
+    // we'll set a default entitlement and let the backend handle the real calculation
+    const currentYear = new Date().getFullYear();
+    const defaultEntitlement = 25; // Default to max entitlement, backend will correct this
+    const usedDays = this.leaveService.calculateUsedLeaveDays(this.myLeaveRequests(), currentYear);
+    const pendingDays = this.leaveService.calculatePendingLeaveDays(this.myLeaveRequests(), currentYear);
+
+    const balance: LeaveBalance = {
+      totalEntitlement: defaultEntitlement,
+      usedDays: usedDays - pendingDays, // Exclude pending from used
+      pendingDays,
+      remainingDays: defaultEntitlement - usedDays,
+      joiningDate: '', // Will be populated by backend
+      yearsOfService: 0, // Will be calculated by backend
+      currentYear
+    };
+
+    this.leaveBalance.set(balance);
+    console.log('LeaveManagement: Leave balance calculated locally (default):', balance);
   }
 
   async loadEmployeeList() {
@@ -253,6 +328,20 @@ export class LeaveManagementComponent implements OnInit {
       return;
     }
 
+    // Show warning but don't block submission if balance is exceeded
+    const balance = this.leaveBalance();
+    if (balance && this.isRequestExceedingBalance()) {
+      const requestedDays = this.calculateRequestedDays();
+      const confirmed = await this.confirmationDialogService.confirmLeaveRequest(
+        requestedDays,
+        balance.remainingDays
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+    }
+
     this.isLoading.set(true);
     this.error.set(null);
 
@@ -282,6 +371,7 @@ export class LeaveManagementComponent implements OnInit {
         this.editingLeave.set(null);
         this.resetForm();
         await this.loadMyLeaveRequests();
+        await this.loadLeaveBalance(); // Refresh balance after submission
         this.setActiveTab('my-leaves');
       } else {
         this.error.set(response.message || 'Failed to submit leave request');
@@ -295,7 +385,8 @@ export class LeaveManagementComponent implements OnInit {
   }
 
   async deleteLeaveRequest(leave: LeaveRequest) {
-    if (!confirm('Are you sure you want to delete this leave request?')) {
+    const confirmed = await this.confirmationDialogService.confirmDelete('leave request');
+    if (!confirmed) {
       return;
     }
 
@@ -304,6 +395,7 @@ export class LeaveManagementComponent implements OnInit {
       const response = await this.leaveService.deleteLeaveRequest(leave.id).toPromise();
       if (response.success) {
         await this.loadMyLeaveRequests();
+        await this.loadLeaveBalance(); // Refresh balance after deletion
       } else {
         this.error.set(response.message || 'Failed to delete leave request');
       }
@@ -402,6 +494,10 @@ export class LeaveManagementComponent implements OnInit {
     return new Date().toISOString().split('T')[0];
   }
 
+  getCurrentYear(): number {
+    return new Date().getFullYear();
+  }
+
   getFormError(fieldName: string): string | null {
     const field = this.leaveForm.get(fieldName);
     if (field?.errors && field?.touched) {
@@ -421,5 +517,58 @@ export class LeaveManagementComponent implements OnInit {
       halfDayPeriod: 'Half Day Period'
     };
     return displayNames[fieldName] || fieldName;
+  }
+
+  // Helper methods for leave balance display
+  getLeaveBalanceInfo(): string {
+    const balance = this.leaveBalance();
+    if (!balance) {
+      return 'Loading leave balance...';
+    }
+
+    const eligibilityText = balance.yearsOfService >= 1 
+      ? `${balance.totalEntitlement} days (${balance.yearsOfService}+ years of service)`
+      : `${balance.totalEntitlement} days (less than 1 year of service)`;
+
+    return `Annual Entitlement: ${eligibilityText}`;
+  }
+
+  getLeaveBalanceClass(): string {
+    const balance = this.leaveBalance();
+    if (!balance) return 'text-muted';
+    
+    const percentage = (balance.remainingDays / balance.totalEntitlement) * 100;
+    if (percentage <= 20) return 'text-danger';
+    if (percentage <= 50) return 'text-warning';
+    return 'text-success';
+  }
+
+  calculateRequestedDays(): number {
+    const formValue = this.leaveForm.value;
+    if (!formValue.startDate || !formValue.endDate) {
+      return 0;
+    }
+
+    if (formValue.isHalfDay) {
+      return 0.5;
+    }
+
+    return this.leaveService.calculateDaysBetween(formValue.startDate, formValue.endDate);
+  }
+
+  getRequestedDaysText(): string {
+    const days = this.calculateRequestedDays();
+    if (days === 0) return '';
+    if (days === 0.5) return '0.5 day';
+    if (days === 1) return '1 day';
+    return `${days} days`;
+  }
+
+  isRequestExceedingBalance(): boolean {
+    const balance = this.leaveBalance();
+    if (!balance) return false;
+    
+    const requestedDays = this.calculateRequestedDays();
+    return requestedDays > balance.remainingDays;
   }
 }

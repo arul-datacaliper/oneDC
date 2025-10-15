@@ -50,6 +50,16 @@ export interface LeaveStatistics {
   leaveTypeBreakdown: { [key: string]: number };
 }
 
+export interface LeaveBalance {
+  totalEntitlement: number;
+  usedDays: number;
+  pendingDays: number;
+  remainingDays: number;
+  joiningDate: string;
+  yearsOfService: number;
+  currentYear: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -157,6 +167,14 @@ export class LeaveService {
     return this.http.get(`${this.apiUrl}/remaining-days`, { params });
   }
 
+  getLeaveBalance(year?: number): Observable<any> {
+    let params: Record<string, string> = {};
+    if (year) {
+      params['year'] = year.toString();
+    }
+    return this.http.get(`${this.apiUrl}/balance`, { params });
+  }
+
   getUpcomingLeaves(days: number = 30): Observable<any> {
     return this.http.get(`${this.apiUrl}/upcoming`, { params: { days: days.toString() } });
   }
@@ -243,5 +261,66 @@ export class LeaveService {
 
   canDelete(leaveRequest: LeaveRequest): boolean {
     return leaveRequest.status === 'Pending' && this.isUpcoming(leaveRequest.startDate);
+  }
+
+  // Leave entitlement calculations
+  calculateLeaveEntitlement(joiningDate: string): number {
+    const joining = new Date(joiningDate);
+    const now = new Date();
+    const yearsOfService = this.calculateYearsOfService(joiningDate);
+    
+    // More than 1 year of service gets 25 days, less than 1 year gets 15 days
+    return yearsOfService >= 1 ? 25 : 15;
+  }
+
+  calculateYearsOfService(joiningDate: string): number {
+    const joining = new Date(joiningDate);
+    const today = new Date();
+    
+    // Calculate the difference in years
+    let years = today.getFullYear() - joining.getFullYear();
+    
+    // If the anniversary hasn't occurred this year, subtract 1
+    const anniversaryThisYear = new Date(today.getFullYear(), joining.getMonth(), joining.getDate());
+    if (today < anniversaryThisYear) {
+      years--;
+    }
+    
+    return Math.max(0, years);
+  }
+
+  calculateUsedLeaveDays(leaveRequests: LeaveRequest[], year?: number): number {
+    const currentYear = year || new Date().getFullYear();
+    
+    return leaveRequests
+      .filter(leave => {
+        const leaveYear = new Date(leave.startDate).getFullYear();
+        return leaveYear === currentYear && (leave.status === 'Approved' || leave.status === 'Pending');
+      })
+      .reduce((total, leave) => total + leave.totalDays, 0);
+  }
+
+  calculatePendingLeaveDays(leaveRequests: LeaveRequest[], year?: number): number {
+    const currentYear = year || new Date().getFullYear();
+    
+    return leaveRequests
+      .filter(leave => {
+        const leaveYear = new Date(leave.startDate).getFullYear();
+        return leaveYear === currentYear && leave.status === 'Pending';
+      })
+      .reduce((total, leave) => total + leave.totalDays, 0);
+  }
+
+  validateLeaveRequest(startDate: string, endDate: string, isHalfDay: boolean, currentBalance: LeaveBalance): { isValid: boolean; message: string } {
+    const requestedDays = isHalfDay ? 0.5 : this.calculateDaysBetween(startDate, endDate);
+    
+    if (requestedDays > currentBalance.remainingDays) {
+      return {
+        isValid: false,
+        message: `Insufficient leave balance. You have ${currentBalance.remainingDays} days remaining but requested ${requestedDays} days.`
+      };
+    }
+    
+    return { isValid: true, message: '' };
   }
 }

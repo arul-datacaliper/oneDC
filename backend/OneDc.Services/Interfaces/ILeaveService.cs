@@ -43,6 +43,17 @@ namespace OneDc.Services.Interfaces
         public Dictionary<string, int> LeaveTypeBreakdown { get; set; } = new();
     }
 
+    public class LeaveBalanceDto
+    {
+        public int TotalEntitlement { get; set; }
+        public int UsedDays { get; set; }
+        public int PendingDays { get; set; }
+        public int RemainingDays { get; set; }
+        public string JoiningDate { get; set; } = null!;
+        public int YearsOfService { get; set; }
+        public int CurrentYear { get; set; }
+    }
+
     public interface ILeaveService
     {
         // Employee operations
@@ -72,5 +83,6 @@ namespace OneDc.Services.Interfaces
         // Leave types and policies
         Task<IEnumerable<string>> GetLeaveTypesAsync();
         Task<int> GetRemainingLeaveDaysAsync(Guid employeeId, int year);
+        Task<LeaveBalanceDto> GetLeaveBalanceAsync(Guid employeeId, int year);
     }
 }
