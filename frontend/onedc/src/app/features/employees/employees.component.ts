@@ -435,6 +435,15 @@ export class EmployeesComponent implements OnInit {
       permanentAddress: employee.permanentAddress || {}
     });
     this.showModal.set(true);
+    
+    // Debug: Log form validation errors after patching values
+    setTimeout(() => {
+      if (this.employeeForm.invalid) {
+        console.log('=== FORM VALIDATION ERRORS ===');
+        console.log('Form errors:', this.getFormErrors());
+        console.log('Form value:', this.employeeForm.value);
+      }
+    }, 100);
   }
 
   openProfileModal(employee: Employee) {
@@ -776,5 +785,22 @@ export class EmployeesComponent implements OnInit {
     if (!managerId) return 'No Manager';
     const manager = this.employees().find(emp => emp.userId === managerId);
     return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
+  }
+
+  // Debug method to get all form errors
+  getFormErrors(): string[] {
+    const errors: string[] = [];
+    Object.keys(this.employeeForm.controls).forEach(key => {
+      const control = this.employeeForm.get(key);
+      if (control && control.invalid) {
+        const fieldErrors = control.errors;
+        if (fieldErrors) {
+          Object.keys(fieldErrors).forEach(errorKey => {
+            errors.push(`${key}: ${errorKey} = ${JSON.stringify(fieldErrors[errorKey])}`);
+          });
+        }
+      }
+    });
+    return errors;
   }
 }

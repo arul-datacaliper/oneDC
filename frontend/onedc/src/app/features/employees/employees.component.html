@@ -531,6 +531,13 @@
         </div>
         
         <div class="modal-footer">
+          <!-- Debug info (remove after testing) -->
+          <div class="me-auto small" *ngIf="editingEmployee()">
+            <div class="text-muted">Form Status: Valid={{ employeeForm.valid }}, Dirty={{ employeeForm.dirty }}</div>
+            <div class="text-danger" *ngIf="employeeForm.invalid">
+              <strong>Check browser console for field errors</strong>
+            </div>
+          </div>
           <button type="button" class="btn btn-secondary" (click)="closeModal()">
             Cancel
           </button>
