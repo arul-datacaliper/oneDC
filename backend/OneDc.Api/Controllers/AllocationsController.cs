@@ -239,20 +239,47 @@ public class AllocationsController : ControllerBase
 
         var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
 
-        var summary = await _context.WeeklyAllocations
-            .Include(wa => wa.User)
-            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
-            .GroupBy(wa => new { wa.UserId, wa.User!.FirstName, wa.User.LastName })
-            .Select(g => new EmployeeAllocationSummaryDto
+        // Get all employees
+        var allEmployees = await _context.AppUsers
+            .Select(u => new
             {
-                UserId = g.Key.UserId.ToString(),
-                UserName = g.Key.FirstName + " " + g.Key.LastName,
-                TotalAllocatedHours = g.Sum(wa => wa.AllocatedHours),
-                TotalProjects = g.Count(),
-                WeeklyCapacity = 45, // Standard work week: 9 hours/day × 5 days
-                UtilizationPercentage = Math.Round((decimal)g.Sum(wa => wa.AllocatedHours) / 45 * 100, 2)
+                u.UserId,
+                u.FirstName,
+                u.LastName
             })
             .ToListAsync();
+
+        // Get allocations for the week
+        var weekAllocations = await _context.WeeklyAllocations
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate)
+            .GroupBy(wa => wa.UserId)
+            .Select(g => new
+            {
+                UserId = g.Key,
+                TotalAllocatedHours = g.Sum(wa => wa.AllocatedHours),
+                TotalProjects = g.Count()
+            })
+            .ToListAsync();
+
+        // Combine all employees with their allocations (0 if no allocation)
+        var summary = allEmployees
+            .Select(emp =>
+            {
+                var allocation = weekAllocations.FirstOrDefault(a => a.UserId == emp.UserId);
+                var allocatedHours = allocation?.TotalAllocatedHours ?? 0;
+                
+                return new EmployeeAllocationSummaryDto
+                {
+                    UserId = emp.UserId.ToString(),
+                    UserName = emp.FirstName + " " + emp.LastName,
+                    TotalAllocatedHours = allocatedHours,
+                    TotalProjects = allocation?.TotalProjects ?? 0,
+                    WeeklyCapacity = 45, // Standard work week: 9 hours/day × 5 days
+                    UtilizationPercentage = allocatedHours > 0 ? Math.Round((decimal)allocatedHours / 45 * 100, 2) : 0
+                };
+            })
+            .OrderBy(s => s.UserName)
+            .ToList();
 
         return Ok(summary);
     }

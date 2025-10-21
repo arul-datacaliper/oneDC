@@ -1,9 +1,11 @@
 import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
+import { AllocationService, EmployeeAllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -18,7 +20,7 @@ export interface TimesheetEntry {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -27,6 +29,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private adminService = inject(AdminService);
   private employeeService = inject(EmployeeService);
   private onboardingService = inject(OnboardingService);
+  private allocationService = inject(AllocationService);
   private router = inject(Router);
   private routerSubscription?: Subscription;
 
@@ -47,11 +50,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   weeklyHours = 0;
   pendingApprovals = 0;
   
+  // Employee allocation data
+  employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
+  allocationSearchTerm = signal('');
+  displayedEmployeeCount = signal(10); // Initially show 10 employees
+  
+  filteredEmployeeAllocations = computed(() => {
+    const searchTerm = this.allocationSearchTerm().toLowerCase();
+    const allEmployees = this.employeeAllocations();
+    
+    if (searchTerm) {
+      // When searching, return all matching results
+      return allEmployees.filter(emp => 
+        emp.userName.toLowerCase().includes(searchTerm) ||
+        emp.userId.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // When not searching, return only the displayed count
+    return allEmployees.slice(0, this.displayedEmployeeCount());
+  });
+
   // Loading states
   isLoadingAdminMetrics = false;
   isLoadingTopProjects = false;
   isLoadingProjectsReleaseInfo = false;
   isLoadingEmployeeData = false;
+  isLoadingAllocations = false;
 
   // Computed property to get current user data
   currentUser = computed(() => {
@@ -110,6 +135,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadAdminMetrics();
     this.loadTopProjects();
     this.loadProjectsWithReleaseInfo();
+    this.loadEmployeeAllocations();
   }
 
   private loadAdminMetrics() {
@@ -150,6 +176,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: (error: any) => {
         console.error('Error loading projects with release info:', error);
         this.isLoadingProjectsReleaseInfo = false;
+      }
+    });
+  }
+
+  private loadEmployeeAllocations() {
+    this.isLoadingAllocations = true;
+    // Reset displayed count to initial value
+    this.displayedEmployeeCount.set(10);
+    // Get current week start date
+    const today = new Date();
+    const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    const weekStartDate = currentWeekStart.toISOString().split('T')[0];
+
+    this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
+      next: (allocations: EmployeeAllocationSummary[]) => {
+        this.employeeAllocations.set(allocations);
+        this.isLoadingAllocations = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading employee allocations:', error);
+        this.isLoadingAllocations = false;
       }
     });
   }
@@ -500,5 +547,56 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return profile.profilePhotoUrl;
     }
     return null;
+  }
+
+  // Employee allocation methods
+  onAllocationSearch(searchTerm: string): void {
+    this.allocationSearchTerm.set(searchTerm);
+  }
+
+  onAllocationScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      const currentCount = this.displayedEmployeeCount();
+      const totalCount = this.employeeAllocations().length;
+      
+      // Load 10 more employees if not all are displayed
+      if (currentCount < totalCount) {
+        this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+      }
+    }
+  }
+
+  loadMoreEmployees(): void {
+    const currentCount = this.displayedEmployeeCount();
+    const totalCount = this.employeeAllocations().length;
+    
+    // Load 10 more employees
+    if (currentCount < totalCount) {
+      this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  hasMoreEmployeesToLoad(): boolean {
+    return this.displayedEmployeeCount() < this.employeeAllocations().length && !this.allocationSearchTerm();
+  }
+
+  getUtilizationPercentageClass(percentage: number): string {
+    if (percentage >= 90) {
+      return 'text-success fw-bold';
+    } else if (percentage >= 70) {
+      return 'text-warning fw-bold';
+    } else {
+      return 'text-danger fw-bold';
+    }
+  }
+
+  trackByEmployeeId(index: number, employee: EmployeeAllocationSummary): string {
+    return employee.userId;
   }
 }
