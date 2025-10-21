@@ -211,19 +211,45 @@ public class AllocationsController : ControllerBase
 
         var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
 
-        var summary = await _context.WeeklyAllocations
-            .Include(wa => wa.Project)
-            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
-            .GroupBy(wa => new { wa.ProjectId, wa.Project!.Name })
-            .Select(g => new AllocationSummaryDto
+        // Get all projects (not filtering by status to show all projects)
+        var allProjects = await _context.Projects
+            .Select(p => new
             {
-                ProjectId = g.Key.ProjectId.ToString(),
-                ProjectName = g.Key.Name,
-                TotalAllocatedHours = g.Sum(wa => wa.AllocatedHours),
-                TotalEmployees = g.Count(),
-                UtilizationPercentage = Math.Round(g.Average(wa => wa.UtilizationPercentage), 2)
+                p.ProjectId,
+                p.Name
             })
             .ToListAsync();
+
+        // Get allocations for the week
+        var weekAllocations = await _context.WeeklyAllocations
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate)
+            .GroupBy(wa => wa.ProjectId)
+            .Select(g => new
+            {
+                ProjectId = g.Key,
+                TotalAllocatedHours = g.Sum(wa => wa.AllocatedHours),
+                TotalEmployees = g.Count(),
+                AvgUtilization = g.Average(wa => wa.UtilizationPercentage)
+            })
+            .ToListAsync();
+
+        // Combine all projects with their allocations (0 if no allocation)
+        var summary = allProjects
+            .Select(proj =>
+            {
+                var allocation = weekAllocations.FirstOrDefault(a => a.ProjectId == proj.ProjectId);
+                return new AllocationSummaryDto
+                {
+                    ProjectId = proj.ProjectId.ToString(),
+                    ProjectName = proj.Name,
+                    TotalAllocatedHours = allocation?.TotalAllocatedHours ?? 0,
+                    TotalEmployees = allocation?.TotalEmployees ?? 0,
+                    UtilizationPercentage = allocation != null ? Math.Round(allocation.AvgUtilization, 2) : 0
+                };
+            })
+            .OrderByDescending(s => s.TotalAllocatedHours)
+            .ThenBy(s => s.ProjectName)
+            .ToList();
 
         return Ok(summary);
     }
@@ -261,6 +287,48 @@ public class AllocationsController : ControllerBase
             })
             .ToListAsync();
 
+        // Get holidays in the week
+        var holidays = await _context.Holidays
+            .Where(h => h.HolidayDate >= startDate && h.HolidayDate <= endDate)
+            .Select(h => h.HolidayDate)
+            .ToListAsync();
+
+        // Get approved leaves for all employees in the week
+        // Convert DateOnly to DateTime (UTC) for comparison in SQL
+        var startDateTime = DateTime.SpecifyKind(startDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var endDateTime = DateTime.SpecifyKind(endDate.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Utc);
+        
+        var approvedLeaves = await _context.LeaveRequests
+            .Where(lr => lr.Status == "Approved" &&
+                         lr.StartDate <= endDateTime &&
+                         lr.EndDate >= startDateTime)
+            .Select(lr => new
+            {
+                lr.EmployeeId,
+                lr.StartDate,
+                lr.EndDate
+            })
+            .ToListAsync();
+        
+        // Convert to DateOnly for processing
+        var approvedLeavesProcessed = approvedLeaves.Select(lr => new
+        {
+            lr.EmployeeId,
+            StartDate = DateOnly.FromDateTime(lr.StartDate),
+            EndDate = DateOnly.FromDateTime(lr.EndDate)
+        }).ToList();
+
+        // Calculate working days in the week (excluding weekends)
+        int totalWorkingDays = 0;
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            var dayOfWeek = date.DayOfWeek;
+            if (dayOfWeek != DayOfWeek.Saturday && dayOfWeek != DayOfWeek.Sunday)
+            {
+                totalWorkingDays++;
+            }
+        }
+
         // Combine all employees with their allocations (0 if no allocation)
         var summary = allEmployees
             .Select(emp =>
@@ -268,14 +336,48 @@ public class AllocationsController : ControllerBase
                 var allocation = weekAllocations.FirstOrDefault(a => a.UserId == emp.UserId);
                 var allocatedHours = allocation?.TotalAllocatedHours ?? 0;
                 
+                // Calculate weekly capacity for this employee
+                int workingDays = totalWorkingDays;
+                
+                // Subtract holidays (applies to all employees)
+                workingDays -= holidays.Count;
+                
+                // Subtract approved leave days for this employee
+                var employeeLeaves = approvedLeavesProcessed.Where(al => al.EmployeeId == emp.UserId).ToList();
+                foreach (var leave in employeeLeaves)
+                {
+                    // Calculate overlap between leave and the week
+                    var leaveStart = leave.StartDate > startDate ? leave.StartDate : startDate;
+                    var leaveEnd = leave.EndDate < endDate ? leave.EndDate : endDate;
+                    
+                    // Count working days in the leave period
+                    for (var date = leaveStart; date <= leaveEnd; date = date.AddDays(1))
+                    {
+                        var dayOfWeek = date.DayOfWeek;
+                        // Only count if it's a working day and not a holiday
+                        if (dayOfWeek != DayOfWeek.Saturday && 
+                            dayOfWeek != DayOfWeek.Sunday && 
+                            !holidays.Contains(date))
+                        {
+                            workingDays--;
+                        }
+                    }
+                }
+                
+                // Ensure working days is not negative
+                workingDays = Math.Max(0, workingDays);
+                
+                // Calculate capacity: working days × 9 hours
+                var weeklyCapacity = workingDays * 9;
+                
                 return new EmployeeAllocationSummaryDto
                 {
                     UserId = emp.UserId.ToString(),
                     UserName = emp.FirstName + " " + emp.LastName,
                     TotalAllocatedHours = allocatedHours,
                     TotalProjects = allocation?.TotalProjects ?? 0,
-                    WeeklyCapacity = 45, // Standard work week: 9 hours/day × 5 days
-                    UtilizationPercentage = allocatedHours > 0 ? Math.Round((decimal)allocatedHours / 45 * 100, 2) : 0
+                    WeeklyCapacity = weeklyCapacity,
+                    UtilizationPercentage = weeklyCapacity > 0 ? Math.Round((decimal)allocatedHours / weeklyCapacity * 100, 2) : 0
                 };
             })
             .OrderBy(s => s.UserName)

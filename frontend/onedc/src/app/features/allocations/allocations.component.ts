@@ -61,12 +61,28 @@ export class AllocationsComponent implements OnInit {
   availableEmployees = signal<{userId: string, userName: string, role: string}[]>([]);
   projectMembers = signal<{userId: string, userName: string, role: string, projectRole: string}[]>([]);
   
+  // Pagination signals for infinite scroll
+  displayedProjectCount = signal(8); // Initially show 8 projects to ensure scrollable content
+  displayedEmployeeCount = signal(8); // Initially show 8 employees to ensure scrollable content
+  
   // Computed properties
   availableProjectsWithDisplayName = computed(() => {
     return this.availableProjects().map(project => ({
       ...project,
       displayName: `${project.projectName} - ${project.clientName}`
     }));
+  });
+  
+  // Filtered project summary with pagination
+  filteredProjectSummary = computed(() => {
+    const projects = this.projectSummary();
+    return projects.slice(0, this.displayedProjectCount());
+  });
+  
+  // Filtered employee summary with pagination
+  filteredEmployeeSummary = computed(() => {
+    const employees = this.employeeSummary();
+    return employees.slice(0, this.displayedEmployeeCount());
   });
   
   // UI state signals
@@ -400,6 +416,62 @@ export class AllocationsComponent implements OnInit {
     this.viewMode.set(mode);
     this.selectedProjectId.set('');
     this.selectedUserId.set('');
+    // Reset pagination when changing view mode
+    this.displayedProjectCount.set(8);
+    this.displayedEmployeeCount.set(8);
+  }
+
+  // Infinite scroll handlers
+  onProjectSummaryScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      this.loadMoreProjects();
+    }
+  }
+
+  onEmployeeSummaryScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      this.loadMoreEmployees();
+    }
+  }
+
+  loadMoreProjects(): void {
+    const currentCount = this.displayedProjectCount();
+    const totalCount = this.projectSummary().length;
+    
+    // Load 10 more projects if not all are displayed
+    if (currentCount < totalCount) {
+      this.displayedProjectCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  loadMoreEmployees(): void {
+    const currentCount = this.displayedEmployeeCount();
+    const totalCount = this.employeeSummary().length;
+    
+    // Load 10 more employees if not all are displayed
+    if (currentCount < totalCount) {
+      this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  hasMoreProjectsToLoad(): boolean {
+    return this.displayedProjectCount() < this.projectSummary().length;
+  }
+
+  hasMoreEmployeesToLoad(): boolean {
+    return this.displayedEmployeeCount() < this.employeeSummary().length;
   }
 
   onProjectSelect(projectId: string) {

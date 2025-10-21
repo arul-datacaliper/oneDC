@@ -54,6 +54,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
   allocationSearchTerm = signal('');
   displayedEmployeeCount = signal(10); // Initially show 10 employees
+  selectedWeekStart = signal<string>('');
+  selectedWeekEnd = signal<string>('');
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
@@ -184,10 +186,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.isLoadingAllocations = true;
     // Reset displayed count to initial value
     this.displayedEmployeeCount.set(10);
-    // Get current week start date
-    const today = new Date();
-    const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
-    const weekStartDate = currentWeekStart.toISOString().split('T')[0];
+    
+    // Get current week start date or use selected date
+    let weekStartDate: string;
+    if (this.selectedWeekStart()) {
+      weekStartDate = this.selectedWeekStart();
+    } else {
+      const today = new Date();
+      const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+      weekStartDate = currentWeekStart.toISOString().split('T')[0];
+      this.selectedWeekStart.set(weekStartDate);
+      
+      // Set week end date (6 days after start)
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      this.selectedWeekEnd.set(weekEnd.toISOString().split('T')[0]);
+    }
 
     this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
       next: (allocations: EmployeeAllocationSummary[]) => {
@@ -598,5 +612,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   trackByEmployeeId(index: number, employee: EmployeeAllocationSummary): string {
     return employee.userId;
+  }
+
+  // Week navigation for allocations
+  onWeekStartChange(dateString: string): void {
+    if (dateString) {
+      const startDate = new Date(dateString);
+      // Set to Sunday of the selected week
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() - startDate.getDay());
+      
+      const weekStartFormatted = sunday.toISOString().split('T')[0];
+      this.selectedWeekStart.set(weekStartFormatted);
+      
+      // Calculate week end (Saturday)
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+      this.selectedWeekEnd.set(saturday.toISOString().split('T')[0]);
+      
+      // Reload allocations for the new week
+      this.loadEmployeeAllocations();
+    }
+  }
+
+  navigateToPreviousWeek(): void {
+    const currentStart = new Date(this.selectedWeekStart());
+    currentStart.setDate(currentStart.getDate() - 7);
+    const newStart = currentStart.toISOString().split('T')[0];
+    this.selectedWeekStart.set(newStart);
+    
+    const newEnd = new Date(currentStart);
+    newEnd.setDate(newEnd.getDate() + 6);
+    this.selectedWeekEnd.set(newEnd.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  navigateToNextWeek(): void {
+    const currentStart = new Date(this.selectedWeekStart());
+    currentStart.setDate(currentStart.getDate() + 7);
+    const newStart = currentStart.toISOString().split('T')[0];
+    this.selectedWeekStart.set(newStart);
+    
+    const newEnd = new Date(currentStart);
+    newEnd.setDate(newEnd.getDate() + 6);
+    this.selectedWeekEnd.set(newEnd.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  navigateToCurrentWeek(): void {
+    const today = new Date();
+    const sunday = new Date(today.setDate(today.getDate() - today.getDay()));
+    const weekStart = sunday.toISOString().split('T')[0];
+    this.selectedWeekStart.set(weekStart);
+    
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    this.selectedWeekEnd.set(saturday.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  getFormattedWeekRange(): string {
+    if (this.selectedWeekStart() && this.selectedWeekEnd()) {
+      const start = new Date(this.selectedWeekStart());
+      const end = new Date(this.selectedWeekEnd());
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+    }
+    return '';
   }
 }

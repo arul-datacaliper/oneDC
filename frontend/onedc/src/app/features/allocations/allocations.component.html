@@ -115,9 +115,9 @@
             <h6 class="card-title mb-0">Projects Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
+            <div style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onProjectSummaryScroll($event)">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
                     <th>Project</th>
                     <th class="text-center">Employees</th>
@@ -125,7 +125,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let project of projectSummary()" 
+                  <tr *ngFor="let project of filteredProjectSummary()" 
                       class="cursor-pointer" 
                       (click)="onProjectSelect(project.projectId)"
                       title="Click to view project details">
@@ -141,6 +141,12 @@
                 </tbody>
               </table>
             </div>
+            <!-- Summary Info -->
+            <div class="text-center p-2 border-top bg-light">
+              <small class="text-muted">
+                Showing {{ filteredProjectSummary().length }} of {{ projectSummary().length }} projects
+              </small>
+            </div>
           </div>
         </div>
       </div>
@@ -151,9 +157,9 @@
             <h6 class="card-title mb-0">Employees Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
+            <div style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onEmployeeSummaryScroll($event)">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
                     <th>Employee</th>
                     <th class="text-center">Projects</th>
@@ -161,7 +167,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let employee of employeeSummary()" 
+                  <tr *ngFor="let employee of filteredEmployeeSummary()" 
                       class="cursor-pointer" 
                       (click)="onEmployeeSelect(employee.userId)"
                       title="Click to view employee details">
@@ -176,6 +182,12 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Summary Info -->
+            <div class="text-center p-2 border-top bg-light">
+              <small class="text-muted">
+                Showing {{ filteredEmployeeSummary().length }} of {{ employeeSummary().length }} employees
+              </small>
             </div>
           </div>
         </div>
@@ -202,6 +214,7 @@
               placeholder="Search and select a project..."
               [clearable]="true"
               [searchable]="true"
+              [virtualScroll]="true"
               bindLabel="displayName"
               bindValue="projectId"
               [items]="availableProjectsWithDisplayName()">
@@ -308,6 +321,7 @@
               placeholder="Search and select an employee..."
               [clearable]="true"
               [searchable]="true"
+              [virtualScroll]="true"
               bindLabel="userName"
               bindValue="userId"
               [items]="availableEmployees()">
@@ -421,6 +435,7 @@
                   placeholder="Search and select a project..."
                   [clearable]="false"
                   [searchable]="true"
+                  [virtualScroll]="true"
                   bindLabel="displayName"
                   bindValue="projectId"
                   [items]="availableProjectsWithDisplayName()">
@@ -561,6 +576,7 @@
                   placeholder="Search and add more employees..."
                   [clearable]="true"
                   [searchable]="true"
+                  [virtualScroll]="true"
                   bindLabel="userName"
                   bindValue="userId"
                   [items]="availableEmployeesForSelection()"

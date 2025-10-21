@@ -103,15 +103,70 @@
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <h5 class="card-title mb-1">Employee Allocation Overview</h5>
-              <p class="text-muted mb-0 small">Current week allocation percentage for all employees</p>
+              <p class="text-muted mb-0 small">Week: {{ getFormattedWeekRange() }}</p>
             </div>
             <span class="badge bg-primary">{{ filteredEmployeeAllocations().length }} Employees</span>
           </div>
         </div>
         <div class="card-body">
-          <!-- Search Input -->
-          <div class="row mb-3">
-            <div class="col-md-6">
+          <!-- Week Navigation and Search -->
+          <div class="row mb-3 align-items-end">
+            <div class="col-md-9">
+              <div class="d-flex gap-2 align-items-end">
+                <!-- Previous Week Button -->
+                <button 
+                  class="btn btn-outline-secondary" 
+                  (click)="navigateToPreviousWeek()" 
+                  title="Previous Week"
+                  style="height: 38px;">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                
+                <!-- From Date -->
+                <div class="flex-fill" style="max-width: 200px;">
+                  <label class="form-label small text-muted mb-1">From Date</label>
+                  <div class="input-group">
+                    <input 
+                      type="date" 
+                      class="form-control" 
+                      [value]="selectedWeekStart()"
+                      (change)="onWeekStartChange($any($event.target).value)"
+                      title="Week start date"
+                    >
+                    <span class="input-group-text">
+                      <i class="bi bi-calendar3"></i>
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- To Date -->
+                <div class="flex-fill" style="max-width: 200px;">
+                  <label class="form-label small text-muted mb-1">To Date</label>
+                  <div class="input-group">
+                    <input 
+                      type="date" 
+                      class="form-control" 
+                      [value]="selectedWeekEnd()"
+                      readonly
+                      title="Week end date (auto-calculated)"
+                    >
+                    <span class="input-group-text">
+                      <i class="bi bi-calendar3"></i>
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Next Week Button -->
+                <button 
+                  class="btn btn-outline-secondary" 
+                  (click)="navigateToNextWeek()" 
+                  title="Next Week"
+                  style="height: 38px;">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-md-3">
               <div class="input-group">
                 <span class="input-group-text">
                   <i class="bi bi-search"></i>
@@ -119,7 +174,7 @@
                 <input 
                   type="text" 
                   class="form-control" 
-                  placeholder="Search employees by name or ID..." 
+                  placeholder="Search employees..." 
                   [value]="allocationSearchTerm()"
                   (input)="onAllocationSearch($any($event.target).value)"
                 >
@@ -152,7 +207,6 @@
               <thead class="table-light sticky-top">
                 <tr>
                   <th scope="col">Employee</th>
-                  <th scope="col" class="text-center">User ID</th>
                   <th scope="col" class="text-center">Projects</th>
                   <th scope="col" class="text-center">Total Hours</th>
                   <th scope="col" class="text-center">Weekly Capacity</th>
@@ -168,9 +222,6 @@
                       </div>
                       <span class="fw-medium">{{ employee.userName }}</span>
                     </div>
-                  </td>
-                  <td class="text-center">
-                    <code class="text-muted">{{ employee.userId }}</code>
                   </td>
                   <td class="text-center">
                     <span class="badge bg-info">{{ employee.totalProjects }}</span>
