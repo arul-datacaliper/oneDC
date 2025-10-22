@@ -115,7 +115,16 @@
             <h6 class="card-title mb-0">Projects Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onProjectSummaryScroll($event)">
+            <!-- Loading State for Project Summary -->
+            <div *ngIf="isLoading()" class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading projects...</span>
+              </div>
+              <p class="text-muted mt-2 mb-0">Loading projects summary...</p>
+            </div>
+            
+            <!-- Project Summary Table -->
+            <div *ngIf="!isLoading()" style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onProjectSummaryScroll($event)">
               <table class="table table-hover mb-0">
                 <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
@@ -142,7 +151,7 @@
               </table>
             </div>
             <!-- Summary Info -->
-            <div class="text-center p-2 border-top bg-light">
+            <div *ngIf="!isLoading()" class="text-center p-2 border-top bg-light">
               <small class="text-muted">
                 Showing {{ filteredProjectSummary().length }} of {{ projectSummary().length }} projects
               </small>
@@ -157,7 +166,16 @@
             <h6 class="card-title mb-0">Employees Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onEmployeeSummaryScroll($event)">
+            <!-- Loading State for Employee Summary -->
+            <div *ngIf="isLoading()" class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading employees...</span>
+              </div>
+              <p class="text-muted mt-2 mb-0">Loading employees summary...</p>
+            </div>
+            
+            <!-- Employee Summary Table -->
+            <div *ngIf="!isLoading()" style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onEmployeeSummaryScroll($event)">
               <table class="table table-hover mb-0">
                 <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
@@ -184,7 +202,7 @@
               </table>
             </div>
             <!-- Summary Info -->
-            <div class="text-center p-2 border-top bg-light">
+            <div *ngIf="!isLoading()" class="text-center p-2 border-top bg-light">
               <small class="text-muted">
                 Showing {{ filteredEmployeeSummary().length }} of {{ employeeSummary().length }} employees
               </small>

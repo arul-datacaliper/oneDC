@@ -34,7 +34,7 @@ export class ProjectsComponent implements OnInit {
 
   // Signals for reactive state management
   projects = signal<ProjectResponseDto[]>([]);
-  clients = signal<Client[]>([]);
+  clients = signal<Client[]>([]); // All clients
   users = signal<AppUser[]>([]);
   filteredProjects = signal<ProjectResponseDto[]>([]);
   loading = signal<boolean>(false);
@@ -46,6 +46,11 @@ export class ProjectsComponent implements OnInit {
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
   clientFilter = signal<string>('');
+  
+  // Computed signal for active clients only (for project creation/editing)
+  activeClients = computed(() => 
+    this.clients().filter(client => client.status === 'ACTIVE')
+  );
   
   // Project members functionality
   selectedProjectMembers = signal<ProjectMember[]>([]);
@@ -64,19 +69,25 @@ export class ProjectsComponent implements OnInit {
   });
 
   usersWithDisplayName = computed(() => {
-    return this.users().map(user => ({
-      ...user,
-      displayName: `${user.firstName} ${user.lastName}`
-    }));
+    // Filter only active users for project manager selection
+    return this.users()
+      .filter(user => user.isActive)
+      .map(user => ({
+        ...user,
+        displayName: `${user.firstName} ${user.lastName}`
+      }));
   });
 
   availableMembersForSelection = computed(() => {
-    const allUsers = this.users().map(user => ({
-      ...user,
-      displayName: `${user.firstName} ${user.lastName}`
-    }));
+    // Filter only active users and exclude already selected members
+    const allActiveUsers = this.users()
+      .filter(user => user.isActive)
+      .map(user => ({
+        ...user,
+        displayName: `${user.firstName} ${user.lastName}`
+      }));
     const selectedMemberIds = this.selectedProjectMembers().map(member => member.userId);
-    return allUsers.filter(user => !selectedMemberIds.includes(user.userId));
+    return allActiveUsers.filter(user => !selectedMemberIds.includes(user.userId));
   });
 
   // Form
@@ -172,9 +183,12 @@ export class ProjectsComponent implements OnInit {
     this.clientsService.getAll().subscribe({
       next: (data) => {
         console.log('Clients loaded successfully from API:', data);
-        // Filter to only include ACTIVE clients for project creation
-        const activeClients = data.filter(client => client.status === 'ACTIVE');
-        this.clients.set(activeClients);
+        // Store ALL clients (used for filters and displaying existing project clients)
+        this.clients.set(data);
+        
+        const activeCount = data.filter(c => c.status === 'ACTIVE').length;
+        const inactiveCount = data.filter(c => c.status === 'INACTIVE').length;
+        console.log(`Loaded ${activeCount} active clients and ${inactiveCount} inactive clients`);
       },
       error: (err) => {
         console.error('Failed to load clients from API:', err);
@@ -196,11 +210,20 @@ export class ProjectsComponent implements OnInit {
   }
 
   loadUsers() {
-    this.usersService.list(true).subscribe({
+    // Load all users (both active and inactive) for display purposes
+    this.usersService.list(false).subscribe({
       next: (data) => {
+        console.log('All users loaded:', data);
         this.users.set(data);
+        
+        const activeCount = data.filter(u => u.isActive).length;
+        const inactiveCount = data.filter(u => !u.isActive).length;
+        console.log(`Loaded ${activeCount} active users and ${inactiveCount} inactive users`);
       },
-      error: (err) => console.error('Failed to load users:', err)
+      error: (err) => {
+        console.error('Failed to load users:', err);
+        this.toastr.error('Failed to load users');
+      }
     });
   }
 
