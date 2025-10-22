@@ -234,6 +234,20 @@
               </div>
             </div>
 
+            <div class="col-12">
+              <label class="form-label">Project Description</label>
+              <textarea class="form-control" formControlName="description" 
+                        rows="3"
+                        placeholder="Enter project description, goals, or any relevant information..."
+                        [class.is-invalid]="isFieldInvalid('description')"></textarea>
+              <div class="form-text">
+                <small class="text-muted">Provide a brief overview of the project (optional)</small>
+              </div>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('description')">
+                {{ getFieldError('description') }}
+              </div>
+            </div>
+
             <div class="col-md-6">
               <label class="form-label">Client <span class="text-danger">*</span></label>
               <select class="form-select" formControlName="clientId" 
@@ -472,6 +486,11 @@
           <div class="col-12">
             <label class="form-label fw-bold">Project Name</label>
             <p class="form-control-plaintext">{{ viewingProject()?.name }}</p>
+          </div>
+
+          <div class="col-12" *ngIf="viewingProject()?.description">
+            <label class="form-label fw-bold">Project Description</label>
+            <p class="form-control-plaintext" style="white-space: pre-wrap;">{{ viewingProject()?.description }}</p>
           </div>
 
           <div class="col-md-6">

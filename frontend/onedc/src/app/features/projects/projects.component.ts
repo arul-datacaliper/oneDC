@@ -97,6 +97,7 @@ export class ProjectsComponent implements OnInit {
     this.projectForm = this.fb.group({
       code: ['', [Validators.required, Validators.maxLength(20)]],
       name: ['', [Validators.required, Validators.maxLength(100)]],
+      description: ['', [Validators.maxLength(1000)]], // Add description field
       clientId: ['', Validators.required],
       status: ['ACTIVE', Validators.required],
       billable: [true],
@@ -284,6 +285,7 @@ export class ProjectsComponent implements OnInit {
     this.projectForm.patchValue({
       code: project.code,
       name: project.name,
+      description: project.description || '', // Add description
       clientId: project.clientId,
       status: project.status,
       billable: project.billable,
@@ -392,6 +394,7 @@ export class ProjectsComponent implements OnInit {
           projectId: this.editingProject()!.projectId,
           code: formData.code,
           name: formData.name,
+          description: formData.description || undefined, // Add description
           clientId: formData.clientId,
           status: formData.status,
           billable: formData.billable || false,
@@ -439,6 +442,7 @@ export class ProjectsComponent implements OnInit {
         const projectCreateDto: ProjectCreateDto = {
           code: formData.code,
           name: formData.name,
+          description: formData.description || undefined, // Add description
           clientId: formData.clientId,
           status: formData.status,
           billable: formData.billable || false,

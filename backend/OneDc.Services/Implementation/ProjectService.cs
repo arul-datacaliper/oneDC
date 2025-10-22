@@ -116,6 +116,7 @@ public class ProjectService : IProjectService
                     ClientId = projectDto.ClientId,
                     Code = projectDto.Code,
                     Name = projectDto.Name,
+                    Description = projectDto.Description, // Add description
                     Status = projectDto.Status,
                     Billable = projectDto.Billable,
                     DefaultApprover = projectDto.DefaultApprover,
@@ -178,6 +179,7 @@ public class ProjectService : IProjectService
                 // Update project properties
                 existing.Code = projectDto.Code;
                 existing.Name = projectDto.Name;
+                existing.Description = projectDto.Description; // Add description
                 existing.ClientId = projectDto.ClientId;
                 existing.Status = projectDto.Status;
                 existing.Billable = projectDto.Billable;
@@ -244,6 +246,7 @@ public class ProjectService : IProjectService
             ClientId = project.ClientId,
             Code = project.Code,
             Name = project.Name,
+            Description = project.Description, // Add description
             Status = project.Status,
             Billable = project.Billable,
             DefaultApprover = project.DefaultApprover,
@@ -284,6 +287,7 @@ public class ProjectService : IProjectService
             ClientId = project.ClientId,
             Code = project.Code,
             Name = project.Name,
+            Description = project.Description, // Add description
             Status = project.Status,
             Billable = project.Billable,
             DefaultApprover = project.DefaultApprover,
