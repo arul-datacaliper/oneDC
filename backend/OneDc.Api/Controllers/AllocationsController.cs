@@ -10,7 +10,7 @@ namespace OneDc.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class AllocationsController : ControllerBase
+public class AllocationsController : BaseController
 {
     private readonly OneDcDbContext _context;
 
@@ -29,11 +29,36 @@ public class AllocationsController : ControllerBase
         }
 
         var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+        
+        var currentUserId = GetCurrentUserId();
+        var currentUserRole = GetCurrentUserRole();
 
-        var allocations = await _context.WeeklyAllocations
+        var query = _context.WeeklyAllocations
             .Include(wa => wa.Project)
             .Include(wa => wa.User)
-            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate) // Overlaps with the requested week
+            .Where(wa => wa.WeekStartDate <= endDate && wa.WeekEndDate >= startDate); // Overlaps with the requested week
+
+        // Role-based filtering
+        if (currentUserRole == "EMPLOYEE")
+        {
+            // Employees can only see their own allocations
+            query = query.Where(wa => wa.UserId == currentUserId);
+        }
+        else if (currentUserRole == "APPROVER")
+        {
+            // Approvers can see allocations for projects they manage (DefaultApprover) or are members of
+            var approverProjectIds = await _context.Projects
+                .Include(p => p.ProjectMembers)
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           p.ProjectMembers.Any(pm => pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            query = query.Where(wa => approverProjectIds.Contains(wa.ProjectId));
+        }
+        // Admin can see all allocations (no additional filter)
+
+        var allocations = await query
             .Select(wa => new WeeklyAllocationDto
             {
                 AllocationId = wa.AllocationId.ToString(),
@@ -83,6 +108,46 @@ public class AllocationsController : ControllerBase
             {
                 return BadRequest("Invalid end date format. Use YYYY-MM-DD.");
             }
+
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            // Role-based authorization for creating allocations
+            if (currentUserRole == "EMPLOYEE")
+            {
+                // Employees can only create allocations for themselves
+                if (userId != currentUserId)
+                {
+                    return StatusCode(403, "Employees can only create allocations for themselves.");
+                }
+
+                // Employees can only create allocations for projects they're assigned to (ProjectAllocations) or are team members of (ProjectMembers)
+                var isAssignedToProject = await _context.ProjectAllocations
+                    .AnyAsync(pa => pa.ProjectId == projectId && pa.UserId == currentUserId);
+                
+                var isProjectMember = await _context.ProjectMembers
+                    .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == currentUserId);
+
+                if (!isAssignedToProject && !isProjectMember)
+                {
+                    return StatusCode(403, "You can only create allocations for projects you are assigned to.");
+                }
+            }
+            else if (currentUserRole == "APPROVER")
+            {
+                // Approvers can create allocations for any user but only for projects they manage or are members of
+                var isApproverProject = await _context.Projects
+                    .Include(p => p.ProjectMembers)
+                    .AnyAsync(p => p.ProjectId == projectId && 
+                                  (p.DefaultApprover == currentUserId || 
+                                   p.ProjectMembers.Any(pm => pm.UserId == currentUserId)));
+
+                if (!isApproverProject)
+                {
+                    return StatusCode(403, "You can only create allocations for projects you manage.");
+                }
+            }
+            // Admin can create allocations for anyone on any project (no additional check)
 
             // Check if allocation already exists for this project, user, and period
             var existingAllocation = await _context.WeeklyAllocations
@@ -210,9 +275,49 @@ public class AllocationsController : ControllerBase
         }
 
         var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+        
+        var currentUserId = GetCurrentUserId();
+        var currentUserRole = GetCurrentUserRole();
 
-        // Get all projects (not filtering by status to show all projects)
-        var allProjects = await _context.Projects
+        IQueryable<Project> projectQuery = _context.Projects;
+
+        // Role-based filtering for projects
+        if (currentUserRole == "EMPLOYEE")
+        {
+            // Employees can see projects they're allocated to (WeeklyAllocations) or are team members of (ProjectMembers)
+            var employeeProjectIdsFromAllocations = await _context.WeeklyAllocations
+                .Where(wa => wa.UserId == currentUserId && 
+                            wa.WeekStartDate <= endDate && 
+                            wa.WeekEndDate >= startDate)
+                .Select(wa => wa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            var employeeProjectIdsFromMembers = await _context.ProjectMembers
+                .Where(pm => pm.UserId == currentUserId)
+                .Select(pm => pm.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            // Combine both lists
+            var allEmployeeProjectIds = employeeProjectIdsFromAllocations
+                .Union(employeeProjectIdsFromMembers)
+                .ToList();
+            
+            projectQuery = projectQuery.Where(p => allEmployeeProjectIds.Contains(p.ProjectId));
+        }
+        else if (currentUserRole == "APPROVER")
+        {
+            // Approvers can see projects where they are DefaultApprover or ProjectMember
+            projectQuery = projectQuery
+                .Include(p => p.ProjectMembers)
+                .Where(p => 
+                    p.DefaultApprover == currentUserId || 
+                    p.ProjectMembers.Any(pm => pm.UserId == currentUserId));
+        }
+        // Admin can see all projects (no filter)
+
+        var allProjects = await projectQuery
             .Select(p => new
             {
                 p.ProjectId,
@@ -264,9 +369,46 @@ public class AllocationsController : ControllerBase
         }
 
         var endDate = startDate.AddDays(6); // Sunday + 6 = Saturday
+        
+        var currentUserId = GetCurrentUserId();
+        var currentUserRole = GetCurrentUserRole();
 
-        // Get all employees
-        var allEmployees = await _context.AppUsers
+        IQueryable<AppUser> employeeQuery = _context.AppUsers;
+
+        // Role-based filtering for employees
+        if (currentUserRole == "EMPLOYEE")
+        {
+            // Employees can only see themselves
+            employeeQuery = employeeQuery.Where(u => u.UserId == currentUserId);
+        }
+        else if (currentUserRole == "APPROVER")
+        {
+            // Approvers can see employees from projects they manage (DefaultApprover) or are members of
+            var approverProjectIds = await _context.Projects
+                .Include(p => p.ProjectMembers)
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           p.ProjectMembers.Any(pm => pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            // Get all employees who have allocations or are members in these projects
+            var employeeIdsInAllocations = await _context.ProjectAllocations
+                .Where(pa => approverProjectIds.Contains(pa.ProjectId))
+                .Select(pa => pa.UserId)
+                .ToListAsync();
+                
+            var employeeIdsInMembers = await _context.ProjectMembers
+                .Where(pm => approverProjectIds.Contains(pm.ProjectId))
+                .Select(pm => pm.UserId)
+                .ToListAsync();
+            
+            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Distinct().ToList();
+            
+            employeeQuery = employeeQuery.Where(u => allEmployeeIds.Contains(u.UserId));
+        }
+        // Admin can see all employees (no filter)
+
+        var allEmployees = await employeeQuery
             .Select(u => new
             {
                 u.UserId,
@@ -390,9 +532,47 @@ public class AllocationsController : ControllerBase
     [HttpGet("available-projects")]
     public async Task<ActionResult<IEnumerable<AvailableProjectDto>>> GetAvailableProjects()
     {
-        var projects = await _context.Projects
+        var currentUserId = GetCurrentUserId();
+        var currentUserRole = GetCurrentUserRole();
+
+        IQueryable<Project> projectQuery = _context.Projects
             .Include(p => p.Client)
-            .Where(p => p.Status.ToLower() == "active")
+            .Include(p => p.ProjectMembers)
+            .Where(p => p.Status.ToLower() == "active");
+
+        // Role-based filtering
+        if (currentUserRole == "EMPLOYEE")
+        {
+            // Employees can see projects they're assigned to (ProjectAllocations) OR are team members of (ProjectMembers)
+            var employeeProjectIdsFromAllocations = await _context.ProjectAllocations
+                .Where(pa => pa.UserId == currentUserId)
+                .Select(pa => pa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            var employeeProjectIdsFromMembers = await _context.ProjectMembers
+                .Where(pm => pm.UserId == currentUserId)
+                .Select(pm => pm.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            // Combine both lists
+            var allEmployeeProjectIds = employeeProjectIdsFromAllocations
+                .Union(employeeProjectIdsFromMembers)
+                .ToList();
+            
+            projectQuery = projectQuery.Where(p => allEmployeeProjectIds.Contains(p.ProjectId));
+        }
+        else if (currentUserRole == "APPROVER")
+        {
+            // Approvers can see projects where they are DefaultApprover or ProjectMember
+            projectQuery = projectQuery.Where(p => 
+                p.DefaultApprover == currentUserId || 
+                p.ProjectMembers.Any(pm => pm.UserId == currentUserId));
+        }
+        // Admin can see all active projects (no additional filter)
+
+        var projects = await projectQuery
             .Select(p => new AvailableProjectDto
             {
                 ProjectId = p.ProjectId.ToString(),
@@ -410,8 +590,45 @@ public class AllocationsController : ControllerBase
     [HttpGet("available-employees")]
     public async Task<ActionResult<IEnumerable<AvailableEmployeeDto>>> GetAvailableEmployees()
     {
-        var employees = await _context.AppUsers
-            .Where(u => u.IsActive)
+        var currentUserId = GetCurrentUserId();
+        var currentUserRole = GetCurrentUserRole();
+
+        IQueryable<AppUser> employeeQuery = _context.AppUsers.Where(u => u.IsActive);
+
+        // Role-based filtering
+        if (currentUserRole == "EMPLOYEE")
+        {
+            // Employees can only see themselves
+            employeeQuery = employeeQuery.Where(u => u.UserId == currentUserId);
+        }
+        else if (currentUserRole == "APPROVER")
+        {
+            // Approvers can see employees from projects they manage (DefaultApprover) or are members of
+            var approverProjectIds = await _context.Projects
+                .Include(p => p.ProjectMembers)
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           p.ProjectMembers.Any(pm => pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            // Get all employees who have allocations or are members in these projects
+            var employeeIdsInAllocations = await _context.ProjectAllocations
+                .Where(pa => approverProjectIds.Contains(pa.ProjectId))
+                .Select(pa => pa.UserId)
+                .ToListAsync();
+                
+            var employeeIdsInMembers = await _context.ProjectMembers
+                .Where(pm => approverProjectIds.Contains(pm.ProjectId))
+                .Select(pm => pm.UserId)
+                .ToListAsync();
+            
+            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Distinct().ToList();
+            
+            employeeQuery = employeeQuery.Where(u => allEmployeeIds.Contains(u.UserId));
+        }
+        // Admin can see all active employees (no additional filter)
+
+        var employees = await employeeQuery
             .Select(u => new AvailableEmployeeDto
             {
                 UserId = u.UserId.ToString(),

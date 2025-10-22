@@ -337,15 +337,87 @@ export class AllocationsComponent implements OnInit {
   }
 
   private autoAddProjectMembers(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
+    // Get the selected project ID and week dates from the form
+    const projectId = this.allocationForm.get('projectId')?.value;
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+
+    // For employees, only add themselves to the allocation list
+    if (this.isEmployee()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        const currentMember = members.find(m => m.userId === currentUser.userId);
+        if (currentMember) {
+          // Check if there's an existing allocation for this user, project, and week
+          const existingAllocation = this.allocations().find(a => 
+            a.userId === currentUser.userId && 
+            a.projectId === projectId &&
+            a.weekStartDate === weekStartDate &&
+            a.weekEndDate === weekEndDate
+          );
+
+          const allocation: EmployeeAllocation = {
+            userId: currentMember.userId,
+            userName: currentMember.userName,
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+          };
+
+          // Initialize periodHours if multi-month week is detected
+          if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+            allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+          }
+
+          this.selectedEmployeeAllocations.set([allocation]);
+          this.updateAvailableEmployeesForSelection();
+          
+          if (existingAllocation) {
+            this.toastr.info(`Existing allocation found: ${existingAllocation.allocatedHours} hours. You can update the hours below.`);
+          } else {
+            this.toastr.info('You have been auto-selected for allocation. Please enter your allocation hours.');
+          }
+        } else {
+          // Employee is not a team member - keep them in the list (they can still allocate themselves)
+          // Check if there's an existing allocation for this user, project, and week
+          const existingAllocation = this.allocations().find(a => 
+            a.userId === currentUser.userId && 
+            a.projectId === projectId &&
+            a.weekStartDate === weekStartDate &&
+            a.weekEndDate === weekEndDate
+          );
+
+          this.selectedEmployeeAllocations.set([{
+            userId: currentUser.userId,
+            userName: currentUser.name,
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+          }]);
+          this.updateAvailableEmployeesForSelection();
+          
+          if (existingAllocation) {
+            this.toastr.info(`Existing allocation found: ${existingAllocation.allocatedHours} hours. You can update the hours below.`);
+          }
+        }
+      }
+      return;
+    }
+    
+    // For approvers and admins, add all project members
     // Clear existing allocations first
     this.selectedEmployeeAllocations.set([]);
     
-    // Add all project members without default hours - let users enter appropriate hours
+    // Add all project members and pre-fill existing allocation hours
     const allocations: EmployeeAllocation[] = members.map(member => {
+      // Check if there's an existing allocation for this member, project, and week
+      const existingAllocation = this.allocations().find(a => 
+        a.userId === member.userId && 
+        a.projectId === projectId &&
+        a.weekStartDate === weekStartDate &&
+        a.weekEndDate === weekEndDate
+      );
+
       const allocation: EmployeeAllocation = {
         userId: member.userId,
         userName: member.userName,
-        allocatedHours: 0 // No default hours - users should enter appropriate values
+        allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
       };
 
       // Initialize periodHours if multi-month week is detected
@@ -359,7 +431,12 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set(allocations);
     this.updateAvailableEmployeesForSelection();
     
-    if (members.length > 0) {
+    // Check if any existing allocations were found
+    const existingCount = allocations.filter(a => a.allocatedHours > 0).length;
+    
+    if (existingCount > 0) {
+      this.toastr.info(`Auto-added ${members.length} project team members. ${existingCount} member(s) have existing allocations pre-filled.`);
+    } else if (members.length > 0) {
       this.toastr.info(`Auto-added ${members.length} project team members. Please enter allocation hours for each member.`);
     }
   }
@@ -537,6 +614,22 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set([]);
     this.projectMembers.set([]); // Clear project members
     this.selectedEmployeeForDropdown.set(null);
+    
+    // For employees, automatically select themselves
+    if (this.isEmployee()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        const currentEmployee = this.availableEmployees().find(emp => emp.userId === currentUser.userId);
+        if (currentEmployee) {
+          this.selectedEmployeeAllocations.set([{
+            userId: currentEmployee.userId,
+            userName: currentEmployee.userName,
+            allocatedHours: 0
+          }]);
+        }
+      }
+    }
+    
     this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
     this.showCreateModal.set(true);
@@ -1141,14 +1234,28 @@ export class AllocationsComponent implements OnInit {
 
   // Role-based access control methods
   canCreateOrEdit(): boolean {
-    return this.authService.isAdmin();
+    // All authenticated users can create/edit allocations
+    // Backend will enforce proper restrictions
+    return true;
   }
 
   canView(): boolean {
-    return this.authService.isAdmin() || this.authService.isApprover();
+    return true; // All authenticated users can view (backend filters data)
   }
 
   isReadOnlyUser(): boolean {
-    return this.authService.isApprover() && !this.authService.isAdmin();
+    return false; // No longer needed since everyone can create/edit their own allocations
+  }
+
+  isEmployee(): boolean {
+    return this.authService.getCurrentUser()?.role === 'EMPLOYEE';
+  }
+
+  isApprover(): boolean {
+    return this.authService.isApprover();
+  }
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
   }
 }

@@ -538,7 +538,17 @@
 
           <!-- Project Members Information -->
           <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length > 0" class="mb-4">
-            <div class="alert alert-success d-flex align-items-start">
+            <!-- For Employees -->
+            <div *ngIf="isEmployee()" class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>Project Selected</strong>
+                <p class="mb-0">You have been auto-selected for this allocation. Please enter your allocation hours below.</p>
+              </div>
+            </div>
+            
+            <!-- For Approvers/Admins -->
+            <div *ngIf="!isEmployee()" class="alert alert-success d-flex align-items-start">
               <i class="bi bi-people-fill me-2 mt-1"></i>
               <div class="flex-grow-1">
                 <strong>Project Team Members Auto-Added!</strong>
@@ -576,7 +586,7 @@
           <div *ngIf="!editingAllocation()" class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h6 class="mb-0">Employee Allocations</h6>
-              <div class="d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center gap-3" *ngIf="!isEmployee()">
                 <button 
                   *ngIf="allocationForm.get('projectId')?.value && projectMembers().length > 0"
                   type="button" 
@@ -614,7 +624,7 @@
                     <th>Employee Name</th>
                     <th *ngIf="isMultiMonthWeek()">Period</th>
                     <th style="width: 200px;">Allocated Hours</th>
-                    <th style="width: 100px;" class="text-center">Actions</th>
+                    <th *ngIf="!isEmployee()" style="width: 100px;" class="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -633,7 +643,7 @@
                           min="0" 
                           placeholder="Hours">
                       </td>
-                      <td class="text-center">
+                      <td *ngIf="!isEmployee()" class="text-center">
                         <button 
                           type="button" 
                           class="btn btn-sm btn-outline-danger"
@@ -668,7 +678,7 @@
                             placeholder="Hours">
                           <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 63) }} hours</div>
                         </td>
-                        <td class="text-center">
+                        <td *ngIf="!isEmployee()" class="text-center">
                           <button 
                             *ngIf="periodIndex === 0"
                             type="button" 
