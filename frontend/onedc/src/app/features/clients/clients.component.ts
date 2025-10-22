@@ -342,8 +342,8 @@ export class ClientsComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.clientForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
-      if (field.errors['maxlength']) return `${fieldName} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
+      if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} must be ${field.errors['maxlength'].requiredLength} characters or less`;
     }
     return '';
   }
@@ -379,5 +379,10 @@ export class ClientsComponent implements OnInit {
     }
     
     return pages;
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

@@ -516,7 +516,12 @@ export class LeaveManagementComponent implements OnInit {
       reason: 'Reason',
       halfDayPeriod: 'Half Day Period'
     };
-    return displayNames[fieldName] || fieldName;
+    return displayNames[fieldName] || this.capitalizeFirstLetter(fieldName);
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
   // Helper methods for leave balance display

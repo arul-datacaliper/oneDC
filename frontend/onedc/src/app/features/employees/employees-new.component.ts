@@ -561,9 +561,9 @@ export class EmployeesComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.employeeForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
       if (field.errors['email']) return 'Invalid email format';
-      if (field.errors['maxlength']) return `${fieldName} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} must be ${field.errors['maxlength'].requiredLength} characters or less`;
       if (field.errors['futureDate']) return 'Date cannot be in the future';
       if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
       if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
@@ -680,5 +680,10 @@ export class EmployeesComponent implements OnInit {
     if (!managerId) return 'No Manager';
     const manager = this.employees().find(emp => emp.userId === managerId);
     return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

@@ -291,12 +291,17 @@ export class HolidayManagementComponent implements OnInit {
     const formField = this.holidayForm.get(field);
     if (formField?.errors) {
       if (formField.errors['required']) {
-        return `${field} is required`;
+        return `${this.capitalizeFirstLetter(field)} is required`;
       }
       if (formField.errors['minlength']) {
-        return `${field} must be at least ${formField.errors['minlength'].requiredLength} characters`;
+        return `${this.capitalizeFirstLetter(field)} must be at least ${formField.errors['minlength'].requiredLength} characters`;
       }
     }
     return '';
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

@@ -600,11 +600,11 @@ export class ProjectsComponent implements OnInit {
           case 'name':
             return 'Project Name is required';
           default:
-            return `${fieldName} is required`;
+            return `${this.capitalizeFirstLetter(fieldName)} is required`;
         }
       }
-      if (field.errors['maxlength']) return `${fieldName} is too long`;
-      if (field.errors['min']) return `${fieldName} must be positive`;
+      if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} is too long`;
+      if (field.errors['min']) return `${this.capitalizeFirstLetter(fieldName)} must be positive`;
       if (field.errors['dateAfter']) {
         switch (fieldName) {
           case 'endDate':
@@ -649,5 +649,10 @@ export class ProjectsComponent implements OnInit {
       case 'MEMBER': 
       default: return 'bg-secondary';
     }
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

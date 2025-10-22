@@ -457,8 +457,13 @@ export class ReportsComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.reportForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
     }
     return '';
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }
