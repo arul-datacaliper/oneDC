@@ -1,0 +1,558 @@
+<div class="leave-management">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-1">Leave Management</h2>
+      <p class="text-muted mb-0">Manage your leave requests and approvals</p>
+     
+    </div>
+    <div class="d-flex gap-2">
+      <button 
+        class="btn btn-outline-primary" 
+        (click)="loadInitialData()"
+        [disabled]="isLoading()"
+        type="button">
+        <span *ngIf="isLoading()" class="spinner-border spinner-border-sm me-2"></span>
+        <i *ngIf="!isLoading()" class="bi bi-arrow-clockwise me-2"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Error Alert -->
+  <div *ngIf="error()" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    {{ error() }}
+    <button type="button" class="btn-close" (click)="error.set(null)"></button>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <ul class="nav nav-tabs nav-fill mb-4">
+    <li class="nav-item">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab() === 'my-leaves'"
+        (click)="setActiveTab('my-leaves')">
+        <i class="bi bi-calendar-week me-2"></i>
+        My Leave Requests
+      </button>
+    </li>
+    <li class="nav-item">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab() === 'apply-leave'"
+        (click)="setActiveTab('apply-leave')">
+        <i class="bi bi-plus-circle me-2"></i>
+        {{ editingLeave() ? 'Edit Leave' : 'Apply for Leave' }}
+      </button>
+    </li>
+    <li class="nav-item" *ngIf="isApprover() || isAdmin()">
+      <button 
+        class="nav-link position-relative" 
+        [class.active]="activeTab() === 'approvals'"
+        (click)="setActiveTab('approvals')">
+        <i class="bi bi-clipboard-check me-2"></i>
+        Pending Approvals
+        <span *ngIf="pendingApprovals().length > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+          {{ pendingApprovals().length }}
+        </span>
+      </button>
+    </li>
+    <li class="nav-item" *ngIf="isAdmin()">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab() === 'employee-records'"
+        (click)="setActiveTab('employee-records')">
+        <i class="bi bi-people me-2"></i>
+        Employee Leave Records
+      </button>
+    </li>
+  </ul>
+
+  <!-- Leave Balance Summary Card -->
+  <div *ngIf="activeTab() === 'my-leaves' || activeTab() === 'apply-leave'" class="row mb-4">
+    <div class="col-12">
+      <div class="card border-primary">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h6 class="mb-2">
+                <i class="bi bi-calendar-range me-2"></i>
+                Leave Balance for {{ getCurrentYear() }}
+              </h6>
+              <div *ngIf="leaveBalance(); else loadingBalance">
+                <p class="mb-1 text-muted">{{ getLeaveBalanceInfo() }}</p>
+                <div class="row text-center">
+                  <div class="col-3">
+                    <div class="fw-bold text-primary fs-5">{{ leaveBalance()?.totalEntitlement || 0 }}</div>
+                    <small class="text-muted">Total Entitled</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold text-info fs-5">{{ leaveBalance()?.usedDays || 0 }}</div>
+                    <small class="text-muted">Used</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold text-warning fs-5">{{ leaveBalance()?.pendingDays || 0 }}</div>
+                    <small class="text-muted">Pending</small>
+                  </div>
+                  <div class="col-3">
+                    <div class="fw-bold fs-5" [class]="getLeaveBalanceClass()">{{ leaveBalance()?.remainingDays || 0 }}</div>
+                    <small class="text-muted">Remaining</small>
+                  </div>
+                </div>
+              </div>
+              <ng-template #loadingBalance>
+                <div class="d-flex align-items-center">
+                  <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <span class="text-muted">Loading leave balance...</span>
+                </div>
+              </ng-template>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="d-flex flex-column align-items-end gap-2">
+                <button 
+                  class="btn btn-primary px-4 py-2 fw-medium"
+                  style="width: auto; min-width: 140px;"
+                  (click)="setActiveTab('apply-leave')"
+                  [disabled]="(leaveBalance()?.remainingDays || 0) <= 0">
+                  <i class="bi bi-plus-circle me-2"></i>
+                  Apply for Leave
+                </button>
+                <small class="text-muted text-end" *ngIf="(leaveBalance()?.remainingDays || 0) <= 0">
+                  No remaining leave days
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Leave Requests Tab -->
+  <div *ngIf="activeTab() === 'my-leaves'" class="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">My Leave Requests</h5>
+      </div>
+      <div class="card-body p-0">
+        <div *ngIf="isLoading()" class="text-center p-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Loading leave requests...</p>
+        </div>
+
+        <div *ngIf="!isLoading() && myLeaveRequests().length === 0" class="text-center p-4">
+          <i class="bi bi-calendar-x text-muted fs-1"></i>
+          <p class="text-muted mt-2 mb-0">No leave requests found</p>
+        </div>
+
+        <div *ngIf="!isLoading() && myLeaveRequests().length > 0" class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Date Range</th>
+                <th>Type</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Approver</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let leave of myLeaveRequests()">
+                <td>
+                  <div class="fw-medium">{{ formatDateRange(leave.startDate, leave.endDate) }}</div>
+                  <small *ngIf="leave.isHalfDay" class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    {{ leave.halfDayPeriod }} Half Day
+                  </small>
+                </td>
+                <td>
+                  <span [class]="getLeaveTypeBadgeClass(leave.leaveType)">
+                    {{ leave.leaveType }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">{{ leave.totalDays }}</span>
+                </td>
+                <td>
+                  <span class="text-muted">{{ leave.reason || '-' }}</span>
+                </td>
+                <td>
+                  <span [class]="getStatusBadgeClass(leave.status)">
+                    {{ leave.status }}
+                  </span>
+                  <div *ngIf="leave.approverComments" class="mt-1">
+                    <small class="text-muted">
+                      <i class="bi bi-chat-text me-1"></i>
+                      {{ leave.approverComments }}
+                    </small>
+                  </div>
+                </td>
+                <td>
+                  <span class="text-muted">{{ leave.approverName || 'Not Assigned' }}</span>
+                  <div *ngIf="leave.approvedDate">
+                    <small class="text-muted">{{ leave.approvedDate | date:'short' }}</small>
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <button 
+                      *ngIf="canEdit(leave)"
+                      class="btn btn-sm btn-outline-primary"
+                      (click)="editLeaveRequest(leave)"
+                      title="Edit">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button 
+                      *ngIf="canDelete(leave)"
+                      class="btn btn-sm btn-outline-danger"
+                      (click)="deleteLeaveRequest(leave)"
+                      title="Delete">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apply Leave Tab -->
+  <div *ngIf="activeTab() === 'apply-leave'" class="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">{{ editingLeave() ? 'Edit Leave Request' : 'Apply for Leave' }}</h5>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="leaveForm" (ngSubmit)="submitLeaveRequest()">
+          <div class="row g-3">
+            <!-- Leave Type -->
+            <div class="col-md-6">
+              <label for="leaveType" class="form-label">Leave Type <span class="text-danger">*</span></label>
+              <select id="leaveType" class="form-select" formControlName="leaveType">
+                <option value="">Select Leave Type</option>
+                <option *ngFor="let type of leaveTypes()" [value]="type">{{ type }}</option>
+              </select>
+              <div *ngIf="getFormError('leaveType')" class="text-danger small mt-1">
+                {{ getFormError('leaveType') }}
+              </div>
+            </div>
+
+            <!-- Half Day Toggle -->
+            <div class="col-md-6">
+              <div class="form-check mt-4">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  id="isHalfDay"
+                  formControlName="isHalfDay">
+                <label class="form-check-label" for="isHalfDay">
+                  Half Day Leave
+                </label>
+              </div>
+            </div>
+
+            <!-- Start Date -->
+            <div class="col-md-6">
+              <label for="startDate" class="form-label">Start Date <span class="text-danger">*</span></label>
+              <input 
+                type="date" 
+                id="startDate" 
+                class="form-control" 
+                formControlName="startDate"
+                [min]="getTodayDate()">
+              <div *ngIf="getFormError('startDate')" class="text-danger small mt-1">
+                {{ getFormError('startDate') }}
+              </div>
+            </div>
+
+            <!-- End Date -->
+            <div class="col-md-6">
+              <label for="endDate" class="form-label">End Date <span class="text-danger">*</span></label>
+              <input 
+                type="date" 
+                id="endDate" 
+                class="form-control" 
+                formControlName="endDate"
+                [min]="leaveForm.get('startDate')?.value || getTodayDate()"
+                [readonly]="leaveForm.get('isHalfDay')?.value">
+              <div *ngIf="getFormError('endDate')" class="text-danger small mt-1">
+                {{ getFormError('endDate') }}
+              </div>
+            </div>
+
+            <!-- Half Day Period -->
+            <div class="col-md-6" *ngIf="leaveForm.get('isHalfDay')?.value">
+              <label for="halfDayPeriod" class="form-label">Half Day Period <span class="text-danger">*</span></label>
+              <select id="halfDayPeriod" class="form-select" formControlName="halfDayPeriod">
+                <option value="">Select Period</option>
+                <option value="Morning">Morning</option>
+                <option value="Afternoon">Afternoon</option>
+              </select>
+              <div *ngIf="getFormError('halfDayPeriod')" class="text-danger small mt-1">
+                {{ getFormError('halfDayPeriod') }}
+              </div>
+            </div>
+
+            <!-- Reason -->
+            <div class="col-12">
+              <label for="reason" class="form-label">Reason <span class="text-danger">*</span></label>
+              <textarea 
+                id="reason" 
+                class="form-control" 
+                [class.is-invalid]="getFormError('reason')"
+                rows="3" 
+                formControlName="reason"
+                placeholder="Provide reason for leave"></textarea>
+              <div *ngIf="getFormError('reason')" class="invalid-feedback">
+                {{ getFormError('reason') }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="d-flex gap-2 mt-4">
+            <button 
+              type="submit" 
+              class="btn btn-primary"
+              [disabled]="isLoading() || leaveForm.invalid">
+              <span *ngIf="isLoading()" class="spinner-border spinner-border-sm me-2"></span>
+              <i *ngIf="!isLoading()" class="bi bi-check-circle me-2"></i>
+              {{ editingLeave() ? 'Update Leave Request' : 'Submit Leave Request' }}
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary"
+              (click)="cancelForm()"
+              [disabled]="isLoading()">
+              <i class="bi bi-x-circle me-2"></i>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Approvals Tab -->
+  <div *ngIf="activeTab() === 'approvals' && (isApprover() || isAdmin())" class="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="mb-0">
+          Pending Approvals
+          <span class="badge bg-warning text-dark ms-2">{{ pendingApprovals().length }}</span>
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div *ngIf="isLoading()" class="text-center p-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Loading pending approvals...</p>
+        </div>
+
+        <div *ngIf="!isLoading() && pendingApprovals().length === 0" class="text-center p-4">
+          <i class="bi bi-check-circle text-success fs-1"></i>
+          <p class="text-muted mt-2 mb-0">No pending approvals</p>
+        </div>
+
+        <div *ngIf="!isLoading() && pendingApprovals().length > 0" class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Employee</th>
+                <th>Date Range</th>
+                <th>Type</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th *ngIf="isAdmin()">Assigned Approver</th>
+                <th>Applied Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let leave of pendingApprovals()">
+                <td>
+                  <div class="fw-medium">{{ leave.employeeName }}</div>
+                </td>
+                <td>
+                  <div class="fw-medium">{{ formatDateRange(leave.startDate, leave.endDate) }}</div>
+                  <small *ngIf="leave.isHalfDay" class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    {{ leave.halfDayPeriod }} Half Day
+                  </small>
+                </td>
+                <td>
+                  <span [class]="getLeaveTypeBadgeClass(leave.leaveType)">
+                    {{ leave.leaveType }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">{{ leave.totalDays }}</span>
+                </td>
+                <td>
+                  <span class="text-muted">{{ leave.reason || '-' }}</span>
+                </td>
+                <td *ngIf="isAdmin()">
+                  <span class="text-muted">{{ leave.approverName || 'Not Assigned' }}</span>
+                </td>
+                <td>
+                  <small class="text-muted">{{ leave.createdDate | date:'short' }}</small>
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <button 
+                      class="btn btn-sm btn-success"
+                      (click)="approveLeave(leave)"
+                      [disabled]="isLoading()"
+                      title="Approve">
+                      <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button 
+                      class="btn btn-sm btn-danger"
+                      (click)="rejectLeave(leave)"
+                      [disabled]="isLoading()"
+                      title="Reject">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Leave Records Tab (Admin Only) -->
+  <div *ngIf="activeTab() === 'employee-records' && isAdmin()" class="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <div class="row align-items-center">
+          <div class="col-md-6">
+            <h5 class="mb-0">Employee Leave Records</h5>
+          </div>
+          <div class="col-md-6">
+            <select 
+              class="form-select" 
+              #employeeSelect
+              (change)="onEmployeeSelect(employeeSelect.value)"
+              [value]="selectedEmployeeId() || ''">
+              <option value="">Select an employee...</option>
+              <option *ngFor="let employee of employees()" [value]="employee.id">
+                {{ employee.name }} ({{ employee.role }})
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div *ngIf="!selectedEmployeeId()" class="text-center p-4">
+          <i class="bi bi-person-check text-muted fs-1"></i>
+          <p class="text-muted mt-2 mb-0">Select an employee to view their leave records</p>
+        </div>
+
+        <div *ngIf="selectedEmployeeId() && isLoading()" class="text-center p-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Loading employee leave records...</p>
+        </div>
+
+        <div *ngIf="selectedEmployeeId() && !isLoading() && employeeLeaveRequests().length === 0" class="text-center p-4">
+          <i class="bi bi-calendar-x text-muted fs-1"></i>
+          <p class="text-muted mt-2 mb-0">No leave records found for this employee</p>
+        </div>
+
+        <div *ngIf="selectedEmployeeId() && !isLoading() && employeeLeaveRequests().length > 0" class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Date Range</th>
+                <th>Type</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Approver</th>
+                <th>Applied Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let leave of employeeLeaveRequests()">
+                <td>
+                  <div class="fw-medium">{{ formatDateRange(leave.startDate, leave.endDate) }}</div>
+                  <small *ngIf="leave.isHalfDay" class="text-muted">
+                    <i class="bi bi-clock me-1"></i>
+                    {{ leave.halfDayPeriod }} Half Day
+                  </small>
+                </td>
+                <td>
+                  <span [class]="getLeaveTypeBadgeClass(leave.leaveType)">
+                    {{ leave.leaveType }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">{{ leave.totalDays }}</span>
+                </td>
+                <td>
+                  <span class="text-muted">{{ leave.reason || '-' }}</span>
+                </td>
+                <td>
+                  <span [class]="getStatusBadgeClass(leave.status)">
+                    {{ leave.status }}
+                  </span>
+                  <div *ngIf="leave.approverComments" class="mt-1">
+                    <small class="text-muted">
+                      <i class="bi bi-chat-text me-1"></i>
+                      {{ leave.approverComments }}
+                    </small>
+                  </div>
+                </td>
+                <td>
+                  <span class="text-muted">{{ leave.approverName || 'Not Assigned' }}</span>
+                  <div *ngIf="leave.approvedDate">
+                    <small class="text-muted">{{ leave.approvedDate | date:'short' }}</small>
+                  </div>
+                </td>
+                <td>
+                  <small class="text-muted">{{ leave.createdDate | date:'short' }}</small>
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <button 
+                      *ngIf="leave.status === 'Pending'"
+                      class="btn btn-sm btn-success"
+                      (click)="approveLeave(leave)"
+                      [disabled]="isLoading()"
+                      title="Approve">
+                      <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button 
+                      *ngIf="leave.status === 'Pending'"
+                      class="btn btn-sm btn-danger"
+                      (click)="rejectLeave(leave)"
+                      [disabled]="isLoading()"
+                      title="Reject">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

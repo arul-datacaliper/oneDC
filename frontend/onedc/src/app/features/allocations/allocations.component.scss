@@ -3,6 +3,56 @@
   font-size: 0.85rem;
 }
 
+// Clickable table rows
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  background-color: rgba(13, 110, 253, 0.05) !important;
+}
+
+// Dropdown visibility fixes
+.table-responsive {
+  overflow: visible !important;
+}
+
+.card-body {
+  overflow: visible !important;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute !important;
+  z-index: 1050 !important;
+  min-width: 160px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  background-color: white !important;
+}
+
+// Ensure dropdown shows on top
+.dropdown-menu.show {
+  display: block !important;
+  top: 100% !important;
+  right: 0 !important;
+}
+
+// Table and container overflow fixes
+td .dropdown {
+  overflow: visible !important;
+}
+
+.container-fluid,
+.row,
+.col-12,
+.col-md-6 {
+  overflow: visible !important;
+}
+
 // Reduced font sizes for all form elements
 .form-label {
   font-size: 0.75rem !important;
@@ -27,11 +77,36 @@
   th {
     font-size: 0.75rem !important;
     padding: 0.5rem !important;
+    
+    // Actions column specific styling
+    &.actions-column {
+      width: 120px;
+      min-width: 120px;
+      white-space: nowrap;
+    }
   }
   
   td {
     font-size: 0.8rem !important;
     padding: 0.5rem !important;
+    
+    // Action column specific styling
+    &.align-middle {
+      vertical-align: middle !important;
+      white-space: nowrap;
+      
+      .btn-group {
+        display: inline-flex;
+        vertical-align: middle;
+      }
+    }
+  }
+  
+  // Ensure consistent row height
+  tbody tr {
+    td {
+      vertical-align: middle;
+    }
   }
 }
 
@@ -341,6 +416,39 @@
       border-top-left-radius: 0;
       border-bottom-left-radius: 0;
       margin-left: -1px;
+    }
+  }
+
+  // Specific styling for action buttons in tables
+  &.btn-group-sm {
+    .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      line-height: 1.2;
+      min-width: 36px; // Ensure consistent button width
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      
+      // Icon spacing
+      i {
+        font-size: 0.875rem;
+      }
+      
+      // Hover states
+      &.btn-outline-primary:hover {
+        background-color: #0d6efd;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+      }
+      
+      &.btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+      }
     }
   }
 }

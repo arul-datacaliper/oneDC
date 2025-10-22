@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneDc.Infrastructure;
@@ -11,9 +12,11 @@ using OneDc.Infrastructure;
 namespace OneDc.Infrastructure.Migrations
 {
     [DbContext(typeof(OneDcDbContext))]
-    partial class OneDcDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251010140905_AddLeaveRequestTable")]
+    partial class AddLeaveRequestTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -674,36 +677,6 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("project_allocation", "ts");
                 });
 
-            modelBuilder.Entity("OneDc.Domain.Entities.ProjectMember", b =>
-                {
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("project_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("ProjectRole")
-                        .HasColumnType("integer")
-                        .HasColumnName("project_role");
-
-                    b.HasKey("ProjectId", "UserId")
-                        .HasName("pk_project_member");
-
-                    b.HasIndex("ProjectId")
-                        .HasDatabaseName("ix_project_member_project_id");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_project_member_user_id");
-
-                    b.ToTable("project_member", "ts");
-                });
-
             modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
                 {
                     b.Property<Guid>("TaskId")
@@ -1142,27 +1115,6 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("OneDc.Domain.Entities.ProjectMember", b =>
-                {
-                    b.HasOne("OneDc.Domain.Entities.Project", "Project")
-                        .WithMany("ProjectMembers")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_project_member_project_project_id");
-
-                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
-                        .WithMany("ProjectMemberships")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_project_member_app_user_user_id");
-
-                    b.Navigation("Project");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.AppUser", "AssignedUser")
@@ -1255,16 +1207,6 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("OneDc.Domain.Entities.AppUser", b =>
-                {
-                    b.Navigation("ProjectMemberships");
-                });
-
-            modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
-                {
-                    b.Navigation("ProjectMembers");
                 });
 #pragma warning restore 612, 618
         }

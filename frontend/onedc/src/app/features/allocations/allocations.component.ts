@@ -6,6 +6,8 @@ import { ToastrService } from 'ngx-toastr';
 import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UserManagementService, AppUser } from '../../core/services/user-management.service';
+import { TimesheetsService } from '../../core/services/timesheets.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Project } from '../../shared/models';
 
 // Interface for multiple employee allocation
@@ -36,6 +38,8 @@ export class AllocationsComponent implements OnInit {
   private allocationService = inject(AllocationService);
   private projectService = inject(ProjectsService);
   private userService = inject(UserManagementService);
+  private timesheetService = inject(TimesheetsService);
+  private authService = inject(AuthService);
   private toastr = inject(ToastrService);
   private fb = inject(FormBuilder);
 
@@ -55,6 +59,11 @@ export class AllocationsComponent implements OnInit {
   employeeSummary = signal<EmployeeAllocationSummary[]>([]);
   availableProjects = signal<{projectId: string, projectName: string, clientName: string, status: string}[]>([]);
   availableEmployees = signal<{userId: string, userName: string, role: string}[]>([]);
+  projectMembers = signal<{userId: string, userName: string, role: string, projectRole: string}[]>([]);
+  
+  // Pagination signals for infinite scroll
+  displayedProjectCount = signal(8); // Initially show 8 projects to ensure scrollable content
+  displayedEmployeeCount = signal(8); // Initially show 8 employees to ensure scrollable content
   
   // Computed properties
   availableProjectsWithDisplayName = computed(() => {
@@ -64,9 +73,22 @@ export class AllocationsComponent implements OnInit {
     }));
   });
   
+  // Filtered project summary with pagination
+  filteredProjectSummary = computed(() => {
+    const projects = this.projectSummary();
+    return projects.slice(0, this.displayedProjectCount());
+  });
+  
+  // Filtered employee summary with pagination
+  filteredEmployeeSummary = computed(() => {
+    const employees = this.employeeSummary();
+    return employees.slice(0, this.displayedEmployeeCount());
+  });
+  
   // UI state signals
   isLoading = signal(false);
   showCreateModal = signal(false);
+  showExportModal = signal(false);
   editingAllocation = signal<WeeklyAllocation | null>(null);
   selectedEmployeeAllocations = signal<EmployeeAllocation[]>([]);
   availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
@@ -81,6 +103,9 @@ export class AllocationsComponent implements OnInit {
   exportToDate = signal<string>('');
   isExporting = signal<boolean>(false);
   selectedExportPeriod = signal<'prev-month' | 'this-month' | 'this-quarter' | 'custom'>('this-month');
+  
+  // Utilized hours tracking
+  utilizedHoursCache = signal<Map<string, number>>(new Map());
 
   // Form
   allocationForm: FormGroup;
@@ -172,6 +197,13 @@ export class AllocationsComponent implements OnInit {
       if (value) {
         const endDate = this.calculateWeekEndDate(value);
         this.allocationForm.get('weekEndDate')?.setValue(endDate, { emitEvent: false });
+      }
+    });
+
+    // Track project selection changes and load project members
+    this.allocationForm.get('projectId')?.valueChanges.subscribe(projectId => {
+      if (projectId && !this.editingAllocation()) {
+        this.loadProjectMembers(projectId);
       }
     });
 
@@ -278,6 +310,68 @@ export class AllocationsComponent implements OnInit {
     });
   }
 
+  private loadProjectMembers(projectId: string) {
+    if (!projectId) {
+      this.projectMembers.set([]);
+      return;
+    }
+
+    this.projectService.getByIdWithMembers(projectId).subscribe({
+      next: (projectDetails) => {
+        const members = projectDetails.projectMembers.map(member => ({
+          userId: member.userId,
+          userName: `${member.firstName} ${member.lastName}`,
+          role: member.role,
+          projectRole: member.projectRole
+        }));
+        this.projectMembers.set(members);
+        
+        // Auto-add project members to the allocation list with default hours
+        this.autoAddProjectMembers(members);
+      },
+      error: (error) => {
+        console.error('Error loading project members:', error);
+        this.projectMembers.set([]);
+      }
+    });
+  }
+
+  private autoAddProjectMembers(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
+    // Clear existing allocations first
+    this.selectedEmployeeAllocations.set([]);
+    
+    // Add all project members without default hours - let users enter appropriate hours
+    const allocations: EmployeeAllocation[] = members.map(member => {
+      const allocation: EmployeeAllocation = {
+        userId: member.userId,
+        userName: member.userName,
+        allocatedHours: 0 // No default hours - users should enter appropriate values
+      };
+
+      // Initialize periodHours if multi-month week is detected
+      if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+        allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+      }
+
+      return allocation;
+    });
+
+    this.selectedEmployeeAllocations.set(allocations);
+    this.updateAvailableEmployeesForSelection();
+    
+    if (members.length > 0) {
+      this.toastr.info(`Auto-added ${members.length} project team members. Please enter allocation hours for each member.`);
+    }
+  }
+
+  resetToProjectDefaults() {
+    const projectMembers = this.projectMembers();
+    if (projectMembers.length > 0) {
+      this.autoAddProjectMembers(projectMembers);
+      this.toastr.success('Reset to project team defaults successfully');
+    }
+  }
+
   onWeekChange(direction: 'prev' | 'next') {
     const currentDate = new Date(this.currentWeekStart());
     if (direction === 'prev') {
@@ -286,7 +380,17 @@ export class AllocationsComponent implements OnInit {
       currentDate.setDate(currentDate.getDate() + 7);
     }
     this.currentWeekStart.set(this.allocationService.getWeekStartDate(currentDate));
+    
+    // Clear utilized hours cache for new week
+    this.utilizedHoursCache.set(new Map());
+    
     this.loadInitialData();
+    
+    // Reload utilized hours if an employee is selected
+    const selectedUserId = this.selectedUserId();
+    if (selectedUserId) {
+      this.loadUtilizedHours(selectedUserId);
+    }
   }
 
   onWeekDateChange(event: Event) {
@@ -294,7 +398,17 @@ export class AllocationsComponent implements OnInit {
     const selectedDate = new Date(input.value + 'T00:00:00'); // Add time to avoid timezone issues
     if (!isNaN(selectedDate.getTime())) {
       this.currentWeekStart.set(this.allocationService.getWeekStartDate(selectedDate));
+      
+      // Clear utilized hours cache for new week
+      this.utilizedHoursCache.set(new Map());
+      
       this.loadInitialData();
+      
+      // Reload utilized hours if an employee is selected
+      const selectedUserId = this.selectedUserId();
+      if (selectedUserId) {
+        this.loadUtilizedHours(selectedUserId);
+      }
     }
   }
 
@@ -302,6 +416,62 @@ export class AllocationsComponent implements OnInit {
     this.viewMode.set(mode);
     this.selectedProjectId.set('');
     this.selectedUserId.set('');
+    // Reset pagination when changing view mode
+    this.displayedProjectCount.set(8);
+    this.displayedEmployeeCount.set(8);
+  }
+
+  // Infinite scroll handlers
+  onProjectSummaryScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      this.loadMoreProjects();
+    }
+  }
+
+  onEmployeeSummaryScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      this.loadMoreEmployees();
+    }
+  }
+
+  loadMoreProjects(): void {
+    const currentCount = this.displayedProjectCount();
+    const totalCount = this.projectSummary().length;
+    
+    // Load 10 more projects if not all are displayed
+    if (currentCount < totalCount) {
+      this.displayedProjectCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  loadMoreEmployees(): void {
+    const currentCount = this.displayedEmployeeCount();
+    const totalCount = this.employeeSummary().length;
+    
+    // Load 10 more employees if not all are displayed
+    if (currentCount < totalCount) {
+      this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  hasMoreProjectsToLoad(): boolean {
+    return this.displayedProjectCount() < this.projectSummary().length;
+  }
+
+  hasMoreEmployeesToLoad(): boolean {
+    return this.displayedEmployeeCount() < this.employeeSummary().length;
   }
 
   onProjectSelect(projectId: string) {
@@ -312,9 +482,49 @@ export class AllocationsComponent implements OnInit {
   onEmployeeSelect(userId: string) {
     this.selectedUserId.set(userId);
     this.viewMode.set('employee');
+    
+    // Load utilized hours for the selected employee
+    if (userId) {
+      this.loadUtilizedHours(userId);
+    }
+  }
+
+  // Method to load utilized hours for a specific user
+  private loadUtilizedHours(userId: string) {
+    const currentWeekStart = this.currentWeekStart();
+    if (!currentWeekStart) return;
+    
+    const cacheKey = `${userId}-${currentWeekStart}`;
+    
+    // Calculate week end date for API call
+    const weekEndDate = this.allocationService.getWeekEndDate(currentWeekStart);
+    
+    // Fetch actual timesheet data
+    this.timesheetService.listForUser(userId, currentWeekStart, weekEndDate).subscribe({
+      next: (timesheets) => {
+        const totalHours = timesheets.reduce((sum, entry) => sum + entry.hours, 0);
+        
+        // Update cache
+        const newCache = new Map(this.utilizedHoursCache());
+        newCache.set(cacheKey, totalHours);
+        this.utilizedHoursCache.set(newCache);
+      },
+      error: (error) => {
+        console.error('Error fetching timesheet data:', error);
+        // Set 0 in cache to avoid repeated failed calls
+        const newCache = new Map(this.utilizedHoursCache());
+        newCache.set(cacheKey, 0);
+        this.utilizedHoursCache.set(newCache);
+      }
+    });
   }
 
   openCreateModal() {
+    if (!this.canCreateOrEdit()) {
+      this.toastr.error('You do not have permission to create allocations');
+      return;
+    }
+    
     console.log('openCreateModal called');
     this.allocationForm.reset();
     const currentWeek = this.currentWeekStart();
@@ -325,6 +535,7 @@ export class AllocationsComponent implements OnInit {
     });
     this.formWeekStartDate.set(currentWeek); // Update signal manually for initial value
     this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]); // Clear project members
     this.selectedEmployeeForDropdown.set(null);
     this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
@@ -334,6 +545,11 @@ export class AllocationsComponent implements OnInit {
   }
 
   openEditModal(allocation: WeeklyAllocation) {
+    if (!this.canCreateOrEdit()) {
+      this.toastr.error('You do not have permission to edit allocations');
+      return;
+    }
+    
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
       weekStartDate: allocation.weekStartDate,
@@ -355,8 +571,25 @@ export class AllocationsComponent implements OnInit {
     this.showCreateModal.set(false);
     this.editingAllocation.set(null);
     this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]); // Clear project members
     this.formWeekStartDate.set(''); // Clear the signal
     this.allocationForm.reset();
+  }
+
+  openExportModal() {
+    this.showExportModal.set(true);
+  }
+
+  closeExportModal() {
+    this.showExportModal.set(false);
+  }
+
+  exportToCsvAndClose() {
+    this.exportToCsv();
+    // Close modal after a short delay to allow export to complete
+    setTimeout(() => {
+      this.closeExportModal();
+    }, 1000);
   }
 
   // Update available employees for selection (exclude already selected ones)
@@ -429,6 +662,11 @@ export class AllocationsComponent implements OnInit {
   }
 
   onSubmit() {
+    if (!this.canCreateOrEdit()) {
+      this.toastr.error('You do not have permission to modify allocations');
+      return;
+    }
+    
     if (this.allocationForm.valid && this.selectedEmployeeAllocations().length > 0) {
       const formValue = this.allocationForm.value;
       
@@ -590,6 +828,11 @@ export class AllocationsComponent implements OnInit {
   }
 
   deleteAllocation(allocation: WeeklyAllocation) {
+    if (!this.canCreateOrEdit()) {
+      this.toastr.error('You do not have permission to delete allocations');
+      return;
+    }
+    
     if (confirm(`Are you sure you want to delete the allocation for ${allocation.userName} on ${allocation.projectName}?`)) {
       this.allocationService.deleteAllocation(allocation.allocationId).subscribe({
         next: () => {
@@ -622,7 +865,17 @@ export class AllocationsComponent implements OnInit {
   }
 
   getTotalAllocatedHours(): number {
-    return this.allocations().reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+    const selectedUserId = this.selectedUserId();
+    const currentWeekStart = this.currentWeekStart();
+    
+    if (!selectedUserId || !currentWeekStart) {
+      return 0;
+    }
+    
+    return this.allocations().filter(allocation => 
+      allocation.userId === selectedUserId && 
+      allocation.weekStartDate === currentWeekStart
+    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
   }
 
   // Helper method to format allocation periods for month-split allocations
@@ -796,5 +1049,106 @@ export class AllocationsComponent implements OnInit {
     if (!userId) return '';
     const employee = this.availableEmployees().find(e => e.userId === userId);
     return employee?.userName || '';
+  }
+
+  // Get available hours for the selected user (45 hours base capacity)
+  getAvailableHours(): number {
+    const baseCapacity = 45; // Base weekly capacity in hours
+    const allocatedHours = this.getTotalAllocatedHours();
+    return Math.max(0, baseCapacity - allocatedHours);
+  }
+
+  // Get total utilized hours for the selected user (from timesheet entries)
+  getTotalUtilizedHours(): number {
+    const selectedUserId = this.selectedUserId();
+    const currentWeekStart = this.currentWeekStart();
+    
+    if (!selectedUserId || !currentWeekStart) {
+      return 0;
+    }
+    
+    // Create cache key
+    const cacheKey = `${selectedUserId}-${currentWeekStart}`;
+    const cachedValue = this.utilizedHoursCache().get(cacheKey);
+    
+    return cachedValue || 0;
+  }
+
+  // Get utilization percentage for the selected user
+  getUtilizationPercentage(): number {
+    const baseCapacity = 45; // Base weekly capacity in hours
+    const allocatedHours = this.getTotalAllocatedHours();
+    
+    return Math.round((allocatedHours / baseCapacity) * 100);
+  }
+
+  // Project-level summary methods for "By Project" view
+  getProjectTotalAllocatedHours(): number {
+    const selectedProjectId = this.selectedProjectId();
+    const currentWeekStart = this.currentWeekStart();
+    
+    if (!selectedProjectId || !currentWeekStart) {
+      return 0;
+    }
+    
+    return this.allocations().filter(allocation => 
+      allocation.projectId === selectedProjectId && 
+      allocation.weekStartDate === currentWeekStart
+    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+  }
+
+  getProjectEmployeeCount(): number {
+    const selectedProjectId = this.selectedProjectId();
+    const currentWeekStart = this.currentWeekStart();
+    
+    if (!selectedProjectId || !currentWeekStart) {
+      return 0;
+    }
+    
+    const uniqueEmployees = new Set(
+      this.allocations().filter(allocation => 
+        allocation.projectId === selectedProjectId && 
+        allocation.weekStartDate === currentWeekStart
+      ).map(allocation => allocation.userId)
+    );
+    
+    return uniqueEmployees.size;
+  }
+
+  getProjectAverageUtilization(): number {
+    const selectedProjectId = this.selectedProjectId();
+    const currentWeekStart = this.currentWeekStart();
+    
+    if (!selectedProjectId || !currentWeekStart) {
+      return 0;
+    }
+    
+    const projectAllocations = this.allocations().filter(allocation => 
+      allocation.projectId === selectedProjectId && 
+      allocation.weekStartDate === currentWeekStart
+    );
+    
+    if (projectAllocations.length === 0) {
+      return 0;
+    }
+    
+    const avgUtilization = projectAllocations.reduce((sum, allocation) => 
+      sum + allocation.utilizationPercentage, 0
+    ) / projectAllocations.length;
+    
+    return Math.round(avgUtilization);
+  }
+
+  // Role-based access control methods
+  canCreateOrEdit(): boolean {
+    return this.authService.isAdmin();
+  }
+
+  canView(): boolean {
+    return this.authService.isAdmin() || this.authService.isApprover();
+  }
+
+  isReadOnlyUser(): boolean {
+    return this.authService.isApprover() && !this.authService.isAdmin();
   }
 }

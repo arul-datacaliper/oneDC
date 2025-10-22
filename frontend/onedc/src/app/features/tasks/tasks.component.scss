@@ -145,6 +145,45 @@
   }
 }
 
+// Button group styles for actions column
+.btn-group {
+  .btn {
+    border-radius: 0.25rem !important;
+    margin-right: 2px;
+    
+    &:last-child {
+      margin-right: 0;
+    }
+    
+    &.btn-sm {
+      padding: 0.25rem 0.375rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1.2 !important;
+    }
+  }
+  
+  // Remove the connected button styling
+  &.btn-group-sm .btn {
+    border-radius: 0.25rem !important;
+  }
+}
+
+// Actions column specific styling
+td {
+  // Action column specific styling
+  &:last-child {
+    white-space: nowrap;
+    width: 120px;
+    
+    .btn-group {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 2px;
+      justify-content: flex-start;
+    }
+  }
+}
+
 // Responsive adjustments for mobile
 @media (max-width: 768px) {
   .btn-group-sm .btn {
