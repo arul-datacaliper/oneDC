@@ -463,6 +463,35 @@
   }
 }
 
+// Fix for date input validation error overlapping with calendar icon
+.modal {
+  input[type="date"] {
+    &.is-invalid {
+      // Remove the red validation icon to prevent overlap with calendar icon
+      background-image: none;
+      // Keep the red border for invalid state
+      border-color: #dc3545;
+      padding-right: calc(1.5em + 0.75rem); // Standard padding for date input
+    }
+    
+    // Ensure error feedback appears below the input
+    & ~ .invalid-feedback {
+      display: block;
+      margin-top: 0.25rem;
+      position: relative;
+      z-index: 1;
+    }
+  }
+  
+  // Also fix for other input types if needed
+  .form-control.is-invalid {
+    & ~ .invalid-feedback {
+      display: block;
+      margin-top: 0.25rem;
+    }
+  }
+}
+
 // Print styles
 @media print {
   .btn, .pagination, .modal {

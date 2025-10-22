@@ -119,6 +119,30 @@ function phoneNumberValidator(): ValidatorFn {
   };
 }
 
+// Custom validator for zip codes (alphanumeric only, no special characters)
+function zipCodeValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.trim();
+    
+    // Allow only alphanumeric characters, spaces, and hyphens
+    // This covers formats like: 12345, 12345-6789, SW1A 1AA (UK), K1A 0B1 (Canada)
+    const zipCodePattern = /^[A-Za-z0-9\s\-]+$/;
+    
+    if (!zipCodePattern.test(value)) {
+      return { invalidZipCode: true };
+    }
+    
+    // Ensure it's not too long (most zip codes are under 10 characters)
+    if (value.length > 10) {
+      return { zipCodeTooLong: true };
+    }
+    
+    return null;
+  };
+}
+
 @Component({
   selector: 'app-employees',
   standalone: true,
@@ -247,7 +271,7 @@ export class EmployeesComponent implements OnInit {
         city: [''],
         state: [''],
         country: [''],
-        zipCode: ['']
+        zipCode: ['', [zipCodeValidator()]]
       }),
       permanentAddress: this.fb.group({
         addressLine1: [''],
@@ -255,7 +279,7 @@ export class EmployeesComponent implements OnInit {
         city: [''],
         state: [''],
         country: [''],
-        zipCode: ['']
+        zipCode: ['', [zipCodeValidator()]]
       })
     });
   }
@@ -590,6 +614,7 @@ export class EmployeesComponent implements OnInit {
               this.employees.set([...employees]);
               this.setupFiltering();
             }
+            this.loadEmployeeCounts(); // Update employee counts (in case status changed)
             this.toastr.success('Employee updated successfully');
             this.closeModal();
           },
@@ -639,6 +664,7 @@ export class EmployeesComponent implements OnInit {
           next: (newEmployee) => {
             this.employees.set([...this.employees(), newEmployee]);
             this.setupFiltering();
+            this.loadEmployeeCounts(); // Update employee counts
             this.toastr.success('Employee created successfully');
             this.closeModal();
           },
@@ -661,6 +687,7 @@ export class EmployeesComponent implements OnInit {
           const employees = this.employees().filter(e => e.userId !== employee.userId);
           this.employees.set(employees);
           this.setupFiltering();
+          this.loadEmployeeCounts(); // Update employee counts
           this.toastr.success('Employee deleted successfully');
         },
         error: (error) => {
@@ -812,6 +839,8 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['invalidPhoneNumber']) return 'Phone number can only contain digits, spaces, hyphens, parentheses, and +';
       if (field.errors['phoneNumberTooShort']) return 'Phone number must be at least 10 digits';
       if (field.errors['phoneNumberTooLong']) return 'Phone number cannot exceed 15 digits';
+      if (field.errors['invalidZipCode']) return 'Zip code can only contain letters, numbers, spaces, and hyphens';
+      if (field.errors['zipCodeTooLong']) return 'Zip code cannot exceed 10 characters';
     }
     return '';
   }
