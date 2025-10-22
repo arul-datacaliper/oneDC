@@ -1,6 +1,46 @@
 // Custom color scheme
 $primary-color: #2d3f9f;
 
+// Dropdown visibility fixes
+.table-responsive {
+  overflow: visible !important;
+}
+
+.card-body {
+  overflow: visible !important;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute !important;
+  z-index: 1050 !important;
+  min-width: 160px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  background-color: white !important;
+}
+
+// Ensure dropdown shows on top
+.dropdown-menu.show {
+  display: block !important;
+  top: 100% !important;
+  right: 0 !important;
+}
+
+// Table and container overflow fixes
+td .dropdown {
+  overflow: visible !important;
+}
+
+.container-fluid,
+.row,
+.col-12 {
+  overflow: visible !important;
+}
+
 // Global font size reduction for projects page
 .projects-page {
   font-size: 0.85rem;
@@ -286,4 +326,24 @@ h6.text-muted {
 .form-check-input:focus {
   border-color: $primary-color;
   box-shadow: 0 0 0 0.25rem rgba(45, 63, 159, 0.25);
+}
+
+// Clickable row styles
+.clickable-row {
+  transition: background-color 0.2s ease;
+  
+  &:hover {
+    background-color: rgba(45, 63, 159, 0.05) !important;
+  }
+  
+  td:first-child {
+    .fw-medium {
+      transition: color 0.2s ease;
+      
+      &:hover {
+        color: darken(#0d6efd, 10%) !important;
+        text-decoration: underline;
+      }
+    }
+  }
 }

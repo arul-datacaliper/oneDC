@@ -1,0 +1,25 @@
+# Environment files with secrets
+.env
+.env.production
+.env.development
+
+# Keep only the template
+!.env.production.template
+
+# Build outputs
+publish/
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db

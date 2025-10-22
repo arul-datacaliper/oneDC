@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
+using OneDc.Services.DTOs;
 using System.Net;
 using Npgsql;
 using Microsoft.EntityFrameworkCore;
@@ -150,5 +151,178 @@ public class ProjectsController : BaseController
     {
         var success = await _svc.DeleteAsync(id);
         return success ? NoContent() : NotFound();
+    }
+
+    // New endpoints for project members
+    [HttpGet("with-members")]
+    public async Task<IActionResult> GetAllWithMembers()
+    {
+        try
+        {
+            // For Admin users, return all projects with members
+            if (IsAdmin())
+            {
+                var allItems = await _svc.GetAllWithMembersAsync();
+                return Ok(allItems);
+            }
+            
+            // For Approver users, return only projects they manage with members
+            if (IsApprover())
+            {
+                var currentUserId = GetCurrentUserId();
+                var managedProjects = await _db.Projects
+                    .Include(p => p.Client)
+                    .Include(p => p.ProjectMembers)
+                        .ThenInclude(pm => pm.User)
+                    .Where(p => p.DefaultApprover == currentUserId)
+                    .AsNoTracking()
+                    .Select(project => new ProjectResponseDto
+                    {
+                        ProjectId = project.ProjectId,
+                        ClientId = project.ClientId,
+                        Code = project.Code,
+                        Name = project.Name,
+                        Status = project.Status,
+                        Billable = project.Billable,
+                        DefaultApprover = project.DefaultApprover,
+                        StartDate = project.StartDate,
+                        EndDate = project.EndDate,
+                        PlannedReleaseDate = project.PlannedReleaseDate,
+                        BudgetHours = project.BudgetHours,
+                        BudgetCost = project.BudgetCost,
+                        CreatedAt = project.CreatedAt,
+                        Client = project.Client,
+                        ProjectMembers = project.ProjectMembers.Select(pm => new ProjectMemberResponseDto
+                        {
+                            UserId = pm.UserId,
+                            ProjectRole = pm.ProjectRole,
+                            CreatedAt = pm.CreatedAt,
+                            FirstName = pm.User!.FirstName,
+                            LastName = pm.User!.LastName,
+                            Email = pm.User!.Email,
+                            Role = pm.User!.Role,
+                            JobTitle = pm.User!.JobTitle,
+                            Department = pm.User!.Department
+                        }).ToList()
+                    })
+                    .ToListAsync();
+                return Ok(managedProjects);
+            }
+            
+            // For Employee users, return projects they have tasks assigned to with members
+            var userId = GetCurrentUserId();
+            var projectsWithAssignedTasks = await _db.Projects
+                .Include(p => p.Client)
+                .Include(p => p.ProjectMembers)
+                    .ThenInclude(pm => pm.User)
+                .Where(p => _db.ProjectTasks.Any(t => t.ProjectId == p.ProjectId && t.AssignedUserId == userId))
+                .Distinct()
+                .AsNoTracking()
+                .Select(project => new ProjectResponseDto
+                {
+                    ProjectId = project.ProjectId,
+                    ClientId = project.ClientId,
+                    Code = project.Code,
+                    Name = project.Name,
+                    Status = project.Status,
+                    Billable = project.Billable,
+                    DefaultApprover = project.DefaultApprover,
+                    StartDate = project.StartDate,
+                    EndDate = project.EndDate,
+                    PlannedReleaseDate = project.PlannedReleaseDate,
+                    BudgetHours = project.BudgetHours,
+                    BudgetCost = project.BudgetCost,
+                    CreatedAt = project.CreatedAt,
+                    Client = project.Client,
+                    ProjectMembers = project.ProjectMembers.Select(pm => new ProjectMemberResponseDto
+                    {
+                        UserId = pm.UserId,
+                        ProjectRole = pm.ProjectRole,
+                        CreatedAt = pm.CreatedAt,
+                        FirstName = pm.User!.FirstName,
+                        LastName = pm.User!.LastName,
+                        Email = pm.User!.Email,
+                        Role = pm.User!.Role,
+                        JobTitle = pm.User!.JobTitle,
+                        Department = pm.User!.Department
+                    }).ToList()
+                })
+                .ToListAsync();
+            
+            return Ok(projectsWithAssignedTasks);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving projects with members");
+            return StatusCode(500, new { message = "An error occurred while retrieving projects with members." });
+        }
+    }
+
+    [HttpGet("{id:guid}/with-members")]
+    public async Task<IActionResult> GetByIdWithMembers(Guid id)
+    {
+        var item = await _svc.GetByIdWithMembersAsync(id);
+        return item is null ? NotFound() : Ok(item);
+    }
+
+    [HttpPost("with-members")]
+    public async Task<IActionResult> CreateWithMembers([FromBody] ProjectCreateDto projectDto)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to create project with members: {ProjectCode}", projectDto.Code);
+            
+            var created = await _svc.CreateWithMembersAsync(projectDto);
+            
+            _logger.LogInformation("Project with members created successfully: {ProjectId}", created.ProjectId);
+            return CreatedAtAction(nameof(GetByIdWithMembers), new { id = created.ProjectId }, created);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+        {
+            _logger.LogWarning(ex, "Duplicate project code: {ProjectCode}", projectDto.Code);
+            return Conflict(new
+            {
+                title = "Duplicate Project Code",
+                detail = ex.Message,
+                status = 409
+            });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is NpgsqlException npgsqlEx && 
+                                           (npgsqlEx.SqlState == "23505" || npgsqlEx.Message.Contains("unique")))
+        {
+            _logger.LogWarning(ex, "Unique constraint violation for project: {ProjectCode}", projectDto.Code);
+            return Conflict(new
+            {
+                title = "Duplicate Project Code",
+                detail = $"A project with code '{projectDto.Code}' already exists.",
+                status = 409
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error creating project with members: {ProjectCode}", projectDto.Code);
+            return StatusCode((int)HttpStatusCode.InternalServerError, new
+            {
+                title = "Internal Server Error",
+                detail = "An unexpected error occurred while creating the project.",
+                status = 500
+            });
+        }
+    }
+
+    [HttpPut("{id:guid}/with-members")]
+    public async Task<IActionResult> UpdateWithMembers(Guid id, [FromBody] ProjectUpdateDto projectDto)
+    {
+        try
+        {
+            projectDto.ProjectId = id; // Ensure the ID matches the route
+            var updated = await _svc.UpdateWithMembersAsync(projectDto);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating project with members: {ProjectId}", id);
+            return StatusCode(500, new { message = "An error occurred while updating the project with members." });
+        }
     }
 }

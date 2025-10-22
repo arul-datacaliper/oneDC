@@ -45,4 +45,7 @@ public class AppUser
     public Guid? ManagerId { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    
+    // Navigation properties
+    public ICollection<ProjectMember> ProjectMemberships { get; set; } = new List<ProjectMember>();
 }
