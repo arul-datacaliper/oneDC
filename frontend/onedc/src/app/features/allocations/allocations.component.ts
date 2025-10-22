@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
-import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary } from '../../core/services/allocation.service';
+import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary, WeeklyCapacity } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UserManagementService, AppUser } from '../../core/services/user-management.service';
 import { TimesheetsService } from '../../core/services/timesheets.service';
@@ -97,6 +97,9 @@ export class AllocationsComponent implements OnInit {
   // Multi-month allocation signals
   isMultiMonthWeek = signal<boolean>(false);
   monthPeriods = signal<MonthPeriodAllocation[]>([]);
+  
+  // Weekly capacity signals
+  weeklyCapacities = signal<Map<string, any>>(new Map());
   
   // Export functionality
   exportFromDate = signal<string>('');
@@ -341,6 +344,23 @@ export class AllocationsComponent implements OnInit {
     const projectId = this.allocationForm.get('projectId')?.value;
     const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
     const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+
+    // Fetch weekly capacity for all members
+    if (weekStartDate && weekEndDate && members.length > 0) {
+      const userIds = members.map(m => m.userId);
+      this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+        next: (capacities) => {
+          const capacityMap = new Map();
+          capacities.forEach(cap => {
+            capacityMap.set(cap.userId, cap);
+          });
+          this.weeklyCapacities.set(capacityMap);
+        },
+        error: (error) => {
+          console.error('Error fetching weekly capacity:', error);
+        }
+      });
+    }
 
     // For employees, only add themselves to the allocation list
     if (this.isEmployee()) {
@@ -656,6 +676,21 @@ export class AllocationsComponent implements OnInit {
       allocatedHours: allocation.allocatedHours
     }]);
     this.updateAvailableEmployeesForSelection();
+    
+    // Fetch weekly capacity for the employee being edited
+    this.allocationService.getWeeklyCapacity(allocation.weekStartDate, allocation.weekEndDate, [allocation.userId]).subscribe({
+      next: (capacities) => {
+        const capacityMap = new Map();
+        capacities.forEach(cap => {
+          capacityMap.set(cap.userId, cap);
+        });
+        this.weeklyCapacities.set(capacityMap);
+      },
+      error: (error) => {
+        console.error('Error fetching weekly capacity:', error);
+      }
+    });
+    
     this.editingAllocation.set(allocation);
     this.showCreateModal.set(true);
   }
@@ -869,11 +904,54 @@ export class AllocationsComponent implements OnInit {
   onWeekStartDateChange(weekStartDate: string) {
     this.formWeekStartDate.set(weekStartDate);
     this.checkMultiMonthWeek();
+    this.refreshWeeklyCapacity();
   }
 
   // Handle week end date change to detect multi-month weeks
   onWeekEndDateChange(weekEndDate: string) {
     this.checkMultiMonthWeek();
+    this.refreshWeeklyCapacity();
+  }
+
+  // Refresh weekly capacity for all selected employees
+  private refreshWeeklyCapacity() {
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+    
+    if (!weekStartDate || !weekEndDate) {
+      return;
+    }
+
+    // Get user IDs from selected employees
+    let userIds: string[] = [];
+    
+    if (this.editingAllocation()) {
+      // In edit mode, just get the single employee
+      const employeeId = this.allocationForm.get('employeeId')?.value;
+      if (employeeId) {
+        userIds = [employeeId];
+      }
+    } else {
+      // In create mode, get all selected employees
+      const selectedEmployees = this.selectedEmployeeAllocations();
+      userIds = selectedEmployees.map(emp => emp.userId);
+    }
+
+    if (userIds.length === 0) {
+      return;
+    }
+
+    // Fetch updated capacity
+    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+      next: (capacities) => {
+        const capacityMap = new Map();
+        capacities.forEach(cap => capacityMap.set(cap.userId, cap));
+        this.weeklyCapacities.set(capacityMap);
+      },
+      error: (error) => {
+        console.error('Error fetching weekly capacity:', error);
+      }
+    });
   }
 
   // Check if the selected week spans multiple months
@@ -955,6 +1033,73 @@ export class AllocationsComponent implements OnInit {
       case 'cancelled': return 'badge bg-danger';
       default: return 'badge bg-secondary';
     }
+  }
+
+  // Get weekly capacity for a specific user
+  getUserWeeklyCapacity(userId: string): any | null {
+    const capacityMap = this.weeklyCapacities();
+    return capacityMap.get(userId) || null;
+  }
+
+  // Get formatted capacity string for display
+  getFormattedCapacity(userId: string): string {
+    const capacity = this.getUserWeeklyCapacity(userId);
+    if (!capacity) {
+      return 'Available: 45h (Standard Week)';
+    }
+
+    const parts: string[] = [];
+    parts.push(`Available: ${capacity.availableHours}h`);
+    
+    // Show breakdown of what reduced the capacity
+    const reductions: string[] = [];
+    if (capacity.holidayDays > 0) {
+      reductions.push(`${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
+    }
+    
+    if (capacity.leaveDays > 0) {
+      const leaveDaysStr = capacity.leaveDays % 1 === 0 
+        ? capacity.leaveDays.toString() 
+        : capacity.leaveDays.toFixed(1);
+      reductions.push(`${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''} leave`);
+    }
+
+    if (reductions.length > 0) {
+      parts.push(reductions.join(', '));
+    }
+
+    return parts.join(' | ');
+  }
+
+  // Get capacity details for tooltip
+  getCapacityDetails(userId: string): string {
+    const capacity = this.getUserWeeklyCapacity(userId);
+    if (!capacity) {
+      return 'Standard working week: 5 days × 9 hours = 45 hours';
+    }
+
+    const details: string[] = [];
+    details.push(`Total Days: ${capacity.totalDays}`);
+    details.push(`Working Days: ${capacity.workingDays}`);
+    
+    if (capacity.holidayDays > 0) {
+      details.push(`Holidays: ${capacity.holidayDays} day${capacity.holidayDays > 1 ? 's' : ''}`);
+    }
+    
+    if (capacity.leaveDays > 0) {
+      const leaveDaysStr = capacity.leaveDays % 1 === 0 
+        ? capacity.leaveDays.toString() 
+        : capacity.leaveDays.toFixed(1);
+      details.push(`Approved Leaves: ${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''}`);
+    }
+    
+    details.push(`Capacity: ${capacity.capacityHours}h`);
+    if (capacity.leaveHours > 0) {
+      details.push(`Leave Hours: ${capacity.leaveHours}h`);
+    }
+    details.push(`Available: ${capacity.availableHours}h`);
+
+    return details.join(' | ');
   }
 
   getTotalAllocatedHours(): number {

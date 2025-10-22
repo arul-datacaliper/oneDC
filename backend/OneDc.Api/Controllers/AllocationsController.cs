@@ -729,6 +729,167 @@ public class AllocationsController : BaseController
 
         return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
     }
+
+    // GET: api/allocations/weekly-capacity
+    [HttpGet("weekly-capacity")]
+    public async Task<ActionResult<IEnumerable<WeeklyCapacityDto>>> GetWeeklyCapacity(
+        [FromQuery] string weekStartDate,
+        [FromQuery] string weekEndDate,
+        [FromQuery] string? userIds = null)
+    {
+        if (!DateOnly.TryParse(weekStartDate, out var startDate))
+        {
+            return BadRequest("Invalid week start date format. Use YYYY-MM-DD.");
+        }
+
+        if (!DateOnly.TryParse(weekEndDate, out var endDate))
+        {
+            return BadRequest("Invalid week end date format. Use YYYY-MM-DD.");
+        }
+
+        try
+        {
+            List<Guid> targetUserIds = new List<Guid>();
+            
+            // Parse userIds if provided (comma-separated)
+            if (!string.IsNullOrWhiteSpace(userIds))
+            {
+                var userIdArray = userIds.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var id in userIdArray)
+                {
+                    if (Guid.TryParse(id.Trim(), out var guid))
+                    {
+                        targetUserIds.Add(guid);
+                    }
+                }
+            }
+
+            // Get holidays in the date range
+            var holidays = await _context.Holidays
+                .Where(h => h.HolidayDate >= startDate && h.HolidayDate <= endDate)
+                .Select(h => h.HolidayDate)
+                .ToListAsync();
+
+            // Get users based on filters
+            var usersQuery = _context.AppUsers.AsQueryable();
+            if (targetUserIds.Any())
+            {
+                usersQuery = usersQuery.Where(u => targetUserIds.Contains(u.UserId));
+            }
+
+            var users = await usersQuery
+                .Select(u => new
+                {
+                    u.UserId,
+                    UserName = u.FirstName + " " + u.LastName,
+                    u.Role
+                })
+                .ToListAsync();
+
+            var capacityList = new List<WeeklyCapacityDto>();
+
+            foreach (var user in users)
+            {
+                // Convert DateOnly to DateTime with UTC kind for PostgreSQL compatibility
+                var startDateTime = DateTime.SpecifyKind(startDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+                var endDateTime = DateTime.SpecifyKind(endDate.ToDateTime(TimeOnly.MinValue).AddHours(23).AddMinutes(59).AddSeconds(59), DateTimeKind.Utc);
+                
+                // Get approved leaves for this user in the date range
+                var approvedLeaves = await _context.LeaveRequests
+                    .Where(lr => lr.EmployeeId == user.UserId &&
+                                lr.Status == "Approved" &&
+                                lr.StartDate <= endDateTime &&
+                                lr.EndDate >= startDateTime)
+                    .ToListAsync();
+
+                // Calculate working days and capacity
+                int totalDays = endDate.DayNumber - startDate.DayNumber + 1;
+                int totalWorkingDays = 0; // Total Mon-Fri days (excluding weekends only)
+                int holidayDays = 0; // Count of holidays that fall on working days
+                decimal leaveDays = 0; // Count of leave days (can be fractional for half-days)
+                int availableWorkingDays = 0; // Actual days available to work
+
+                for (int i = 0; i < totalDays; i++)
+                {
+                    var currentDate = startDate.AddDays(i);
+                    var currentDateTime = DateTime.SpecifyKind(currentDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+                    var dayOfWeek = currentDate.DayOfWeek;
+
+                    // Skip weekends (Saturday and Sunday)
+                    if (dayOfWeek == DayOfWeek.Saturday || dayOfWeek == DayOfWeek.Sunday)
+                    {
+                        continue;
+                    }
+
+                    // This is a working day (Mon-Fri)
+                    totalWorkingDays++;
+
+                    // Check if it's a holiday
+                    if (holidays.Contains(currentDate))
+                    {
+                        holidayDays++;
+                        continue; // Holiday - not available for work
+                    }
+
+                    // Check if user has approved leave on this day
+                    var leaveOnThisDay = approvedLeaves.FirstOrDefault(lr =>
+                        lr.StartDate.Date <= currentDateTime.Date &&
+                        lr.EndDate.Date >= currentDateTime.Date);
+
+                    if (leaveOnThisDay != null)
+                    {
+                        // User has leave on this day
+                        if (leaveOnThisDay.IsHalfDay && 
+                            leaveOnThisDay.StartDate.Date == currentDateTime.Date)
+                        {
+                            // Half-day leave: 0.5 day available, 0.5 day on leave
+                            leaveDays += 0.5m;
+                            availableWorkingDays++; // Count as available (half day)
+                        }
+                        else
+                        {
+                            // Full-day leave: not available for work
+                            leaveDays += 1;
+                        }
+                    }
+                    else
+                    {
+                        // Regular working day - fully available
+                        availableWorkingDays++;
+                    }
+                }
+
+                // Calculate capacity and available hours
+                // Capacity = Total potential hours if all working days were available
+                // Leave Hours = Hours lost to approved leaves
+                // Available = Actual hours available for allocation
+                int leaveHours = (int)(leaveDays * 9);
+                int capacityHours = availableWorkingDays * 9; // Hours for days actually available
+                int availableHours = capacityHours; // Same as capacity since leaves already deducted from working days
+
+                capacityList.Add(new WeeklyCapacityDto
+                {
+                    UserId = user.UserId.ToString(),
+                    UserName = user.UserName,
+                    WeekStartDate = weekStartDate,
+                    WeekEndDate = weekEndDate,
+                    TotalDays = totalDays,
+                    WorkingDays = totalWorkingDays, // Total Mon-Fri days (before removing holidays/leaves)
+                    HolidayDays = holidayDays, // Holidays that fell on working days
+                    LeaveDays = leaveDays, // Total leave days (can be fractional)
+                    CapacityHours = capacityHours, // Hours available after holidays and leaves
+                    LeaveHours = leaveHours, // Hours lost to approved leaves
+                    AvailableHours = availableHours // Same as capacity (leaves already accounted for)
+                });
+            }
+
+            return Ok(capacityList);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error calculating weekly capacity", error = ex.Message });
+        }
+    }
 }
 
 // DTOs
@@ -807,4 +968,19 @@ public class AvailableEmployeeDto
     public string UserId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+}
+
+public class WeeklyCapacityDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string WeekStartDate { get; set; } = string.Empty;
+    public string WeekEndDate { get; set; } = string.Empty;
+    public int TotalDays { get; set; }
+    public int WorkingDays { get; set; }
+    public int HolidayDays { get; set; }
+    public decimal LeaveDays { get; set; }
+    public int CapacityHours { get; set; }
+    public int LeaveHours { get; set; }
+    public int AvailableHours { get; set; }
 }
