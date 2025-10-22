@@ -53,14 +53,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Employee allocation data
   employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
   allocationSearchTerm = signal('');
+  utilizationFilter = signal<string>('all'); // 'all', 'over100', 'full', '80-99', '50-79', 'under50', '0'
   displayedEmployeeCount = signal(10); // Initially show 10 employees
   selectedWeekStart = signal<string>('');
   selectedWeekEnd = signal<string>('');
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
-    const allEmployees = this.employeeAllocations();
+    const filter = this.utilizationFilter();
+    let allEmployees = this.employeeAllocations();
     
+    // Apply utilization filter first
+    if (filter !== 'all') {
+      allEmployees = allEmployees.filter(emp => {
+        const utilization = emp.utilizationPercentage;
+        switch(filter) {
+          case 'over100': return utilization > 100; // Over-allocated
+          case 'full': return utilization === 100; // Fully utilized
+          case '80-99': return utilization >= 80 && utilization < 100; // Well utilized
+          case '50-79': return utilization >= 50 && utilization < 80; // Moderately utilized
+          case 'under50': return utilization > 0 && utilization < 50; // Under-utilized
+          case '0': return utilization === 0; // Not allocated
+          default: return true;
+        }
+      });
+    }
+    
+    // Apply search filter
     if (searchTerm) {
       // When searching, return all matching results
       return allEmployees.filter(emp => 
@@ -69,7 +88,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       );
     }
     
-    // When not searching, return only the displayed count
+    // When utilization filter is active (not 'all'), show all filtered results
+    if (filter !== 'all') {
+      return allEmployees;
+    }
+    
+    // When not searching or filtering, return only the displayed count
     return allEmployees.slice(0, this.displayedEmployeeCount());
   });
 
@@ -568,6 +592,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.allocationSearchTerm.set(searchTerm);
   }
 
+  onUtilizationFilterChange(filter: string): void {
+    this.utilizationFilter.set(filter);
+    this.displayedEmployeeCount.set(10); // Reset to show first 10 when filter changes
+  }
+
+  getUtilizationFilterCount(filter: string): number {
+    const allEmployees = this.employeeAllocations();
+    
+    switch(filter) {
+      case 'all': 
+        return allEmployees.length;
+      case 'over100': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 100).length;
+      case 'full': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 100).length;
+      case '80-99': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 80 && emp.utilizationPercentage < 100).length;
+      case '50-79': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 50 && emp.utilizationPercentage < 80).length;
+      case 'under50': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 0 && emp.utilizationPercentage < 50).length;
+      case '0': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 0).length;
+      default: 
+        return 0;
+    }
+  }
+
   onAllocationScroll(event: Event): void {
     const element = event.target as HTMLElement;
     const scrollTop = element.scrollTop;
@@ -597,7 +649,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   hasMoreEmployeesToLoad(): boolean {
-    return this.displayedEmployeeCount() < this.employeeAllocations().length && !this.allocationSearchTerm();
+    // Check if there are more employees to load based on current filters
+    if (this.allocationSearchTerm() || this.utilizationFilter() !== 'all') {
+      // When filtering or searching, all results are already shown
+      return false;
+    }
+    return this.displayedEmployeeCount() < this.employeeAllocations().length;
   }
 
   getUtilizationPercentageClass(percentage: number): string {

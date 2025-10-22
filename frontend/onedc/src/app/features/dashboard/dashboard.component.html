@@ -100,74 +100,60 @@
     <div class="col-12">
       <div class="card shadow-sm">
         <div class="card-header bg-white border-bottom">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <h5 class="card-title mb-1">Employee Allocation Overview</h5>
-              <p class="text-muted mb-0 small">Week: {{ getFormattedWeekRange() }}</p>
+          <div class="row align-items-center">
+            <!-- Title -->
+            <div class="col-md-3">
+              <h5 class="card-title mb-0">Employee Allocation Overview</h5>
             </div>
-            <span class="badge bg-primary">{{ filteredEmployeeAllocations().length }} Employees</span>
-          </div>
-        </div>
-        <div class="card-body">
-          <!-- Week Navigation and Search -->
-          <div class="row mb-3 align-items-end">
-            <div class="col-md-9">
-              <div class="d-flex gap-2 align-items-end">
+            
+            <!-- Week Navigation -->
+            <div class="col-md-6">
+              <div class="d-flex gap-2 align-items-center justify-content-center">
                 <!-- Previous Week Button -->
                 <button 
-                  class="btn btn-outline-secondary" 
+                  class="btn btn-outline-secondary btn-sm" 
                   (click)="navigateToPreviousWeek()" 
-                  title="Previous Week"
-                  style="height: 38px;">
+                  title="Previous Week">
                   <i class="bi bi-chevron-left"></i>
                 </button>
                 
                 <!-- From Date -->
-                <div class="flex-fill" style="max-width: 200px;">
-                  <label class="form-label small text-muted mb-1">From Date</label>
-                  <div class="input-group">
-                    <input 
-                      type="date" 
-                      class="form-control" 
-                      [value]="selectedWeekStart()"
-                      (change)="onWeekStartChange($any($event.target).value)"
-                      title="Week start date"
-                    >
-                    <span class="input-group-text">
-                      <i class="bi bi-calendar3"></i>
-                    </span>
-                  </div>
+                <div class="d-flex align-items-center gap-1">
+                  <input 
+                    type="date" 
+                    class="form-control form-control-sm" 
+                    [value]="selectedWeekStart()"
+                    (change)="onWeekStartChange($any($event.target).value)"
+                    title="Week start date"
+                    style="width: 140px;">
                 </div>
                 
+                <span class="text-muted">to</span>
+                
                 <!-- To Date -->
-                <div class="flex-fill" style="max-width: 200px;">
-                  <label class="form-label small text-muted mb-1">To Date</label>
-                  <div class="input-group">
-                    <input 
-                      type="date" 
-                      class="form-control" 
-                      [value]="selectedWeekEnd()"
-                      readonly
-                      title="Week end date (auto-calculated)"
-                    >
-                    <span class="input-group-text">
-                      <i class="bi bi-calendar3"></i>
-                    </span>
-                  </div>
+                <div class="d-flex align-items-center gap-1">
+                  <input 
+                    type="date" 
+                    class="form-control form-control-sm" 
+                    [value]="selectedWeekEnd()"
+                    readonly
+                    title="Week end date (auto-calculated)"
+                    style="width: 140px; background-color: #f8f9fa;">
                 </div>
                 
                 <!-- Next Week Button -->
                 <button 
-                  class="btn btn-outline-secondary" 
+                  class="btn btn-outline-secondary btn-sm" 
                   (click)="navigateToNextWeek()" 
-                  title="Next Week"
-                  style="height: 38px;">
+                  title="Next Week">
                   <i class="bi bi-chevron-right"></i>
                 </button>
               </div>
             </div>
+            
+            <!-- Search -->
             <div class="col-md-3">
-              <div class="input-group">
+              <div class="input-group input-group-sm">
                 <span class="input-group-text">
                   <i class="bi bi-search"></i>
                 </span>
@@ -179,6 +165,91 @@
                   (input)="onAllocationSearch($any($event.target).value)"
                 >
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+
+          <!-- Utilization Filter Buttons -->
+          <div class="mb-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <small class="text-muted me-2">
+                <i class="bi bi-funnel me-1"></i>
+                Filter by Utilization:
+              </small>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-primary]="utilizationFilter() === 'all'"
+                [class.btn-outline-secondary]="utilizationFilter() !== 'all'"
+                (click)="onUtilizationFilterChange('all')"
+                title="Show all employees">
+                All
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('all') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-danger]="utilizationFilter() === 'over100'"
+                [class.btn-outline-danger]="utilizationFilter() !== 'over100'"
+                (click)="onUtilizationFilterChange('over100')"
+                title="Over-allocated (>100%)">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Over 100%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('over100') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-success]="utilizationFilter() === 'full'"
+                [class.btn-outline-success]="utilizationFilter() !== 'full'"
+                (click)="onUtilizationFilterChange('full')"
+                title="Fully utilized (100%)">
+                100%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('full') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="utilizationFilter() === '80-99'"
+                [class.btn-outline-info]="utilizationFilter() !== '80-99'"
+                (click)="onUtilizationFilterChange('80-99')"
+                title="Well utilized (80-99%)">
+                80-99%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('80-99') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-warning]="utilizationFilter() === '50-79'"
+                [class.btn-outline-warning]="utilizationFilter() !== '50-79'"
+                (click)="onUtilizationFilterChange('50-79')"
+                title="Moderately utilized (50-79%)">
+                50-79%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('50-79') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-warning]="utilizationFilter() === 'under50'"
+                [class.btn-outline-warning]="utilizationFilter() !== 'under50'"
+                (click)="onUtilizationFilterChange('under50')"
+                title="Under-utilized (1-49%)">
+                <i class="bi bi-arrow-down me-1"></i>
+                Under 50%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('under50') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-secondary]="utilizationFilter() === '0'"
+                [class.btn-outline-secondary]="utilizationFilter() !== '0'"
+                (click)="onUtilizationFilterChange('0')"
+                title="Not allocated (0%)">
+                <i class="bi bi-x-circle me-1"></i>
+                0%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('0') }}</span>
+              </button>
             </div>
           </div>
           
@@ -194,7 +265,9 @@
           <div *ngIf="!isLoadingAllocations && filteredEmployeeAllocations().length === 0" class="text-center p-4">
             <i class="bi bi-person-x text-muted fs-1"></i>
             <p class="text-muted mt-2 mb-0">
-              {{ allocationSearchTerm() ? 'No employees found matching your search.' : 'No employee allocation data available.' }}
+              <span *ngIf="allocationSearchTerm()">No employees found matching your search.</span>
+              <span *ngIf="!allocationSearchTerm() && utilizationFilter() !== 'all'">No employees found matching the selected utilization filter.</span>
+              <span *ngIf="!allocationSearchTerm() && utilizationFilter() === 'all'">No employee allocation data available.</span>
             </p>
           </div>
 
@@ -243,7 +316,7 @@
           </div>
           
           <!-- Scroll indicator / Load more button -->
-          <div *ngIf="!isLoadingAllocations && !allocationSearchTerm() && employeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
+          <div *ngIf="!isLoadingAllocations && !allocationSearchTerm() && utilizationFilter() === 'all' && employeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
             <div class="d-flex justify-content-between align-items-center">
               <small class="text-muted">
                 <i class="bi bi-arrow-down-circle me-1"></i>
@@ -257,6 +330,14 @@
                 Load More
               </button>
             </div>
+          </div>
+          
+          <!-- Utilization filter result count -->
+          <div *ngIf="!isLoadingAllocations && !allocationSearchTerm() && utilizationFilter() !== 'all' && filteredEmployeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-funnel me-1"></i>
+              Showing {{ filteredEmployeeAllocations().length }} employee(s) matching the selected utilization filter
+            </small>
           </div>
           
           <!-- Search result count -->
