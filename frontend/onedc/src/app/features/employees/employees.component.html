@@ -313,7 +313,12 @@
                   <label class="form-label">Contact Number <span class="text-danger">*</span></label>
                   <input type="tel" class="form-control" formControlName="contactNumber"
                          [class.is-invalid]="isFieldInvalid('contactNumber')"
-                         placeholder="Enter contact number">
+                         placeholder="Enter contact number"
+                         pattern="[\d\s\-\(\)\+]*"
+                         title="Only numbers, spaces, hyphens, parentheses, and + are allowed">
+                  <div class="form-text">
+                    <small class="text-muted">Format: 10-15 digits (e.g., +1 234-567-8900)</small>
+                  </div>
                   <div class="invalid-feedback" *ngIf="isFieldInvalid('contactNumber')">
                     {{ getFieldError('contactNumber') }}
                   </div>
@@ -323,7 +328,16 @@
               <div class="mb-3">
                 <label class="form-label">Emergency Contact Number</label>
                 <input type="tel" class="form-control" formControlName="emergencyContactNumber"
-                       placeholder="Enter emergency contact number">
+                       [class.is-invalid]="isFieldInvalid('emergencyContactNumber')"
+                       placeholder="Enter emergency contact number"
+                       pattern="[\d\s\-\(\)\+]*"
+                       title="Only numbers, spaces, hyphens, parentheses, and + are allowed">
+                <div class="form-text">
+                  <small class="text-muted">Format: 10-15 digits (e.g., +1 234-567-8900)</small>
+                </div>
+                <div class="invalid-feedback" *ngIf="isFieldInvalid('emergencyContactNumber')">
+                  {{ getFieldError('emergencyContactNumber') }}
+                </div>
               </div>
             </div>
 

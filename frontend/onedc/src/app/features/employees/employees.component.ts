@@ -76,6 +76,49 @@ function joiningDateValidator(): ValidatorFn {
   };
 }
 
+// Custom validator for phone numbers (only digits, spaces, hyphens, parentheses, and + allowed)
+function phoneNumberValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.trim();
+    
+    // First check: Ensure the original value only contains valid characters
+    // Valid characters: digits, spaces, hyphens, parentheses, and + (only at start)
+    const validCharactersPattern = /^[\d\s\-\(\)]+$|^\+[\d\s\-\(\)]+$/;
+    if (!validCharactersPattern.test(value)) {
+      return { invalidPhoneNumber: true };
+    }
+    
+    // Second check: Ensure + appears only at the start (if at all)
+    if (value.includes('+')) {
+      if (!value.startsWith('+') || value.indexOf('+', 1) !== -1) {
+        return { invalidPhoneNumber: true };
+      }
+    }
+    
+    // Third check: Remove all formatting characters and count digits
+    const cleanedValue = value.replace(/[\s\-\(\)\+]/g, '');
+    
+    // Ensure cleaned value contains only digits
+    if (!/^\d+$/.test(cleanedValue)) {
+      return { invalidPhoneNumber: true };
+    }
+    
+    // Check minimum length (at least 10 digits after cleaning)
+    if (cleanedValue.length < 10) {
+      return { phoneNumberTooShort: true };
+    }
+    
+    // Check maximum length (at most 15 digits after cleaning)
+    if (cleanedValue.length > 15) {
+      return { phoneNumberTooLong: true };
+    }
+    
+    return null;
+  };
+}
+
 @Component({
   selector: 'app-employees',
   standalone: true,
@@ -192,8 +235,8 @@ export class EmployeesComponent implements OnInit {
       jobTitle: ['', [Validators.required]],
       department: ['', [Validators.required]],
       employeeType: [EmployeeType.FULL_TIME],
-      contactNumber: ['', [Validators.required]],
-      emergencyContactNumber: [''],
+      contactNumber: ['', [Validators.required, phoneNumberValidator()]],
+      emergencyContactNumber: ['', [phoneNumberValidator()]], // Optional but must be valid if provided
       managerId: [''], // Add reporting manager field
       presentAddress: this.fb.group({
         addressLine1: [''],
@@ -760,6 +803,9 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
       if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
       if (field.errors['tooFarInPast']) return 'Joining date cannot be more than 50 years in the past';
+      if (field.errors['invalidPhoneNumber']) return 'Phone number can only contain digits, spaces, hyphens, parentheses, and +';
+      if (field.errors['phoneNumberTooShort']) return 'Phone number must be at least 10 digits';
+      if (field.errors['phoneNumberTooLong']) return 'Phone number cannot exceed 15 digits';
     }
     return '';
   }
