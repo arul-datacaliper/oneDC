@@ -174,7 +174,10 @@ export class EmployeesComponent implements OnInit {
   availableRoles = [
     { value: UserRole.EMPLOYEE, label: 'Employee' },
     { value: UserRole.APPROVER, label: 'Approver' },
-    { value: UserRole.ADMIN, label: 'Admin' }
+    { value: UserRole.ADMIN, label: 'Admin' },
+    { value: UserRole.INFRA, label: 'Infra' },
+    { value: UserRole.HR, label: 'HR' },
+    { value: UserRole.OPERATION, label: 'Operation' }
   ];
 
   availableGenders = [
@@ -687,6 +690,9 @@ export class EmployeesComponent implements OnInit {
       case UserRole.ADMIN: return 'badge bg-danger';
       case UserRole.APPROVER: return 'badge bg-warning';
       case UserRole.EMPLOYEE: return 'badge bg-info';
+      case UserRole.INFRA: return 'badge bg-primary';
+      case UserRole.HR: return 'badge bg-success';
+      case UserRole.OPERATION: return 'badge bg-secondary';
       default: return 'badge bg-secondary';
     }
   }

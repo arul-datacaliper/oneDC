@@ -136,7 +136,10 @@ export class EmployeesComponent implements OnInit {
   availableRoles = [
     { value: UserRole.ADMIN, label: 'Admin' },
     { value: UserRole.APPROVER, label: 'Approver' },
-    { value: UserRole.EMPLOYEE, label: 'Employee' }
+    { value: UserRole.EMPLOYEE, label: 'Employee' },
+    { value: UserRole.INFRA, label: 'Infra' },
+    { value: UserRole.HR, label: 'HR' },
+    { value: UserRole.OPERATION, label: 'Operation' }
   ];
 
   availableGenders = [
@@ -582,6 +585,12 @@ export class EmployeesComponent implements OnInit {
         return 'bg-warning';
       case UserRole.EMPLOYEE:
         return 'bg-primary';
+      case UserRole.INFRA:
+        return 'bg-info';
+      case UserRole.HR:
+        return 'bg-success';
+      case UserRole.OPERATION:
+        return 'bg-secondary';
       default:
         return 'bg-secondary';
     }

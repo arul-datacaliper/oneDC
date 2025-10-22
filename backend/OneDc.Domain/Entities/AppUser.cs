@@ -1,6 +1,6 @@
 namespace OneDc.Domain.Entities;
 
-public enum UserRole { EMPLOYEE, APPROVER, ADMIN }
+public enum UserRole { EMPLOYEE, APPROVER, ADMIN, INFRA, HR, OPERATION }
 public enum Gender { MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY }
 public enum EmployeeType { FULL_TIME, PART_TIME, CONTRACT, INTERN, CONSULTANT }
 
