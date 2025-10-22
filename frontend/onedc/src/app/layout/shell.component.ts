@@ -33,6 +33,7 @@ export class ShellComponent implements OnInit {
 
   // State management
   sidenavOpened = signal(false);
+  sidebarCollapsed = signal(false); // Desktop sidebar collapse state
   theme = signal<'light' | 'dark'>('light');
   isOnboardingComplete = signal(false);
   userDropdownOpen = signal(false); // Add dropdown state management
@@ -112,6 +113,11 @@ export class ShellComponent implements OnInit {
       console.error('Error checking approval permissions:', error);
       return false;
     }
+  }
+
+  // Toggle sidebar collapse (desktop only)
+  toggleSidebar() {
+    this.sidebarCollapsed.set(!this.sidebarCollapsed());
   }
 
   logout() {
