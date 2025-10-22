@@ -163,7 +163,7 @@
             <td>
               <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-info" 
-                        (click)="openProfileModal(employee)" 
+                        (click)="viewFullProfile(employee)" 
                         title="View comprehensive profile">
                   <i class="bi bi-person-circle"></i>
                 </button>
@@ -573,13 +573,6 @@
         </div>
         
         <div class="modal-footer">
-          <!-- Debug info (remove after testing) -->
-          <div class="me-auto small" *ngIf="editingEmployee()">
-            <div class="text-muted">Form Status: Valid={{ employeeForm.valid }}, Dirty={{ employeeForm.dirty }}</div>
-            <div class="text-danger" *ngIf="employeeForm.invalid">
-              <strong>Check browser console for field errors</strong>
-            </div>
-          </div>
           <button type="button" class="btn btn-secondary" (click)="closeModal()">
             Cancel
           </button>

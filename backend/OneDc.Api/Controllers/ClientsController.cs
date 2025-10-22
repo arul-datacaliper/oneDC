@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using OneDc.Infrastructure;
 using OneDc.Domain.Entities;
+using OneDc.Services.Models;
 
 namespace OneDc.Api.Controllers;
 
@@ -33,31 +34,55 @@ public class ClientsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Client client)
+    public async Task<IActionResult> Create([FromBody] ClientDto clientDto)
     {
-        client.ClientId = Guid.NewGuid();
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var client = new Client
+        {
+            ClientId = Guid.NewGuid(),
+            Name = clientDto.Name,
+            Code = clientDto.Code,
+            Status = clientDto.Status,
+            ContactPerson = clientDto.ContactPerson,
+            Email = clientDto.Email,
+            ContactNumber = clientDto.ContactNumber,
+            Country = clientDto.Country,
+            State = clientDto.State,
+            City = clientDto.City,
+            ZipCode = clientDto.ZipCode
+        };
+
         _context.Clients.Add(client);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = client.ClientId }, client);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] Client client)
+    public async Task<IActionResult> Update(Guid id, [FromBody] ClientDto clientDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var existingClient = await _context.Clients.FirstOrDefaultAsync(c => c.ClientId == id);
         if (existingClient is null) return NotFound();
 
         // Update only the provided fields
-        existingClient.Name = client.Name;
-        existingClient.Code = client.Code;
-        existingClient.ContactPerson = client.ContactPerson;
-        existingClient.Email = client.Email;
-        existingClient.ContactNumber = client.ContactNumber;
-        existingClient.Country = client.Country;
-        existingClient.State = client.State;
-        existingClient.City = client.City;
-        existingClient.ZipCode = client.ZipCode;
-        existingClient.Status = client.Status;
+        existingClient.Name = clientDto.Name;
+        existingClient.Code = clientDto.Code;
+        existingClient.ContactPerson = clientDto.ContactPerson;
+        existingClient.Email = clientDto.Email;
+        existingClient.ContactNumber = clientDto.ContactNumber;
+        existingClient.Country = clientDto.Country;
+        existingClient.State = clientDto.State;
+        existingClient.City = clientDto.City;
+        existingClient.ZipCode = clientDto.ZipCode;
+        existingClient.Status = clientDto.Status;
 
         await _context.SaveChangesAsync();
         return Ok(existingClient);
