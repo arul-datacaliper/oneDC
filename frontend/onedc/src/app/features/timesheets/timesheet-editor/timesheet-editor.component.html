@@ -31,6 +31,39 @@
 
     <hr>
 
+    <!-- Holiday and Leave Notifications -->
+    <div class="notifications-section" *ngIf="currentDateHoliday() || currentDateLeaves().length > 0">
+      <!-- Holiday notification -->
+      <div class="alert alert-info d-flex align-items-start gap-2 py-2 px-3" role="alert" *ngIf="currentDateHoliday()">
+        <i class="bi bi-calendar-event-fill mt-1"></i>
+        <div class="flex-grow-1">
+          <strong>Holiday:</strong> {{ currentDateHoliday()!.name }}
+          <span class="text-muted ms-2">({{ currentDateHoliday()!.region }})</span>
+        </div>
+      </div>
+
+      <!-- Leave notification(s) -->
+      <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3" role="alert" 
+           *ngFor="let leave of currentDateLeaves()">
+        <i class="bi bi-calendar-x-fill mt-1"></i>
+        <div class="flex-grow-1">
+          <div>
+            <strong>Approved Leave:</strong> 
+            <span *ngIf="isAdmin() && leave.employeeName" class="me-2">{{ leave.employeeName }}</span>
+          </div>
+          <div class="mt-1">
+            <span class="badge bg-secondary me-2">{{ leave.leaveType }}</span>
+            <span class="text-muted small">
+              {{ leave.startDate | date:'MMM d' }} - {{ leave.endDate | date:'MMM d, y' }}{{ leave.isHalfDay ? ' (Half Day)' : '' }}
+            </span>
+          </div>
+          <div class="text-muted small mt-1" *ngIf="leave.reason">
+            <em>{{ leave.reason }}</em>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Admin Controls -->
     <div *ngIf="isAdmin()" class="admin-controls mb-4">
       <div class="d-flex align-items-center gap-3">
@@ -166,7 +199,8 @@
         </div>
 
         <div class="col-md-1">
-          <button type="button" class="btn btn-primary w-100" (click)="addRow()" [disabled]="submitting()">
+          <button type="button" class="btn btn-primary w-100" (click)="addRow()" 
+                  [disabled]="submitting()">
             <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
             <i *ngIf="!submitting()" class="bi bi-plus-circle"></i> 
             {{ submitting() ? 'Adding...' : 'Add' }}
@@ -214,7 +248,7 @@
           <tr *ngFor="let g of items.controls; let i = index" [class.editing-row]="isRowInEditMode(i)">
             <td>{{ g.get('workDate')!.value }}</td>
             <td>
-              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
+              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value, g.get('description')!.value) }}</code>
             </td>
             <td>
               <!-- Display mode: Show as text input (read-only) -->
