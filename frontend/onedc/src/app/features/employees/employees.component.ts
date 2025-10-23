@@ -8,6 +8,7 @@ import { EmployeesService } from '../../core/services/employees.service';
 import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
 import { Employee, UserRole, Gender, EmployeeType, Address } from '../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
+import { AuthService } from '../../core/services/auth.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -153,6 +154,7 @@ function zipCodeValidator(): ValidatorFn {
 export class EmployeesComponent implements OnInit {
   private employeesService = inject(EmployeesService);
   private onboardingService = inject(OnboardingService);
+  private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private toastr = inject(ToastrService);
@@ -605,6 +607,11 @@ export class EmployeesComponent implements OnInit {
           permanentZipCode: formValue.permanentAddress?.zipCode || ''
         };
 
+        // Check if we're updating the current logged-in user's role
+        const currentUser = this.authService.getCurrentUser();
+        const isUpdatingCurrentUser = currentUser && this.editingEmployee()!.userId === currentUser.userId;
+        const roleChanged = isUpdatingCurrentUser && this.editingEmployee()!.role !== formValue.role;
+
         this.employeesService.update(this.editingEmployee()!.userId, employeeData).subscribe({
           next: (updatedEmployee) => {
             const employees = this.employees();
@@ -617,6 +624,33 @@ export class EmployeesComponent implements OnInit {
             this.loadEmployeeCounts(); // Update employee counts (in case status changed)
             this.toastr.success('Employee updated successfully');
             this.closeModal();
+
+            // If the current user's role was changed, refresh the token
+            if (roleChanged) {
+              this.toastr.info('Your role has been updated. Refreshing your session...', 'Role Updated', {
+                timeOut: 3000
+              });
+              
+              // Refresh the token to get updated role information
+              this.authService.refreshToken().subscribe({
+                next: () => {
+                  this.toastr.success('Session refreshed successfully. Your new permissions are now active.', 'Success', {
+                    timeOut: 3000
+                  });
+                  // Force a small delay to ensure the UI updates
+                  setTimeout(() => {
+                    // Optionally reload the current page to reflect new permissions
+                    window.location.reload();
+                  }, 1000);
+                },
+                error: (error) => {
+                  console.error('Error refreshing token:', error);
+                  this.toastr.warning('Please log out and log back in to see your new role permissions.', 'Session Refresh Failed', {
+                    timeOut: 5000
+                  });
+                }
+              });
+            }
           },
           error: (error) => {
             console.error('Error updating employee:', error);
