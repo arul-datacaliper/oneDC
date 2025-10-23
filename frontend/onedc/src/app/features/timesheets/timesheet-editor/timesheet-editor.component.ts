@@ -288,7 +288,15 @@ export class TimesheetEditorComponent implements OnInit {
       }
     });
     this.newRow.get('projectId')?.valueChanges.subscribe(pid => {
-      if (pid) this.loadTasksForProject(pid);
+      // Clear task selection when project changes
+      this.newRow.patchValue({ taskId: '' }, { emitEvent: false });
+      
+      if (pid) {
+        this.loadTasksForProject(pid);
+      } else {
+        // Clear tasks when no project is selected
+        this.tasks.set([]);
+      }
     });
   }
 
@@ -585,10 +593,8 @@ export class TimesheetEditorComponent implements OnInit {
     
     const result = this.tasksByProject[cacheKey] || [];
     
-    // If this is for the currently selected project, update the signal to trigger reactivity
-    if (projectId === this.newRow.get('projectId')?.value && result.length > 0) {
-      this.tasks.set(result);
-    }
+    // Don't write to signals during template rendering - this causes NG0600 error
+    // The tasks signal is already set by loadTasksForProject when needed
     
     return result;
   }
@@ -658,6 +664,30 @@ export class TimesheetEditorComponent implements OnInit {
     if (!isHolidayOrLeave && !val.projectId) {
       this.showNotification('Select project', 'OK', { duration: 2000 });
       return;
+    }
+    
+    // Check for duplicate project+task combination for the same date
+    if (val.projectId) {
+      const existingEntries = this.rows();
+      const duplicateEntry = existingEntries.find(entry => 
+        entry.workDate === val.workDate && 
+        entry.projectId === val.projectId && 
+        entry.taskId === val.taskId
+      );
+      
+      if (duplicateEntry) {
+        const projectName = this.projects().find(p => p.projectId === val.projectId)?.name || 'this project';
+        const taskName = val.taskId ? 
+          this.getTasksForProject(val.projectId).find(t => t.taskId === val.taskId)?.title || 'this task' : 
+          'no task';
+        
+        this.showNotification(
+          `An entry already exists for ${projectName} with task "${taskName}" on this date. Please select a different task or edit the existing entry.`,
+          'OK',
+          { duration: 5000 }
+        );
+        return;
+      }
     }
     
     // For holiday/leave, try to find and auto-select Internal project, but allow without it
@@ -1107,10 +1137,10 @@ export class TimesheetEditorComponent implements OnInit {
     const isUserSpecific = !this.isAdmin() && currentUser?.userId;
     const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
     
-    // If tasks aren't loaded for this project yet, try to load them
+    // Don't load tasks during rendering - this causes NG0600 error
+    // Tasks should already be loaded when displaying existing entries
     if (!this.tasksByProject[cacheKey]) {
-      this.loadTasksForProject(projectId);
-      return 'Loading...';
+      return 'No task selected';
     }
     
     const tasks = this.getTasksForProject(projectId);
