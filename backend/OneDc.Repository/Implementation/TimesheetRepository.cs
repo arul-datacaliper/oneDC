@@ -13,7 +13,7 @@ public class TimesheetRepository : ITimesheetRepository
     public async Task<IEnumerable<TimesheetEntry>> GetByUserAndRangeAsync(Guid userId, DateOnly from, DateOnly to)
     {
         return await _db.TimesheetEntries
-            .Where(t => t.UserId == userId && t.WorkDate >= from && t.WorkDate <= to)
+            .Where(t => t.UserId == userId && t.WorkDate >= from && t.WorkDate <= to && t.ProjectId.HasValue)
             .OrderBy(t => t.WorkDate).ThenBy(t => t.ProjectId)
             .AsNoTracking()
             .ToListAsync();
@@ -22,7 +22,7 @@ public class TimesheetRepository : ITimesheetRepository
     public async Task<IEnumerable<TimesheetEntry>> GetByRangeAsync(DateOnly from, DateOnly to)
     {
         return await _db.TimesheetEntries
-            .Where(t => t.WorkDate >= from && t.WorkDate <= to)
+            .Where(t => t.WorkDate >= from && t.WorkDate <= to && t.ProjectId.HasValue)
             .OrderBy(t => t.WorkDate).ThenBy(t => t.UserId).ThenBy(t => t.ProjectId)
             .AsNoTracking()
             .ToListAsync();

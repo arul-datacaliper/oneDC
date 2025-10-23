@@ -74,9 +74,12 @@ public class ApprovalService : IApprovalService
         if (approver.Role == Domain.Entities.UserRole.APPROVER)
         {
             // 1. They are the default approver for the project
-            var project = await _projects.GetByIdAsync(entry.ProjectId);
-            if (project?.DefaultApprover == approverId)
-                return true;
+            if (entry.ProjectId.HasValue)
+            {
+                var project = await _projects.GetByIdAsync(entry.ProjectId.Value);
+                if (project?.DefaultApprover == approverId)
+                    return true;
+            }
 
             // 2. The user reports to them directly
             var user = await _repo.GetUserAsync(entry.UserId);

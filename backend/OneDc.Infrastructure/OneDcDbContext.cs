@@ -145,6 +145,7 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Status).IsRequired();
             e.Property(x => x.TaskType).IsRequired();
             e.Property(x => x.TaskId).HasColumnName("task_id"); // Map TaskId to task_id column
+            e.Property(x => x.ProjectId).IsRequired(false); // Allow null to match DB migration
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -153,6 +154,7 @@ public class OneDcDbContext : DbContext
             e.HasOne(t => t.Project)
              .WithMany()
              .HasForeignKey(t => t.ProjectId)
+             .IsRequired(false)
              .OnDelete(DeleteBehavior.Restrict);
 
             // 🔗 Timesheet → AppUser
