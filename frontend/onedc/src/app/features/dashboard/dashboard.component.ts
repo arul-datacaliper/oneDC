@@ -5,7 +5,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
-import { AllocationService, EmployeeAllocationSummary } from '../../core/services/allocation.service';
+import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -58,6 +58,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedWeekStart = signal<string>('');
   selectedWeekEnd = signal<string>('');
   
+  // Project allocation data
+  projectAllocations = signal<AllocationSummary[]>([]);
+  projectSearchTerm = signal('');
+  
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
     const filter = this.utilizationFilter();
@@ -95,6 +99,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     // When not searching or filtering, return only the displayed count
     return allEmployees.slice(0, this.displayedEmployeeCount());
+  });
+  
+  filteredProjectAllocations = computed(() => {
+    const searchTerm = this.projectSearchTerm().toLowerCase();
+    const allProjects = this.projectAllocations();
+    
+    if (searchTerm) {
+      return allProjects.filter(project => 
+        project.projectName.toLowerCase().includes(searchTerm) ||
+        project.projectId.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return allProjects;
   });
 
   // Loading states
@@ -227,6 +245,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedWeekEnd.set(weekEnd.toISOString().split('T')[0]);
     }
 
+    // Load both employee and project allocations
     this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
       next: (allocations: EmployeeAllocationSummary[]) => {
         this.employeeAllocations.set(allocations);
@@ -235,6 +254,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: (error: any) => {
         console.error('Error loading employee allocations:', error);
         this.isLoadingAllocations = false;
+      }
+    });
+    
+    // Load project allocations
+    this.loadProjectAllocations(weekStartDate);
+  }
+  
+  private loadProjectAllocations(weekStartDate?: string) {
+    const startDate = weekStartDate || this.selectedWeekStart();
+    
+    this.allocationService.getProjectAllocationSummary(startDate).subscribe({
+      next: (allocations: AllocationSummary[]) => {
+        this.projectAllocations.set(allocations);
+      },
+      error: (error: any) => {
+        console.error('Error loading project allocations:', error);
       }
     });
   }
@@ -591,6 +626,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onAllocationSearch(searchTerm: string): void {
     this.allocationSearchTerm.set(searchTerm);
   }
+  
+  // Project allocation methods
+  onProjectSearch(searchTerm: string): void {
+    this.projectSearchTerm.set(searchTerm);
+  }
 
   onUtilizationFilterChange(filter: string): void {
     this.utilizationFilter.set(filter);
@@ -669,6 +709,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   trackByEmployeeId(index: number, employee: EmployeeAllocationSummary): string {
     return employee.userId;
+  }
+  
+  trackByProjectId(index: number, project: AllocationSummary): string {
+    return project.projectId;
   }
 
   // Week navigation for allocations
