@@ -72,12 +72,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   
   public pieChartOptions: ChartConfiguration['options'] = {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: true,
+    aspectRatio: 1,
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10,
+        left: 10,
+        right: 10
+      }
+    },
     plugins: {
       legend: {
         display: true,
         position: 'right',
         labels: {
+          padding: 20,
+          font: {
+            size: 11,
+            family: "'Inter', 'Segoe UI', sans-serif",
+            weight: 'bold'
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 15,
+          boxHeight: 15,
           generateLabels: (chart) => {
             const data = chart.data;
             if (data.labels && data.datasets.length) {
@@ -87,7 +106,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   text: `${label}: ${value}`,
                   fillStyle: (data.datasets[0].backgroundColor as string[])[i],
                   hidden: false,
-                  index: i
+                  index: i,
+                  pointStyle: 'circle'
                 };
               });
             }
@@ -96,6 +116,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       },
       tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 12,
+        boxHeight: 12,
+        boxPadding: 6,
         callbacks: {
           label: (context) => {
             const label = context.label || '';
@@ -122,22 +157,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     datasets: [{
       data: [],
       backgroundColor: [
-        'rgba(220, 53, 69, 0.8)',   // Red for over 100%
-        'rgba(25, 135, 84, 0.8)',   // Green for 100%
-        'rgba(13, 202, 240, 0.8)',  // Cyan for 80-99%
-        'rgba(255, 193, 7, 0.8)',   // Yellow for 50-79%
-        'rgba(255, 193, 7, 0.6)',   // Light yellow for under 50%
-        'rgba(108, 117, 125, 0.8)'  // Gray for 0%
+        'rgba(220, 53, 69, 0.85)',   // Red for over 100%
+        'rgba(25, 135, 84, 0.85)',   // Green for 100%
+        'rgba(13, 202, 240, 0.85)',  // Cyan for 80-99%
+        'rgba(255, 193, 7, 0.85)',   // Yellow for 50-79%
+        'rgba(255, 152, 0, 0.85)',   // Orange for under 50%
+        'rgba(108, 117, 125, 0.85)'  // Gray for 0%
       ],
-      borderColor: [
-        'rgba(220, 53, 69, 1)',
-        'rgba(25, 135, 84, 1)',
-        'rgba(13, 202, 240, 1)',
-        'rgba(255, 193, 7, 1)',
-        'rgba(255, 193, 7, 0.8)',
-        'rgba(108, 117, 125, 1)'
-      ],
-      borderWidth: 2
+      borderColor: '#ffffff',
+      borderWidth: 3,
+      hoverOffset: 15,
+      hoverBorderWidth: 4,
+      hoverBorderColor: '#ffffff'
     }]
   };
 
