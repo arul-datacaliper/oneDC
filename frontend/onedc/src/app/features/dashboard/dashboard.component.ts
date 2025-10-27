@@ -11,6 +11,7 @@ import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData, ChartEvent, ChartType } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 export interface TimesheetEntry {
   date: string;
@@ -70,16 +71,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   
   @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
   
-  public pieChartOptions: ChartConfiguration['options'] = {
+  public pieChartOptions: ChartConfiguration<'doughnut'>['options'] = {
     responsive: true,
     maintainAspectRatio: true,
     aspectRatio: 1,
+    cutout: '60%', // Creates the donut hole
     layout: {
       padding: {
-        top: 10,
-        bottom: 10,
-        left: 10,
-        right: 10
+        top: 5,
+        bottom: 5,
+        left: 5,
+        right: 40
       }
     },
     plugins: {
@@ -87,9 +89,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         display: true,
         position: 'right',
         labels: {
-          padding: 20,
+          padding: 15,
           font: {
-            size: 11,
+            size: 12,
             family: "'Inter', 'Segoe UI', sans-serif",
             weight: 'bold'
           },
@@ -140,6 +142,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             return `${label}: ${value} employees (${percentage}%)`;
           }
         }
+      },
+      datalabels: {
+        display: false // Hide percentage labels on chart segments
       }
     },
     onClick: (event: ChartEvent, activeElements: any[]) => {
@@ -152,7 +157,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  public pieChartData: ChartData<'pie', number[], string> = {
+  public pieChartData: ChartData<'doughnut', number[], string> = {
     labels: [],
     datasets: [{
       data: [],
@@ -162,7 +167,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         'rgba(13, 202, 240, 0.85)',  // Cyan for 80-99%
         'rgba(255, 193, 7, 0.85)',   // Yellow for 50-79%
         'rgba(255, 152, 0, 0.85)',   // Orange for under 50%
-        'rgba(108, 117, 125, 0.85)'  // Gray for 0%
+        'rgba(0, 150, 136, 0.85)'    // Teal for 0%
       ],
       borderColor: '#ffffff',
       borderWidth: 3,
@@ -172,7 +177,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }]
   };
 
-  public pieChartType: ChartType = 'pie';
+  public pieChartPlugins = [ChartDataLabels];
+
+  public pieChartType = 'doughnut' as const;
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
@@ -408,7 +415,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           'rgba(13, 202, 240, 0.8)',  // Cyan for 80-99%
           'rgba(255, 193, 7, 0.8)',   // Yellow for 50-79%
           'rgba(255, 193, 7, 0.6)',   // Light yellow for under 50%
-          'rgba(108, 117, 125, 0.8)'  // Gray for 0%
+          'rgba(0, 150, 136, 0.8)'    // Teal for 0%
         ],
         borderColor: [
           'rgba(220, 53, 69, 1)',
@@ -416,7 +423,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           'rgba(13, 202, 240, 1)',
           'rgba(255, 193, 7, 1)',
           'rgba(255, 193, 7, 0.8)',
-          'rgba(108, 117, 125, 1)'
+          'rgba(0, 150, 136, 1)'
         ],
         borderWidth: 2
       }]
