@@ -663,18 +663,29 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
+    // Clear previous state first
+    this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]);
+    this.weeklyCapacities.set(new Map());
+    
+    // Set the allocation being edited FIRST
+    this.editingAllocation.set(allocation);
+    
+    // Set form values
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
       weekStartDate: allocation.weekStartDate,
       weekEndDate: allocation.weekEndDate
     });
-    this.formWeekStartDate.set(allocation.weekStartDate); // Update signal manually
-    // For edit mode, set single employee allocation
+    this.formWeekStartDate.set(allocation.weekStartDate);
+    
+    // Set the specific employee allocation for this edit
     this.selectedEmployeeAllocations.set([{
       userId: allocation.userId,
       userName: allocation.userName,
       allocatedHours: allocation.allocatedHours
     }]);
+    
     this.updateAvailableEmployeesForSelection();
     
     // Fetch weekly capacity for the employee being edited
@@ -691,7 +702,7 @@ export class AllocationsComponent implements OnInit {
       }
     });
     
-    this.editingAllocation.set(allocation);
+    // Open modal last
     this.showCreateModal.set(true);
   }
 
@@ -776,9 +787,16 @@ export class AllocationsComponent implements OnInit {
 
   // Update employee's allocated hours
   updateEmployeeHours(userId: string, hours: number) {
-    // Basic validation - only check for negative values
+    // Validation for reasonable hours
     if (hours < 0) {
       this.toastr.warning('Allocated hours cannot be negative');
+      return;
+    }
+    
+    // Maximum hours per week: 9 hrs/day × 5 days + 50% overtime = 67.5 hours
+    const MAX_WEEKLY_HOURS = 67.5;
+    if (hours > MAX_WEEKLY_HOURS) {
+      this.toastr.error(`Allocated hours cannot exceed ${MAX_WEEKLY_HOURS} hours per week (9 hrs/day × 5 days + overtime)`);
       return;
     }
 
@@ -1104,16 +1122,15 @@ export class AllocationsComponent implements OnInit {
 
   getTotalAllocatedHours(): number {
     const selectedUserId = this.selectedUserId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedUserId || !currentWeekStart) {
+    if (!selectedUserId) {
       return 0;
     }
     
-    return this.allocations().filter(allocation => 
-      allocation.userId === selectedUserId && 
-      allocation.weekStartDate === currentWeekStart
-    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+    // Filter by employee only - allocations are already filtered by week
+    return this.filteredAllocations().reduce((sum, allocation) => 
+      sum + allocation.allocatedHours, 0
+    );
   }
 
   // Helper method to format allocation periods for month-split allocations
@@ -1165,6 +1182,19 @@ export class AllocationsComponent implements OnInit {
 
   // Update hours for a specific employee and period
   updateEmployeePeriodHours(userId: string, periodIndex: number, hours: number) {
+    // Validation for reasonable hours
+    if (hours < 0) {
+      this.toastr.warning('Allocated hours cannot be negative');
+      return;
+    }
+    
+    // Maximum hours per period: 9 hrs/day × 5 days + 50% overtime = 67.5 hours
+    const MAX_PERIOD_HOURS = 67.5;
+    if (hours > MAX_PERIOD_HOURS) {
+      this.toastr.error(`Allocated hours cannot exceed ${MAX_PERIOD_HOURS} hours per period (9 hrs/day × 5 days + overtime)`);
+      return;
+    }
+    
     const employees = this.selectedEmployeeAllocations();
     const employeeIndex = employees.findIndex(emp => emp.userId === userId);
     
@@ -1323,31 +1353,27 @@ export class AllocationsComponent implements OnInit {
   // Project-level summary methods for "By Project" view
   getProjectTotalAllocatedHours(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
-    return this.allocations().filter(allocation => 
-      allocation.projectId === selectedProjectId && 
-      allocation.weekStartDate === currentWeekStart
-    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+    // Filter by project only - allocations are already filtered by week
+    return this.filteredAllocations().reduce((sum, allocation) => 
+      sum + allocation.allocatedHours, 0
+    );
   }
 
   getProjectEmployeeCount(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
+    // Filter by project only - allocations are already filtered by week
     const uniqueEmployees = new Set(
-      this.allocations().filter(allocation => 
-        allocation.projectId === selectedProjectId && 
-        allocation.weekStartDate === currentWeekStart
-      ).map(allocation => allocation.userId)
+      this.filteredAllocations().map(allocation => allocation.userId)
     );
     
     return uniqueEmployees.size;
@@ -1355,16 +1381,13 @@ export class AllocationsComponent implements OnInit {
 
   getProjectAverageUtilization(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
-    const projectAllocations = this.allocations().filter(allocation => 
-      allocation.projectId === selectedProjectId && 
-      allocation.weekStartDate === currentWeekStart
-    );
+    // Filter by project only - allocations are already filtered by week
+    const projectAllocations = this.filteredAllocations();
     
     if (projectAllocations.length === 0) {
       return 0;

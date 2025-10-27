@@ -364,7 +364,7 @@
               <small class="text-muted">Total Utilized Hours</small>
             </div>
             <div class="col-md-3">
-              <div class="fw-bold" [class.text-danger]="getUtilizationPercentage() > 100" [class.text-warning]="getUtilizationPercentage() > 80 && getUtilizationPercentage() <= 100" [class.text-success]="getUtilizationPercentage() <= 80">{{ getUtilizationPercentage() }}%</div>
+              <div class="fw-bold fs-5" [class.text-danger]="getUtilizationPercentage() > 100" [class.text-warning]="getUtilizationPercentage() > 80 && getUtilizationPercentage() <= 100" [class.text-success]="getUtilizationPercentage() <= 80">{{ getUtilizationPercentage() }}%</div>
               <small class="text-muted">Capacity Utilization</small>
             </div>
           </div>
@@ -434,11 +434,11 @@
      tabindex="-1" role="dialog" [attr.aria-hidden]="!showCreateModal()">
   <div class="modal-dialog modal-xl" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title mb-0">
           {{ editingAllocation() ? 'Edit Allocation' : 'Create New Allocation' }}
         </h5>
-        <button type="button" class="btn-close" (click)="closeModal()"></button>
+        <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
       </div>
       <form [formGroup]="allocationForm" (ngSubmit)="onSubmit()">
         <div class="modal-body">
@@ -652,7 +652,9 @@
                           class="form-control" 
                           [value]="employee.allocatedHours"
                           (input)="updateEmployeeHours(employee.userId, +$any($event.target).value)"
-                          min="0" 
+                          min="0"
+                          max="67.5"
+                          step="0.5" 
                           placeholder="Hours">
                       </td>
                       <td *ngIf="!isEmployee()" class="text-center">
@@ -749,9 +751,11 @@
                       class="form-control" 
                       [value]="selectedEmployeeAllocations()[0].allocatedHours"
                       (input)="updateEmployeeHours(selectedEmployeeAllocations()[0].userId, +$any($event.target).value)"
-                      min="0" 
+                      min="0"
+                      max="67.5"
+                      step="0.5" 
                       placeholder="Hours">
-                    <div class="form-text">Enter allocation hours for this employee</div>
+                    <div class="form-text">Enter allocation hours for this employee (max 67.5 hours)</div>
                   </div>
                 </div>
               </div>
@@ -778,12 +782,12 @@
      tabindex="-1" role="dialog" [attr.aria-hidden]="!showExportModal()">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title mb-0">
           <i class="bi bi-download me-2"></i>
           Export Allocations
         </h5>
-        <button type="button" class="btn-close" (click)="closeExportModal()"></button>
+        <button type="button" class="btn-close" (click)="closeExportModal()" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <!-- Quick Period Selection -->
