@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators, AbstractControl } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { TimesheetsService } from '../../../core/services/timesheets.service';
@@ -8,6 +8,8 @@ import { ProjectsService } from '../../../core/services/projects.service';
 import { TasksService, ProjectTask } from '../../../core/services/tasks.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { UsersService, AppUser } from '../../../core/services/users.service';
+import { HolidayService, Holiday } from '../../../core/services/holiday.service';
+import { LeaveService, LeaveRequest } from '../../../core/services/leave.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
@@ -42,9 +44,58 @@ export class TimesheetEditorComponent implements OnInit {
   private tasksSvc = inject(TasksService);
   private authSvc = inject(AuthService);
   private usersSvc = inject(UsersService);
+  private holidaySvc = inject(HolidayService);
+  private leaveSvc = inject(LeaveService);
   
   tasks = signal<ProjectTask[]>([]);
   private tasksByProject: Record<string, ProjectTask[]> = {};
+  
+  // Holidays and leaves for the selected date
+  holidays = signal<Holiday[]>([]);
+  approvedLeaves = signal<LeaveRequest[]>([]);
+  currentDateHoliday = computed<Holiday | null>(() => {
+    const selectedDate = this.selectedDate();
+    return this.holidays().find(h => h.holidayDate === selectedDate) || null;
+  });
+  currentDateLeaves = computed<LeaveRequest[]>(() => {
+    const selectedDate = this.selectedDate();
+    const currentUser = this.authSvc.getCurrentUser();
+    
+    // For admin viewing specific user or all users
+    const targetUserId = this.selectedUserId() || currentUser?.userId;
+    
+    return this.approvedLeaves().filter(leave => {
+      // Check if the leave is for the target user (or show all if admin viewing all)
+      const isTargetUser = !this.selectedUserId() || leave.employeeId === targetUserId;
+      
+      // Check if the selected date falls within the leave period
+      // Extract just the date part (YYYY-MM-DD) from ISO format
+      const leaveStartDate = leave.startDate.substring(0, 10);
+      const leaveEndDate = leave.endDate.substring(0, 10);
+      
+      // For date comparison, need to handle if backend sends endDate as next day at 00:00:00
+      // Create Date objects for proper comparison
+      const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+      const startDateObj = new Date(leaveStartDate + 'T00:00:00');
+      const endDateObj = new Date(leaveEndDate + 'T00:00:00');
+      
+      // If endDate time is 00:00:00, it likely means end of previous day
+      // Check if original endDate has time component
+      const hasTimeComponent = leave.endDate.includes('T');
+      const endDateTime = hasTimeComponent ? leave.endDate.split('T')[1] : '';
+      const isEndDateMidnight = endDateTime.startsWith('00:00:00');
+      
+      // Adjust end date if it's midnight (subtract 1 day)
+      if (hasTimeComponent && isEndDateMidnight) {
+        endDateObj.setDate(endDateObj.getDate() - 1);
+      }
+      
+      return isTargetUser && 
+             leave.status === 'Approved' && 
+             selectedDateObj >= startDateObj && 
+             selectedDateObj <= endDateObj;
+    });
+  });
 
   // Admin functionality
   isAdmin = signal<boolean>(false);
@@ -88,14 +139,21 @@ export class TimesheetEditorComponent implements OnInit {
   // Computed property for task dropdown options based on selected project
   taskOptions = computed<DropdownOption[]>(() => {
     const selectedProjectId = this.newRow.get('projectId')?.value;
-    if (!selectedProjectId) return [];
     
-    const tasks = this.getTasksForProject(selectedProjectId);
-    return tasks.map(task => ({
+    if (!selectedProjectId) {
+      return [];
+    }
+    
+    // Always use the tasks signal as the primary source for reactivity
+    const tasks = this.tasks();
+    
+    const options = tasks.map(task => ({
       value: task.taskId,
       label: task.title,
       searchableText: task.title.toLowerCase()
     }));
+    
+    return options;
   });
 
   // Admin dropdown options
@@ -122,46 +180,92 @@ export class TimesheetEditorComponent implements OnInit {
   taskTypes = getTaskTypes();
   getTaskTypeDisplayName = getTaskTypeDisplayName;
 
+  // Custom validator to prevent future dates
+  futureDateValidator = (control: AbstractControl) => {
+    if (!control.value) return null;
+    
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate > today) {
+      return { futureDate: { message: 'Cannot enter timesheets for future dates' } };
+    }
+    
+    return null;
+  };
+
   // forms
   form = this.fb.group({ items: this.fb.array<FormGroup>([]) });
   get items() { return this.form.get('items') as FormArray<FormGroup>; }
 
   // header add-row form
   newRow = this.fb.group({
-    workDate: [new Date().toISOString().slice(0, 10)],
+    workDate: [new Date().toISOString().slice(0, 10), [Validators.required, this.futureDateValidator]],
     projectId: ['', Validators.required],
     taskId: [''],
     hours: [0, [Validators.min(0), Validators.max(24)]],
     description: [''],
     ticketRef: [''],
-    taskType: [TaskType.DEV, Validators.required]
+    taskType: ['', Validators.required] // Empty string as default, require user selection
   });
 
   onDateChange(event: any) {
     const newDateStr = event.target.value; // YYYY-MM-DD format
     if (newDateStr && newDateStr !== this.selectedDate()) {
+      // Validate that the date is not in the future
+      const selectedDate = new Date(newDateStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate > today) {
+        this.showNotification('Cannot select future dates for timesheets', 'error');
+        // Reset to today's date
+        const todayStr = new Date().toISOString().slice(0, 10);
+        this.newRow.patchValue({ workDate: todayStr }, { emitEvent: false });
+        return;
+      }
+      
       this.selectedDate.set(newDateStr);
       this.load(); // Refresh entries for the new date
+      
+      // Auto-create holiday/leave entry after a short delay to ensure data is loaded
+      setTimeout(() => this.autoCreateHolidayOrLeaveEntry(), 100);
     }
   }
 
   // computed totals
   totalHours = computed(() => this.items.controls.reduce((sum, g) => sum + (+g.get('hours')!.value || 0), 0));
   
-  // Daily total for the selected date
+  // Daily total for the selected date (excluding holiday/leave entries for limit check)
   dailyTotal = computed(() => {
     const dateStr = this.selectedDate();
     
     // Calculate from the rows signal (actual data from backend) instead of form controls
     // This ensures we get the saved values, not the form values
+    // Exclude holiday/leave entries from the total for daily limit checking
     return this.rows()
-      .filter(row => row.workDate === dateStr)
+      .filter(row => 
+        row.workDate === dateStr && 
+        !row.description?.includes('Holiday') && 
+        !row.description?.includes('Leave')
+      )
       .reduce((sum, row) => sum + (row.hours || 0), 0);
   });
 
+  // Check if the next day would be in the future
+  isNextDayFuture = computed(() => {
+    const selectedDateStr = this.selectedDate();
+    const utcDate = this.utcDateStringToUtcDate(selectedDateStr);
+    utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+    const nextDateStr = this.toUtcDateString(utcDate);
+    const today = this.getTodayDateString();
+    return nextDateStr > today;
+  });
+
   ngOnInit(): void {
-    console.log('TimesheetEditorComponent: Initializing...'); // Debug log
-    
     // Check if user is admin
     this.isAdmin.set(this.authSvc.isAdmin());
     
@@ -171,16 +275,28 @@ export class TimesheetEditorComponent implements OnInit {
     }
     
     this.loadProjects();
+    this.loadHolidays();
+    this.loadApprovedLeaves();
     this.load();
     this.updateNewRowDate();
     this.newRow.get('workDate')?.valueChanges.subscribe(newDate => {
       if (newDate && typeof newDate === 'string' && newDate !== this.selectedDate()) {
         this.selectedDate.set(newDate);
         this.load();
+        // Auto-create holiday/leave entry when date changes
+        setTimeout(() => this.autoCreateHolidayOrLeaveEntry(), 100);
       }
     });
     this.newRow.get('projectId')?.valueChanges.subscribe(pid => {
-      if (pid) this.loadTasksForProject(pid);
+      // Clear task selection when project changes
+      this.newRow.patchValue({ taskId: '' }, { emitEvent: false });
+      
+      if (pid) {
+        this.loadTasksForProject(pid);
+      } else {
+        // Clear tasks when no project is selected
+        this.tasks.set([]);
+      }
     });
   }
 
@@ -188,19 +304,108 @@ export class TimesheetEditorComponent implements OnInit {
     const selectedDateStr = this.selectedDate();
     // Use the UTC date string directly for the date input (YYYY-MM-DD format)
     this.newRow.patchValue({ workDate: selectedDateStr }, { emitEvent: false });
+    
+    // Auto-create entry for holiday or leave
+    this.autoCreateHolidayOrLeaveEntry();
+  }
+  
+  autoCreateHolidayOrLeaveEntry() {
+    const holiday = this.currentDateHoliday();
+    const leaves = this.currentDateLeaves();
+    const selectedDate = this.selectedDate();
+    
+    // Check if there's already a holiday/leave entry for this date
+    const existingEntry = this.rows().find(r => 
+      r.workDate === selectedDate && 
+      (r.description?.includes('Holiday') || r.description?.includes('Leave'))
+    );
+    
+    // If there's already an entry, clear the form and don't create duplicate
+    if (existingEntry) {
+      this.newRow.patchValue({
+        projectId: '',
+        taskId: '',
+        hours: 0,
+        description: '',
+        taskType: '',
+        ticketRef: ''
+      }, { emitEvent: false });
+      return;
+    }
+    
+    // Find "Internal" project for holidays/leaves, or use first available project as fallback
+    let projectForLeave = this.projects().find(p => 
+      p.code === 'INTERNAL' || p.name.toLowerCase().includes('internal')
+    );
+    
+    // If Internal project not found, use the first available project
+    if (!projectForLeave && this.projects().length > 0) {
+      projectForLeave = this.projects()[0];
+    }
+    
+    // Only proceed if we have a project
+    if (!projectForLeave) {
+      return;
+    }
+    
+    let description = '';
+    let shouldCreate = false;
+    
+    if (holiday) {
+      description = `Holiday - ${holiday.name}`;
+      shouldCreate = true;
+    } else if (leaves.length > 0) {
+      const leaveInfo = leaves.map(l => l.leaveType).join(', ');
+      description = `Leave - ${leaveInfo}`;
+      shouldCreate = true;
+    }
+    
+    // Automatically create the entry if it's a holiday or leave
+    if (shouldCreate) {
+      const dto = {
+        projectId: projectForLeave.projectId,
+        workDate: selectedDate,
+        hours: 9,
+        description: description,
+        ticketRef: undefined,
+        taskType: 0 as TaskType, // Development
+        taskId: undefined
+      };
+      
+      this.tsSvc.create(dto).subscribe({
+        next: (created: any) => {
+          this.showNotification(`${holiday ? 'Holiday' : 'Leave'} entry created automatically`, 'OK', { duration: 2000 });
+          // Reload to show the new entry
+          this.load();
+        },
+        error: (err) => {
+          console.error('Auto-create entry error:', err);
+          // Silently fail - user can still add manually if needed
+        }
+      });
+    } else {
+      // Clear the form for normal working days
+      this.newRow.patchValue({
+        projectId: '',
+        taskId: '',
+        hours: 0,
+        description: '',
+        taskType: '',
+        ticketRef: ''
+      }, { emitEvent: false });
+    }
   }
 
   loadProjects() {
     this.projSvc.getAll().subscribe({
       next: (ps: any[]) => {
-        console.log('Loaded projects:', ps); // Debug log
         // Filter only active projects
         const activeProjects = ps.filter((p: any) => p.status === 'ACTIVE' || !p.status);
         this.projects.set(activeProjects);
       },
       error: (err) => {
         console.error('Failed to load projects:', err);
-                this.showNotification('Failed to load projects', 'error');
+        this.showNotification('Failed to load projects', 'error');
         // Set some mock data for development
         this.projects.set([
           { projectId: '1', clientId: 'client1', code: 'DEMO', name: 'Demo Project', status: 'ACTIVE', billable: true },
@@ -211,7 +416,6 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   load() {
-    console.log('Loading timesheets for date:', this.selectedDate()); // Debug log
     this.loading.set(true);
     
     // Determine which service method to call based on admin status and selections
@@ -238,7 +442,6 @@ export class TimesheetEditorComponent implements OnInit {
     
     timesheetObservable.subscribe({
       next: (data: any[]) => {
-        console.log('Loaded timesheets:', data); // Debug log
         this.rows.set(data as TimesheetEntry[]);
         
         // rebuild form array
@@ -249,12 +452,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.loadTasksForCurrentProjects();
         
         this.loading.set(false);
-        
-        if (data.length === 0) {
-          console.log('No timesheet entries found for this date');
-        } else {
-          console.log(`Loaded ${data.length} timesheet entries for ${this.selectedDate()}`);
-        }
       },
       error: (err) => {
         console.error('Failed to load timesheets:', err);
@@ -271,12 +468,40 @@ export class TimesheetEditorComponent implements OnInit {
 
   private loadTasksForProject(projectId: string) {
     if (!projectId) return;
-    if (this.tasksByProject[projectId]) return; // cache
-    this.tasksSvc.list(projectId).subscribe(response => {
-      this.tasksByProject[projectId] = response.tasks;
+    
+    // Create cache key based on project and user context
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
+    // Check cache with appropriate key
+    if (this.tasksByProject[cacheKey]) {
+      // If we have cached data, use it
       if (projectId === this.newRow.get('projectId')?.value) {
-        // trigger change detection if needed
-        this.tasks.set(response.tasks);
+        this.tasks.set(this.tasksByProject[cacheKey]);
+      }
+      return;
+    }
+    
+    // For non-admin users, filter tasks by the current user's assignments
+    const filterOptions: { assignedUserId?: string } = {};
+    
+    // Only filter by current user if not an admin
+    if (isUserSpecific) {
+      filterOptions.assignedUserId = currentUser.userId;
+    }
+    
+    this.tasksSvc.list(projectId, filterOptions).subscribe({
+      next: response => {
+        // Cache with the appropriate key
+        this.tasksByProject[cacheKey] = response.tasks;
+        
+        if (projectId === this.newRow.get('projectId')?.value) {
+          this.tasks.set(response.tasks);
+        }
+      },
+      error: error => {
+        console.error('Error loading tasks:', error);
       }
     });
   }
@@ -293,17 +518,98 @@ export class TimesheetEditorComponent implements OnInit {
     });
   }
 
+  private loadHolidays(): void {
+    // Load holidays for current year
+    const currentYear = new Date().getFullYear();
+    const from = `${currentYear}-01-01`;
+    const to = `${currentYear}-12-31`;
+    
+    this.holidaySvc.getHolidays(from, to).subscribe({
+      next: (holidays) => {
+        this.holidays.set(holidays);
+      },
+      error: (error) => {
+        console.error('Error loading holidays:', error);
+        // Don't show error to user, just fail silently as it's not critical
+      }
+    });
+  }
+
+  private loadApprovedLeaves(): void {
+    const currentUser = this.authSvc.getCurrentUser();
+    if (!currentUser) return;
+    
+    // For admin, load all approved leaves if viewing all employees
+    // For regular users or admin viewing specific user, load that user's leaves
+    let leaveObservable;
+    
+    if (this.isAdmin() && !this.selectedUserId()) {
+      // Admin viewing all - load all approved leaves
+      leaveObservable = this.leaveSvc.getAllLeaveRequests();
+    } else if (this.isAdmin() && this.selectedUserId()) {
+      // Admin viewing specific user
+      leaveObservable = this.leaveSvc.getEmployeeLeaveRequests(this.selectedUserId()!);
+    } else {
+      // Regular user - load their own leaves
+      leaveObservable = this.leaveSvc.getMyLeaveRequests();
+    }
+    
+    leaveObservable.subscribe({
+      next: (response: any) => {
+        // Handle different response structures
+        let leaves: LeaveRequest[] = [];
+        
+        if (Array.isArray(response)) {
+          leaves = response;
+        } else if (response && Array.isArray(response.data)) {
+          leaves = response.data;
+        } else if (response && Array.isArray(response.leaveRequests)) {
+          leaves = response.leaveRequests;
+        } else {
+          console.warn('Unexpected leave response format:', response);
+          leaves = [];
+        }
+        
+        // Filter only approved leaves
+        const approvedLeaves = leaves.filter(leave => leave.status === 'Approved');
+        this.approvedLeaves.set(approvedLeaves);
+      },
+      error: (error) => {
+        console.error('Error loading approved leaves:', error);
+        // Don't show error to user, just fail silently as it's not critical
+      }
+    });
+  }
+
   getTasksForProject(projectId: string | null | undefined): ProjectTask[] {
-    if (!projectId) return [];
-    return this.tasksByProject[projectId] || [];
+    if (!projectId) {
+      return [];
+    }
+    
+    // Use the same cache key logic as loadTasksForProject
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
+    const result = this.tasksByProject[cacheKey] || [];
+    
+    // Don't write to signals during template rendering - this causes NG0600 error
+    // The tasks signal is already set by loadTasksForProject when needed
+    
+    return result;
   }
 
   // Get task options for a specific project (used in edit mode)
   getTaskOptionsForProject(projectId: string | null | undefined): DropdownOption[] {
     if (!projectId) return [];
     
+    // Use the same cache key logic
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
     // Ensure tasks are loaded for this project
-    if (!this.tasksByProject[projectId]) {
+    if (!this.tasksByProject[cacheKey]) {
       this.loadTasksForProject(projectId);
       return [];
     }
@@ -319,7 +625,7 @@ export class TimesheetEditorComponent implements OnInit {
   buildRow(r: TimesheetEntry) {
     const g = this.fb.group({
       entryId: [r.entryId],
-      workDate: [r.workDate, Validators.required],
+      workDate: [r.workDate, [Validators.required, this.futureDateValidator]],
       projectId: [r.projectId, Validators.required],
       taskId: [r.taskId || ''],
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
@@ -340,24 +646,84 @@ export class TimesheetEditorComponent implements OnInit {
   addRow() : void {
     if (this.submitting()) return; // Prevent multiple submissions
     
-    console.log('addRow: Starting...'); // Debug log
     const val = this.newRow.value;
-    console.log('addRow: Form value:', val); // Debug log
+    
+    // Check if this is a holiday or leave entry (by description or by date)
+    const isHolidayOrLeaveByDescription = val.description?.includes('Holiday') || val.description?.includes('Leave');
+    const isHolidayOrLeaveByDate = this.currentDateHoliday() !== null || this.currentDateLeaves().length > 0;
+    const isHolidayOrLeave = isHolidayOrLeaveByDescription || isHolidayOrLeaveByDate;
     
     // validations
     const hours = Number(val.hours ?? 0);
-    if (!val.workDate || !val.projectId) {
-      this.showNotification('Select date and project', 'OK', { duration: 2000 });
+    if (!val.workDate) {
+      this.showNotification('Select date', 'OK', { duration: 2000 });
       return;
     }
+    
+    // Only require project if it's NOT a holiday/leave entry
+    if (!isHolidayOrLeave && !val.projectId) {
+      this.showNotification('Select project', 'OK', { duration: 2000 });
+      return;
+    }
+    
+    // Check for duplicate project+task combination for the same date
+    if (val.projectId) {
+      const existingEntries = this.rows();
+      const duplicateEntry = existingEntries.find(entry => 
+        entry.workDate === val.workDate && 
+        entry.projectId === val.projectId && 
+        entry.taskId === val.taskId
+      );
+      
+      if (duplicateEntry) {
+        const projectName = this.projects().find(p => p.projectId === val.projectId)?.name || 'this project';
+        const taskName = val.taskId ? 
+          this.getTasksForProject(val.projectId).find(t => t.taskId === val.taskId)?.title || 'this task' : 
+          'no task';
+        
+        this.showNotification(
+          `An entry already exists for ${projectName} with task "${taskName}" on this date. Please select a different task or edit the existing entry.`,
+          'OK',
+          { duration: 5000 }
+        );
+        return;
+      }
+    }
+    
+    // For holiday/leave, try to find and auto-select Internal project, but allow without it
+    if (isHolidayOrLeave && !val.projectId) {
+      const internalProject = this.projects().find(p => 
+        p.code === 'INTERNAL' || p.name.toLowerCase().includes('internal')
+      );
+      if (internalProject) {
+        this.newRow.patchValue({ projectId: internalProject.projectId }, { emitEvent: false });
+        val.projectId = internalProject.projectId;
+      }
+      // If Internal project not found, we'll use the first available project as fallback
+      if (!val.projectId && this.projects().length > 0) {
+        const fallbackProject = this.projects()[0];
+        this.newRow.patchValue({ projectId: fallbackProject.projectId }, { emitEvent: false });
+        val.projectId = fallbackProject.projectId;
+      }
+    }
+    
     if (hours < 0 || hours > 24) {
+      console.log('Validation failed: Hours out of range');
       this.showNotification('Hours must be between 0 and 24', 'OK', { duration: 2000 });
       return;
     }
     if (hours > 0 && !val.description?.trim()) {
+      console.log('Validation failed: Description required');
       this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
+    if (val.taskType === null || val.taskType === undefined || val.taskType === '') {
+      console.log('Validation failed: Task type required');
+      this.showNotification('Please select a task type', 'OK', { duration: 2000 });
+      return;
+    }
+    
+    console.log('All validations passed, creating entry');
 
     this.submitting.set(true); // Set submitting state
 
@@ -367,15 +733,12 @@ export class TimesheetEditorComponent implements OnInit {
       hours,
       description: val.description?.trim() || undefined,
       ticketRef: val.ticketRef?.trim() || undefined,
-      taskType: val.taskType ?? TaskType.DEV,
+      taskType: Number(val.taskType) as TaskType,
       taskId: val.taskId || undefined
     };
 
-    console.log('addRow: DTO to send:', dto); // Debug log
-
     this.tsSvc.create(dto).subscribe({
       next: (created: any) => {
-        console.log('addRow: Created entry:', created); // Debug log
         this.showNotification('Draft entry created', 'OK', { duration: 1500 });
         this.newRow.reset({
           workDate: this.selectedDate(), // Already in YYYY-MM-DD format
@@ -384,24 +747,41 @@ export class TimesheetEditorComponent implements OnInit {
           hours: 0,
           description: '',
           ticketRef: '',
-          taskType: TaskType.DEV
+          taskType: ''
         });
         
         // Instead of manually adding to rows/items, reload the data to ensure consistency
-        console.log('addRow: Reloading data to ensure UI consistency'); // Debug log
         this.load();
       },
-      error: err => {
-        console.error('addRow: Error creating entry:', err); // Debug log
+      error: (err) => {
+        console.error('Create entry error:', err); // Keep for debugging
         
         // Handle specific error messages
         let errorMessage = 'Failed to create entry';
+        
+        // Check for specific daily cap error first
         if (err?.error?.includes && err.error.includes('Daily cap exceeded')) {
           errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
-        } else if (err?.message) {
-          errorMessage = err.message;
-        } else if (err?.error) {
-          errorMessage = err.error;
+        } else {
+          // Use the same error extraction logic as submit
+          if (err?.error) {
+            if (typeof err.error === 'string') {
+              errorMessage = err.error;
+            } else if (typeof err.error === 'object' && err.error?.error) {
+              errorMessage = err.error.error;
+            } else if (typeof err.error === 'object' && err.error?.message) {
+              errorMessage = err.error.message;
+            } else if (typeof err.error === 'object') {
+              const errorObj = err.error;
+              if (errorObj.error || errorObj.message || errorObj.details) {
+                errorMessage = errorObj.error || errorObj.message || errorObj.details;
+              } else {
+                errorMessage = Object.values(errorObj)[0] as string || 'Failed to create entry';
+              }
+            }
+          } else if (err?.message) {
+            errorMessage = err.message;
+          }
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 4000 });
@@ -460,7 +840,33 @@ export class TimesheetEditorComponent implements OnInit {
         this.showNotification('Saved', 'OK', { duration: 1200 });
         this.exitEditMode(); // Exit edit mode after successful save
       },
-      error: err => this.showNotification(err?.error ?? 'Save failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Update entry error:', err); // Keep for debugging
+        
+        // Extract error message using the same logic as other operations
+        let errorMessage = 'Save failed';
+        
+        if (err?.error) {
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          } else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          } else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          } else if (typeof err.error === 'object') {
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              errorMessage = Object.values(errorObj)[0] as string || 'Save failed';
+            }
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 2500 });
+      }
     });
   }
 
@@ -485,7 +891,44 @@ export class TimesheetEditorComponent implements OnInit {
         
         this.showNotification('Submitted for approval', 'OK', { duration: 1500 });
       },
-      error: err => this.showNotification(err?.error ?? 'Submit failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Submit error:', err); // Keep for debugging
+        
+        // Extract error message from various possible error structures
+        let errorMessage = 'Submit failed';
+        
+        if (err?.error) {
+          // Handle string error response
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          }
+          // Handle object error response with 'error' property (like {"error":"Cannot submit another user's timesheet."})
+          else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          }
+          // Handle object error response with 'message' property  
+          else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          }
+          // Handle plain object that might be a JSON response
+          else if (typeof err.error === 'object') {
+            // If it's a JSON object, try to extract meaningful message
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              // Fallback: stringify the object but make it user-friendly
+              errorMessage = Object.values(errorObj)[0] as string || 'Submit failed';
+            }
+          }
+        } 
+        // Handle error with direct message property
+        else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 3000 });
+      }
     });
   }
 
@@ -508,7 +951,33 @@ export class TimesheetEditorComponent implements OnInit {
         
         this.showNotification('Deleted', 'OK', { duration: 1200 });
       },
-      error: err => this.showNotification(err?.error ?? 'Delete failed', 'OK', { duration: 2500 })
+      error: (err) => {
+        console.error('Delete entry error:', err); // Keep for debugging
+        
+        // Extract error message using the same logic as other operations
+        let errorMessage = 'Delete failed';
+        
+        if (err?.error) {
+          if (typeof err.error === 'string') {
+            errorMessage = err.error;
+          } else if (typeof err.error === 'object' && err.error?.error) {
+            errorMessage = err.error.error;
+          } else if (typeof err.error === 'object' && err.error?.message) {
+            errorMessage = err.error.message;
+          } else if (typeof err.error === 'object') {
+            const errorObj = err.error;
+            if (errorObj.error || errorObj.message || errorObj.details) {
+              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            } else {
+              errorMessage = Object.values(errorObj)[0] as string || 'Delete failed';
+            }
+          }
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        this.showNotification(errorMessage, 'OK', { duration: 2500 });
+      }
     });
   }
 
@@ -526,13 +995,30 @@ export class TimesheetEditorComponent implements OnInit {
     const selectedDateStr = this.selectedDate();
     const utcDate = this.utcDateStringToUtcDate(selectedDateStr);
     utcDate.setUTCDate(utcDate.getUTCDate() + 1); 
-    this.selectedDate.set(this.toUtcDateString(utcDate)); 
+    
+    const nextDateStr = this.toUtcDateString(utcDate);
+    const today = this.getTodayDateString();
+    
+    // Don't allow navigation to future dates
+    if (nextDateStr > today) {
+      this.showNotification('Cannot navigate to future dates', 'OK', { duration: 2000 });
+      return;
+    }
+    
+    this.selectedDate.set(nextDateStr); 
     this.updateNewRowDate();
     this.load(); 
   }
 
   // UTC Date handling methods
   
+  /**
+   * Gets today's date as a string in YYYY-MM-DD format for use in date input max attribute
+   */
+  getTodayDateString(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   /**
    * Converts a local Date object to UTC date string (YYYY-MM-DD)
    * This treats the input as a "date" rather than a timestamp
@@ -573,7 +1059,11 @@ export class TimesheetEditorComponent implements OnInit {
     return this.toUtcDateString(d);
   }
 
-  projectLabel(id: string) {
+  projectLabel(id: string, description?: string) {
+    // For holiday/leave entries, show dash instead of project
+    if (description && (description.includes('Holiday') || description.includes('Leave'))) {
+      return '—';
+    }
     const p = this.projects().find(x => x.projectId === id);
     return p ? `${p.name} — ${p.client?.name || p.clientId}` : id;
   }
@@ -642,10 +1132,15 @@ export class TimesheetEditorComponent implements OnInit {
   getTaskTitle(projectId: string | null | undefined, taskId: string | null | undefined): string {
     if (!taskId || !projectId) return 'No task selected';
     
-    // If tasks aren't loaded for this project yet, try to load them
-    if (!this.tasksByProject[projectId]) {
-      this.loadTasksForProject(projectId);
-      return 'Loading...';
+    // Use the same cache key logic
+    const currentUser = this.authSvc.getCurrentUser();
+    const isUserSpecific = !this.isAdmin() && currentUser?.userId;
+    const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
+    
+    // Don't load tasks during rendering - this causes NG0600 error
+    // Tasks should already be loaded when displaying existing entries
+    if (!this.tasksByProject[cacheKey]) {
+      return 'No task selected';
     }
     
     const tasks = this.getTasksForProject(projectId);
@@ -657,6 +1152,7 @@ export class TimesheetEditorComponent implements OnInit {
   onUserSelectionChange(userId: string | null): void {
     this.selectedUserId.set(userId);
     this.selectedProjectId.set(null); // Clear project filter when user is selected
+    this.loadApprovedLeaves(); // Reload leaves for the selected user
     this.load(); // Reload data with new filter
   }
 
@@ -669,6 +1165,7 @@ export class TimesheetEditorComponent implements OnInit {
   clearFilters(): void {
     this.selectedUserId.set(null);
     this.selectedProjectId.set(null);
+    this.loadApprovedLeaves(); // Reload leaves for all users
     this.load(); // Reload all data
   }
 }

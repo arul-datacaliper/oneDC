@@ -39,7 +39,10 @@ export enum EmployeeType {
 export enum UserRole {
   EMPLOYEE = 'EMPLOYEE',
   APPROVER = 'APPROVER', 
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  INFRA = 'INFRA',
+  HR = 'HR',
+  OPERATION = 'OPERATION'
 }
 
 export interface Employee {

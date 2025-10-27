@@ -442,10 +442,15 @@ export class OnboardingComponent implements OnInit {
   getFieldError(form: FormGroup, fieldName: string): string {
     const field = form.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
-      if (field.errors['min']) return `${fieldName} must be at least ${field.errors['min'].min}`;
-      if (field.errors['max']) return `${fieldName} cannot exceed ${field.errors['max'].max}`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
+      if (field.errors['min']) return `${this.capitalizeFirstLetter(fieldName)} must be at least ${field.errors['min'].min}`;
+      if (field.errors['max']) return `${this.capitalizeFirstLetter(fieldName)} cannot exceed ${field.errors['max'].max}`;
     }
     return '';
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

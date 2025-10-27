@@ -6,6 +6,7 @@ public class Project
   public Guid ClientId { get; set; }
   public string Code { get; set; } = null!;
   public string Name { get; set; } = null!;
+  public string? Description { get; set; } // Add description field
   public string Status { get; set; } = "ACTIVE"; // ACTIVE/ON_HOLD/CLOSED
   public bool Billable { get; set; } = true;
   public Guid? DefaultApprover { get; set; }
@@ -16,5 +17,7 @@ public class Project
   public decimal? BudgetCost { get; set; }
   public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     
-     public Client? Client { get; set; }
+  // Navigation properties
+  public Client? Client { get; set; }
+  public ICollection<ProjectMember> ProjectMembers { get; set; } = new List<ProjectMember>();
 }

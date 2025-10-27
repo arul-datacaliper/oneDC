@@ -1,11 +1,71 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 
 import { ClientsService } from '../../core/services/clients.service';
 import { Client } from '../../shared/models';
 import { ToastrService } from 'ngx-toastr';
 import { ConfirmationDialogComponent, ConfirmationDialogData } from '../../shared/components/confirmation-dialog.component';
+
+// Custom validator for phone numbers (only digits, spaces, hyphens, parentheses, and + allowed)
+function phoneNumberValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.trim();
+    
+    // First check: Ensure the original value only contains valid characters
+    // Valid characters: digits, spaces, hyphens, parentheses, and + (only at start)
+    const validCharactersPattern = /^[\d\s\-\(\)]+$|^\+[\d\s\-\(\)]+$/;
+    if (!validCharactersPattern.test(value)) {
+      return { invalidPhoneNumber: true };
+    }
+    
+    // Second check: Ensure + appears only at the start (if at all)
+    if (value.includes('+')) {
+      if (!value.startsWith('+') || value.indexOf('+', 1) !== -1) {
+        return { invalidPhoneNumber: true };
+      }
+    }
+    
+    // Third check: Remove all formatting characters and count digits
+    const digitsOnly = value.replace(/[\s\-\(\)\+]/g, '');
+    
+    // Must have at least 10 digits
+    if (digitsOnly.length < 10) {
+      return { phoneNumberTooShort: true };
+    }
+    
+    // Cannot exceed 15 digits (international format)
+    if (digitsOnly.length > 15) {
+      return { phoneNumberTooLong: true };
+    }
+    
+    return null;
+  };
+}
+
+// Custom validator for zip code
+function zipCodeValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.trim();
+    
+    // Only alphanumeric characters, spaces, and hyphens allowed
+    const zipCodePattern = /^[A-Za-z0-9\s\-]+$/;
+    if (!zipCodePattern.test(value)) {
+      return { invalidZipCode: true };
+    }
+    
+    // Maximum 10 characters
+    if (value.length > 10) {
+      return { zipCodeTooLong: true };
+    }
+    
+    return null;
+  };
+}
 
 @Component({
   selector: 'app-clients',
@@ -65,11 +125,11 @@ export class ClientsComponent implements OnInit {
       code: ['', [Validators.maxLength(20)]],
       contactPerson: ['', [Validators.maxLength(100)]],
       email: ['', [Validators.email, Validators.maxLength(150)]],
-      contactNumber: ['', [Validators.maxLength(30)]],
+      contactNumber: ['', [phoneNumberValidator(), Validators.maxLength(30)]],
       country: ['', [Validators.maxLength(80)]],
       state: ['', [Validators.maxLength(80)]],
       city: ['', [Validators.maxLength(80)]],
-      zipCode: ['', [Validators.maxLength(20)]],
+      zipCode: ['', [zipCodeValidator(), Validators.maxLength(20)]],
       status: ['ACTIVE', Validators.required]
     });
   }
@@ -342,8 +402,14 @@ export class ClientsComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.clientForm.get(fieldName);
     if (field?.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
-      if (field.errors['maxlength']) return `${fieldName} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
+      if (field.errors['email']) return 'Please enter a valid email address';
+      if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['invalidPhoneNumber']) return 'Contact number can only contain digits, spaces, hyphens, parentheses, and + (at the start)';
+      if (field.errors['phoneNumberTooShort']) return 'Contact number must be at least 10 digits';
+      if (field.errors['phoneNumberTooLong']) return 'Contact number cannot exceed 15 digits';
+      if (field.errors['invalidZipCode']) return 'Zip code can only contain letters, numbers, spaces, and hyphens';
+      if (field.errors['zipCodeTooLong']) return 'Zip code cannot exceed 10 characters';
     }
     return '';
   }
@@ -379,5 +445,10 @@ export class ClientsComponent implements OnInit {
     }
     
     return pages;
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

@@ -21,6 +21,8 @@ public class OneDcDbContext : DbContext
     public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
     public DbSet<PasswordReset> PasswordResets => Set<PasswordReset>();
     public DbSet<FileBlob> FileBlobs => Set<FileBlob>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -143,6 +145,7 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Status).IsRequired();
             e.Property(x => x.TaskType).IsRequired();
             e.Property(x => x.TaskId).HasColumnName("task_id"); // Map TaskId to task_id column
+            e.Property(x => x.ProjectId).IsRequired(false); // Allow null to match DB migration
 
             e.HasIndex(x => new { x.UserId, x.WorkDate });
             e.HasIndex(x => new { x.ProjectId, x.WorkDate });
@@ -151,6 +154,7 @@ public class OneDcDbContext : DbContext
             e.HasOne(t => t.Project)
              .WithMany()
              .HasForeignKey(t => t.ProjectId)
+             .IsRequired(false)
              .OnDelete(DeleteBehavior.Restrict);
 
             // 🔗 Timesheet → AppUser
@@ -345,6 +349,70 @@ public class OneDcDbContext : DbContext
             e.HasIndex(x => new { x.Container, x.FileName }).IsUnique();
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.LastAccessedAt);
+        });
+
+        // ===== ProjectMember =====
+        b.Entity<ProjectMember>(e =>
+        {
+            e.ToTable("project_member");
+            e.HasKey(x => new { x.ProjectId, x.UserId }); // Composite primary key
+            e.Property(x => x.ProjectRole).IsRequired();
+            e.Property(x => x.CreatedAt).IsRequired();
+
+            // 🔗 ProjectMember → Project (many-to-one)
+            e.HasOne(pm => pm.Project)
+             .WithMany(p => p.ProjectMembers)
+             .HasForeignKey(pm => pm.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // 🔗 ProjectMember → AppUser (many-to-one)
+            e.HasOne(pm => pm.User)
+             .WithMany(u => u.ProjectMemberships)
+             .HasForeignKey(pm => pm.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.UserId);
+        });
+
+        // ===== LeaveRequest =====
+        b.Entity<LeaveRequest>(e =>
+        {
+            e.ToTable("leave_request");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.EmployeeId).IsRequired();
+            e.Property(x => x.StartDate).IsRequired();
+            e.Property(x => x.EndDate).IsRequired();
+            e.Property(x => x.LeaveType).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue("Pending");
+            e.Property(x => x.ApproverId);
+            e.Property(x => x.ApprovedDate);
+            e.Property(x => x.ApproverComments).HasMaxLength(500);
+            e.Property(x => x.CreatedDate).IsRequired();
+            e.Property(x => x.ModifiedDate);
+            e.Property(x => x.TotalDays).IsRequired();
+            e.Property(x => x.IsHalfDay).IsRequired().HasDefaultValue(false);
+            e.Property(x => x.HalfDayPeriod).HasMaxLength(20);
+
+            // Relationships
+            e.HasOne(x => x.Employee)
+                .WithMany()
+                .HasForeignKey(x => x.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.Approver)
+                .WithMany()
+                .HasForeignKey(x => x.ApproverId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes
+            e.HasIndex(x => x.EmployeeId);
+            e.HasIndex(x => x.ApproverId);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => new { x.StartDate, x.EndDate });
+            e.HasIndex(x => x.CreatedDate);
         });
     }
 }

@@ -56,7 +56,7 @@
           (selectionChange)="onAssigneeFilterChange($event)">
         </app-searchable-dropdown>
       </div>
-      <div class="col-md-3">>
+      <div class="col-md-3">
         <label class="form-label small">Search</label>
         <input type="text" class="form-control form-control-sm" [(ngModel)]="search" placeholder="Title, description, or label">
       </div>
@@ -71,14 +71,14 @@
 </div>
 
 <div class="card table-card">
-  <div class="card-body p-0">
+  <div class="card-body p-0" style="overflow: visible;">
     <div *ngIf="!canViewAllTasks()" class="alert alert-info m-3 mb-0">
       <i class="bi bi-info-circle me-1"></i>
       <strong>Note:</strong> By default, you see only tasks assigned to you. Use the "Assignee" filter above to view all tasks or tasks assigned to specific team members.
     </div>
     <div *ngIf="!projectId()" class="p-5 text-center text-muted">Select a project to view tasks.</div>
     <ng-container *ngIf="projectId()">
-      <div class="table-responsive position-relative" *ngIf="filtered().length > 0; else emptyState">
+      <div class="table-responsive position-relative" *ngIf="filtered().length > 0; else emptyState" style="overflow-x: auto; overflow-y: visible;">
         <!-- Table Loading Overlay -->
         <div *ngIf="loading()" class="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" 
              style="background-color: rgba(255,255,255,0.8); z-index: 10;">
@@ -97,7 +97,7 @@
                 <th>Start</th>
                 <th>End</th>
                 <th>Status</th>
-                <th style="width:200px">Actions</th>
+                <th style="width:120px">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -120,21 +120,54 @@
                 <td>{{ t.endDate ? (t.endDate | date:'mediumDate') : '-' }}</td>
                 <td><span class="badge" [ngClass]="tasksSvc.statusBadge(t.status).split(' ').slice(1).join(' ')">{{ tasksSvc.statusLabel(t.status) }}</span></td>
                 <td>
-                  <div class="d-flex gap-1">
-                    <button class="btn btn-outline-secondary btn-sm" (click)="openView(t)" title="View Details" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-outline-primary btn-sm" *ngIf="canViewAllTasks()" (click)="openEdit(t)" title="Edit" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-outline-info btn-sm" *ngIf="canViewAllTasks()" (click)="openDuplicate(t)" title="Duplicate" [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"><i class="bi bi-copy"></i></button>
-                    <button class="btn btn-outline-danger btn-sm" *ngIf="canViewAllTasks()" (click)="delete(t)" title="Delete" [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()">
-                      <span *ngIf="deletingTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                      <i *ngIf="deletingTaskId() !== t.taskId" class="bi bi-trash"></i>
+                  <div class="d-flex gap-1" role="group" aria-label="Actions">
+                    <button 
+                      *ngIf="canViewAllTasks()"
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary" 
+                      (click)="openEdit(t)"
+                      [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"
+                      title="Edit Task">
+                      <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-outline-success btn-sm" *ngIf="t.status!=='COMPLETED'" (click)="changeStatus(t,'COMPLETED')" title="Mark Completed" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <button 
+                      *ngIf="canViewAllTasks()"
+                      type="button"
+                      class="btn btn-sm btn-outline-info" 
+                      (click)="openDuplicate(t)"
+                      [disabled]="saving() || deletingTaskId() || updatingStatusTaskId()"
+                      title="Duplicate Task">
+                      <i class="bi bi-copy"></i>
+                    </button>
+                    <button 
+                      *ngIf="t.status!=='COMPLETED'"
+                      type="button"
+                      class="btn btn-sm btn-outline-success" 
+                      (click)="changeStatus(t,'COMPLETED')"
+                      [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()"
+                      title="Mark Completed">
                       <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-check2-circle"></i>
                     </button>
-                    <button class="btn btn-outline-warning btn-sm" *ngIf="!canViewAllTasks() && t.status==='NEW'" (click)="changeStatus(t,'IN_PROGRESS')" title="Start Working" [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()">
+                    <button 
+                      *ngIf="!canViewAllTasks() && t.status==='NEW'"
+                      type="button"
+                      class="btn btn-sm btn-outline-warning" 
+                      (click)="changeStatus(t,'IN_PROGRESS')"
+                      [disabled]="updatingStatusTaskId() === t.taskId || saving() || deletingTaskId()"
+                      title="Start Working">
                       <span *ngIf="updatingStatusTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       <i *ngIf="updatingStatusTaskId() !== t.taskId" class="bi bi-play-circle"></i>
+                    </button>
+                    <button 
+                      *ngIf="canViewAllTasks()"
+                      type="button"
+                      class="btn btn-sm btn-outline-danger" 
+                      (click)="delete(t)"
+                      [disabled]="deletingTaskId() === t.taskId || saving() || updatingStatusTaskId()"
+                      title="Delete Task">
+                      <span *ngIf="deletingTaskId() === t.taskId" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                      <i *ngIf="deletingTaskId() !== t.taskId" class="bi bi-trash"></i>
                     </button>
                   </div>
                 </td>

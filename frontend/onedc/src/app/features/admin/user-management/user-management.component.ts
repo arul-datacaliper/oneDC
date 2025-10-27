@@ -326,13 +326,13 @@ export class UserManagementComponent implements OnInit {
     const fieldControl = form.get(field);
     if (fieldControl?.errors) {
       if (fieldControl.errors['required']) {
-        return `${field} is required`;
+        return `${this.capitalizeFirstLetter(field)} is required`;
       }
       if (fieldControl.errors['email']) {
         return 'Please enter a valid email address';
       }
       if (fieldControl.errors['minlength']) {
-        return `${field} must be at least ${fieldControl.errors['minlength'].requiredLength} characters`;
+        return `${this.capitalizeFirstLetter(field)} must be at least ${fieldControl.errors['minlength'].requiredLength} characters`;
       }
     }
     return '';
@@ -400,5 +400,10 @@ export class UserManagementComponent implements OnInit {
     this.showProfileModal.set(false);
     this.selectedUserProfile.set(null);
     this.loadingProfile.set(false);
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

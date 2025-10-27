@@ -55,16 +55,14 @@
 <!-- Projects Table -->
 <div class="card">
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <div class="table-responsive" style="overflow: visible;">
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th scope="col">Code</th>
             <th scope="col">Project Name</th>
             <th scope="col">Client</th>
             <th scope="col">Status</th>
             <th scope="col">Billable</th>
-            <th scope="col">Budget</th>
             <th scope="col">Start Date</th>
             <th scope="col">End Date</th>
             <th scope="col">Planned Release</th>
@@ -72,9 +70,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let project of paginatedProjects(); trackBy: trackByProjectId">
-            <td class="fw-bold">{{ project.code }}</td>
-            <td>{{ project.name }}</td>
+          <tr *ngFor="let project of paginatedProjects(); trackBy: trackByProjectId" 
+              class="clickable-row" 
+              (click)="openViewModal(project)"
+              style="cursor: pointer;">
+            <td>
+              <span class="fw-medium text-primary" style="cursor: pointer;">{{ project.name }}</span>
+            </td>
             <td>{{ getClientName(project.clientId, project) }}</td>
             <td>
               <span class="badge" [class]="getStatusBadgeClass(project.status)">
@@ -89,19 +91,6 @@
               {{ project.billable ? 'Yes' : 'No' }}
             </td>
             <td>
-              <div *ngIf="project.budgetHours || project.budgetCost; else noBudget">
-                <small class="text-muted d-block" *ngIf="project.budgetHours">
-                  {{ project.budgetHours | number:'1.0-2' }} hours
-                </small>
-                <small class="text-muted d-block" *ngIf="project.budgetCost">
-                  ${{ project.budgetCost | number:'1.2-2' }}
-                </small>
-              </div>
-              <ng-template #noBudget>
-                <span class="text-muted">-</span>
-              </ng-template>
-            </td>
-            <td>
               {{ project.startDate || '-' }}
             </td>
             <td>
@@ -111,17 +100,32 @@
               {{ project.plannedReleaseDate || '-' }}
             </td>
             <td>
-              <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" 
-                        (click)="openEditModal(project)" 
-                        title="Edit project">
-                  <i class="bi bi-pencil"></i>
+              <div class="dropdown" style="position: static;">
+                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false"
+                        title="Actions"
+                        (click)="$event.stopPropagation()">
+                  <i class="bi bi-three-dots-vertical"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" 
-                        (click)="deleteProject(project)" 
-                        title="Delete project">
-                  <i class="bi bi-trash"></i>
-                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                  <li>
+                    <button class="dropdown-item" type="button" (click)="openViewModal(project)">
+                      <i class="bi bi-eye me-2"></i>View Details
+                    </button>
+                  </li>
+                  <li>
+                    <button class="dropdown-item" type="button" (click)="openEditModal(project)">
+                      <i class="bi bi-pencil me-2"></i>Edit Project
+                    </button>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <button class="dropdown-item text-danger" type="button" (click)="deleteProject(project)">
+                      <i class="bi bi-trash me-2"></i>Delete Project
+                    </button>
+                  </li>
+                </ul>
               </div>
             </td>
           </tr>
@@ -230,12 +234,26 @@
               </div>
             </div>
 
+            <div class="col-12">
+              <label class="form-label">Project Description</label>
+              <textarea class="form-control" formControlName="description" 
+                        rows="3"
+                        placeholder="Enter project description, goals, or any relevant information..."
+                        [class.is-invalid]="isFieldInvalid('description')"></textarea>
+              <div class="form-text">
+                <small class="text-muted">Provide a brief overview of the project (optional)</small>
+              </div>
+              <div class="invalid-feedback" *ngIf="isFieldInvalid('description')">
+                {{ getFieldError('description') }}
+              </div>
+            </div>
+
             <div class="col-md-6">
               <label class="form-label">Client <span class="text-danger">*</span></label>
               <select class="form-select" formControlName="clientId" 
                       [class.is-invalid]="isFieldInvalid('clientId')">
                 <option value="">Select a client</option>
-                <option *ngFor="let client of clients()" [value]="client.clientId">
+                <option *ngFor="let client of activeClients()" [value]="client.clientId">
                   {{ client.name }}
                 </option>
               </select>
@@ -333,6 +351,86 @@
                 {{ getFieldError('budgetCost') }}
               </div>
             </div>
+
+            <!-- Project Members -->
+            <div class="col-12 mt-4">
+              <h6 class="text-muted border-bottom pb-2">Project Members</h6>
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <label class="form-label mb-0">Team Members</label>
+                <ng-select 
+                  [(ngModel)]="selectedMemberToAdd"
+                  [ngModelOptions]="{standalone: true}"
+                  placeholder="Search and select a team member to add..."
+                  [clearable]="true"
+                  [searchable]="true"
+                  bindLabel="displayName"
+                  bindValue="userId"
+                  [items]="availableMembersForSelection()"
+                  (change)="onMemberAdd($event)"
+                  (ngModelChange)="onMemberAdd($event)"
+                  style="width: 350px;">
+                  <ng-option *ngFor="let user of availableMembersForSelection()" [value]="user.userId">
+                    <span>{{ user.firstName }} {{ user.lastName }} 
+                      <small class="text-muted" *ngIf="user.role">({{ user.role }})</small>
+                    </span>
+                  </ng-option>
+                </ng-select>
+              </div>
+
+              <!-- Selected Members Table -->
+              <div *ngIf="selectedProjectMembers().length > 0" class="table-responsive">
+                <table class="table table-bordered table-sm">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Member Name</th>
+                      <th>Role</th>
+                      <th style="width: 200px;">Project Role</th>
+                      <th style="width: 100px;" class="text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let member of selectedProjectMembers(); trackBy: trackByMemberId">
+                      <td>
+                        <div class="fw-medium">{{ member.firstName }} {{ member.lastName }}</div>
+                        <small class="text-muted">{{ member.email }}</small>
+                      </td>
+                      <td>
+                        <span class="badge bg-secondary">{{ member.role }}</span>
+                      </td>
+                      <td>
+                        <select 
+                          class="form-select form-select-sm" 
+                          [value]="member.projectRole || 'MEMBER'"
+                          (change)="updateMemberProjectRole(member.userId, $any($event.target).value)">
+                          <option value="MEMBER">Member</option>
+                          <option value="LEAD">Lead</option>
+                          <option value="CONTRIBUTOR">Contributor</option>
+                          <option value="REVIEWER">Reviewer</option>
+                        </select>
+                      </td>
+                      <td class="text-center">
+                        <button 
+                          type="button" 
+                          class="btn btn-sm btn-outline-danger"
+                          (click)="removeMember(member.userId)"
+                          title="Remove member">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- No members selected message -->
+              <div *ngIf="selectedProjectMembers().length === 0" class="text-center p-4 border border-dashed rounded">
+                <i class="bi bi-people fs-1 text-muted"></i>
+                <p class="text-muted mt-2 mb-0">No team members added yet. Use the dropdown above to add members to this project.</p>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -346,6 +444,182 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- View Project Details Modal -->
+<div class="modal-backdrop fade show" *ngIf="showViewModal()" (click)="closeViewModal()"></div>
+<div class="modal fade show" [style.display]="showViewModal() ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" *ngIf="showViewModal()">
+  <div class="modal-dialog modal-lg" role="document" (click)="$event.stopPropagation()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-eye me-2"></i>Project Details
+        </h5>
+        <button type="button" class="btn-close" (click)="closeViewModal()"></button>
+      </div>
+      <div class="modal-body" *ngIf="viewingProject()">
+        <div class="row g-3">
+          <!-- Basic Information -->
+          <div class="col-12">
+            <h6 class="text-muted border-bottom pb-2 mb-3">
+              <i class="bi bi-info-circle me-2"></i>Basic Information
+            </h6>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Project Code</label>
+            <p class="form-control-plaintext">{{ viewingProject()?.code }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Status</label>
+            <p class="form-control-plaintext">
+              <span class="badge" [class]="getStatusBadgeClass(viewingProject()?.status || '')">
+                {{ viewingProject()?.status }}
+              </span>
+            </p>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-bold">Project Name</label>
+            <p class="form-control-plaintext">{{ viewingProject()?.name }}</p>
+          </div>
+
+          <div class="col-12" *ngIf="viewingProject()?.description">
+            <label class="form-label fw-bold">Project Description</label>
+            <p class="form-control-plaintext" style="white-space: pre-wrap;">{{ viewingProject()?.description }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Client</label>
+            <p class="form-control-plaintext">{{ getClientName(viewingProject()?.clientId || '', viewingProject() || undefined) }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Project Manager</label>
+            <p class="form-control-plaintext">{{ getProjectManagerName(viewingProject()?.defaultApprover || '') }}</p>
+          </div>
+
+          <!-- Project Settings -->
+          <div class="col-12 mt-4">
+            <h6 class="text-muted border-bottom pb-2 mb-3">
+              <i class="bi bi-gear me-2"></i>Project Settings
+            </h6>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Billable Project</label>
+            <p class="form-control-plaintext">
+              <i class="bi" [class.bi-check-circle-fill]="viewingProject()?.billable" 
+                 [class.bi-x-circle]="!viewingProject()?.billable"
+                 [class.text-success]="viewingProject()?.billable" 
+                 [class.text-muted]="!viewingProject()?.billable"></i>
+              {{ viewingProject()?.billable ? 'Yes' : 'No' }}
+            </p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Created Date</label>
+            <p class="form-control-plaintext">{{ formatDate(viewingProject()?.createdAt) }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Start Date</label>
+            <p class="form-control-plaintext">{{ viewingProject()?.startDate || 'Not set' }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">End Date</label>
+            <p class="form-control-plaintext">{{ viewingProject()?.endDate || 'Not set' }}</p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Planned Release Date</label>
+            <p class="form-control-plaintext">{{ viewingProject()?.plannedReleaseDate || 'Not set' }}</p>
+          </div>
+
+          <!-- Budget Information -->
+          <div class="col-12 mt-4">
+            <h6 class="text-muted border-bottom pb-2 mb-3">
+              <i class="bi bi-currency-dollar me-2"></i>Budget Information
+            </h6>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Budget Hours</label>
+            <p class="form-control-plaintext">
+              {{ viewingProject()?.budgetHours ? (viewingProject()?.budgetHours | number:'1.2-2') + ' hours' : 'Not set' }}
+            </p>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Budget Cost</label>
+            <p class="form-control-plaintext">
+              {{ viewingProject()?.budgetCost ? ('$' + (viewingProject()?.budgetCost | number:'1.2-2')) : 'Not set' }}
+            </p>
+          </div>
+
+          <!-- Project Members -->
+          <div class="col-12 mt-4">
+            <h6 class="text-muted border-bottom pb-2 mb-3">
+              <i class="bi bi-people me-2"></i>Project Members ({{ viewingProject()?.projectMembers?.length || 0 }})
+            </h6>
+          </div>
+
+          <div class="col-12">
+            <div *ngIf="viewingProject()?.projectMembers && (viewingProject()?.projectMembers?.length || 0) > 0; else noMembers" class="table-responsive">
+              <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                  <tr>
+                    <th>Member Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Project Role</th>
+                    <th>Joined Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let member of viewingProject()?.projectMembers">
+                    <td>
+                      <div class="fw-medium">{{ member.firstName }} {{ member.lastName }}</div>
+                      <small class="text-muted" *ngIf="member.jobTitle">{{ member.jobTitle }}</small>
+                      <small class="text-muted" *ngIf="member.department"> • {{ member.department }}</small>
+                    </td>
+                    <td>{{ member.email }}</td>
+                    <td>
+                      <span class="badge bg-secondary">{{ member.role }}</span>
+                    </td>
+                    <td>
+                      <span class="badge" [class]="getProjectRoleBadgeClass(member.projectRole)">{{ member.projectRole }}</span>
+                    </td>
+                    <td>
+                      <small>{{ formatDate(member.createdAt) }}</small>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <ng-template #noMembers>
+              <div class="text-center p-4 border border-dashed rounded bg-light">
+                <i class="bi bi-people fs-1 text-muted"></i>
+                <p class="text-muted mt-2 mb-0">No team members assigned to this project yet.</p>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeViewModal()">
+          Close
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openEditModalFromView()" *ngIf="viewingProject()">
+          <i class="bi bi-pencil"></i> Edit Project
+        </button>
+      </div>
     </div>
   </div>
 </div>

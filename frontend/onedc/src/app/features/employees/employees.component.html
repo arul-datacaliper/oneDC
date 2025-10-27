@@ -163,7 +163,7 @@
             <td>
               <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-info" 
-                        (click)="openProfileModal(employee)" 
+                        (click)="viewFullProfile(employee)" 
                         title="View comprehensive profile">
                   <i class="bi bi-person-circle"></i>
                 </button>
@@ -313,7 +313,12 @@
                   <label class="form-label">Contact Number <span class="text-danger">*</span></label>
                   <input type="tel" class="form-control" formControlName="contactNumber"
                          [class.is-invalid]="isFieldInvalid('contactNumber')"
-                         placeholder="Enter contact number">
+                         placeholder="Enter contact number"
+                         pattern="[\d\s\-\(\)\+]*"
+                         title="Only numbers, spaces, hyphens, parentheses, and + are allowed">
+                  <div class="form-text">
+                    <small class="text-muted">Format: 10-15 digits (e.g., +1 234-567-8900)</small>
+                  </div>
                   <div class="invalid-feedback" *ngIf="isFieldInvalid('contactNumber')">
                     {{ getFieldError('contactNumber') }}
                   </div>
@@ -323,7 +328,16 @@
               <div class="mb-3">
                 <label class="form-label">Emergency Contact Number</label>
                 <input type="tel" class="form-control" formControlName="emergencyContactNumber"
-                       placeholder="Enter emergency contact number">
+                       [class.is-invalid]="isFieldInvalid('emergencyContactNumber')"
+                       placeholder="Enter emergency contact number"
+                       pattern="[\d\s\-\(\)\+]*"
+                       title="Only numbers, spaces, hyphens, parentheses, and + are allowed">
+                <div class="form-text">
+                  <small class="text-muted">Format: 10-15 digits (e.g., +1 234-567-8900)</small>
+                </div>
+                <div class="invalid-feedback" *ngIf="isFieldInvalid('emergencyContactNumber')">
+                  {{ getFieldError('emergencyContactNumber') }}
+                </div>
               </div>
             </div>
 
@@ -470,7 +484,21 @@
                 <div class="col-md-6">
                   <label class="form-label">Zip Code</label>
                   <input type="text" class="form-control" formControlName="zipCode"
-                         placeholder="Enter zip code">
+                         placeholder="Enter zip code"
+                         [class.is-invalid]="employeeForm.get('presentAddress.zipCode')?.invalid && 
+                                            (employeeForm.get('presentAddress.zipCode')?.dirty || 
+                                             employeeForm.get('presentAddress.zipCode')?.touched)">
+                  <div class="invalid-feedback" 
+                       *ngIf="employeeForm.get('presentAddress.zipCode')?.invalid && 
+                              (employeeForm.get('presentAddress.zipCode')?.dirty || 
+                               employeeForm.get('presentAddress.zipCode')?.touched)">
+                    <span *ngIf="employeeForm.get('presentAddress.zipCode')?.errors?.['invalidZipCode']">
+                      Zip code can only contain letters, numbers, spaces, and hyphens
+                    </span>
+                    <span *ngIf="employeeForm.get('presentAddress.zipCode')?.errors?.['zipCodeTooLong']">
+                      Zip code cannot exceed 10 characters
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -523,7 +551,21 @@
                 <div class="col-md-6">
                   <label class="form-label">Zip Code</label>
                   <input type="text" class="form-control" formControlName="zipCode"
-                         placeholder="Enter zip code">
+                         placeholder="Enter zip code"
+                         [class.is-invalid]="employeeForm.get('permanentAddress.zipCode')?.invalid && 
+                                            (employeeForm.get('permanentAddress.zipCode')?.dirty || 
+                                             employeeForm.get('permanentAddress.zipCode')?.touched)">
+                  <div class="invalid-feedback" 
+                       *ngIf="employeeForm.get('permanentAddress.zipCode')?.invalid && 
+                              (employeeForm.get('permanentAddress.zipCode')?.dirty || 
+                               employeeForm.get('permanentAddress.zipCode')?.touched)">
+                    <span *ngIf="employeeForm.get('permanentAddress.zipCode')?.errors?.['invalidZipCode']">
+                      Zip code can only contain letters, numbers, spaces, and hyphens
+                    </span>
+                    <span *ngIf="employeeForm.get('permanentAddress.zipCode')?.errors?.['zipCodeTooLong']">
+                      Zip code cannot exceed 10 characters
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -583,23 +625,29 @@
           <div class="col-md-6">
             <h6 class="text-muted mb-3">Personal Information</h6>
             <div class="mb-3">
-              <strong>Employee ID:</strong> {{ employee.employeeId || 'N/A' }}
+              <div><strong>Employee ID:</strong></div>
+              <div class="ms-2">{{ employee.employeeId || 'N/A' }}</div>
             </div>
             <div class="mb-3">
-              <strong>Gender:</strong> {{ employee.gender || 'N/A' }}
+              <div><strong>Gender:</strong></div>
+              <div class="ms-2">{{ employee.gender || 'N/A' }}</div>
             </div>
             <div class="mb-3">
-              <strong>Date of Birth:</strong> 
-              {{ employee.dateOfBirth || 'N/A' }}
-              <span *ngIf="employee.dateOfBirth" class="text-muted">
-                ({{ getAge(employee.dateOfBirth) }} years)
-              </span>
+              <div><strong>Date of Birth:</strong></div>
+              <div class="ms-2">
+                {{ employee.dateOfBirth || 'N/A' }}
+                <span *ngIf="employee.dateOfBirth" class="text-muted">
+                  ({{ getAge(employee.dateOfBirth) }} years)
+                </span>
+              </div>
             </div>
             <div class="mb-3">
-              <strong>Date of Joining:</strong> {{ employee.dateOfJoining || 'N/A' }}
+              <div><strong>Date of Joining:</strong></div>
+              <div class="ms-2">{{ employee.dateOfJoining || 'N/A' }}</div>
             </div>
             <div class="mb-3">
-              <strong>Employee Type:</strong> {{ employee.employeeType || 'N/A' }}
+              <div><strong>Employee Type:</strong></div>
+              <div class="ms-2">{{ employee.employeeType || 'N/A' }}</div>
             </div>
           </div>
 
@@ -607,20 +655,28 @@
           <div class="col-md-6">
             <h6 class="text-muted mb-3">Contact Information</h6>
             <div class="mb-3">
-              <strong>Work Email:</strong> 
-              <a [href]="'mailto:' + employee.workEmail">{{ employee.workEmail }}</a>
+              <div><strong>Work Email:</strong></div>
+              <div class="ms-2">
+                <a [href]="'mailto:' + employee.workEmail">{{ employee.workEmail }}</a>
+              </div>
             </div>
             <div class="mb-3" *ngIf="employee.personalEmail">
-              <strong>Personal Email:</strong> 
-              <a [href]="'mailto:' + employee.personalEmail">{{ employee.personalEmail }}</a>
+              <div><strong>Personal Email:</strong></div>
+              <div class="ms-2">
+                <a [href]="'mailto:' + employee.personalEmail">{{ employee.personalEmail }}</a>
+              </div>
             </div>
             <div class="mb-3">
-              <strong>Contact Number:</strong> 
-              <a [href]="'tel:' + employee.contactNumber">{{ employee.contactNumber || 'N/A' }}</a>
+              <div><strong>Contact Number:</strong></div>
+              <div class="ms-2">
+                <a [href]="'tel:' + employee.contactNumber">{{ employee.contactNumber || 'N/A' }}</a>
+              </div>
             </div>
             <div class="mb-3" *ngIf="employee.emergencyContactNumber">
-              <strong>Emergency Contact:</strong> 
-              <a [href]="'tel:' + employee.emergencyContactNumber">{{ employee.emergencyContactNumber }}</a>
+              <div><strong>Emergency Contact:</strong></div>
+              <div class="ms-2">
+                <a [href]="'tel:' + employee.emergencyContactNumber">{{ employee.emergencyContactNumber }}</a>
+              </div>
             </div>
           </div>
 
@@ -668,34 +724,43 @@
               <div class="col-md-6">
                 <!-- Show manager from employee data if available -->
                 <div class="mb-3" *ngIf="employee.managerId">
-                  <strong>Reporting Manager:</strong> {{ getManagerName(employee.managerId) }}
+                  <div><strong>Reporting Manager:</strong></div>
+                  <div class="ms-2">{{ getManagerName(employee.managerId) }}</div>
                 </div>
                 <!-- Fallback to profile data if available -->
                 <div class="mb-3" *ngIf="!employee.managerId && selectedEmployeeProfile()?.reportingManager">
-                  <strong>Reporting Manager:</strong> {{ selectedEmployeeProfile()?.reportingManager }}
+                  <div><strong>Reporting Manager:</strong></div>
+                  <div class="ms-2">{{ selectedEmployeeProfile()?.reportingManager }}</div>
                 </div>
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.totalExperienceYears">
-                  <strong>Total Experience:</strong> {{ selectedEmployeeProfile()?.totalExperienceYears }} years
+                  <div><strong>Total Experience:</strong></div>
+                  <div class="ms-2">{{ selectedEmployeeProfile()?.totalExperienceYears }} years</div>
                 </div>
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.educationBackground">
-                  <strong>Education:</strong> {{ selectedEmployeeProfile()?.educationBackground }}
+                  <div><strong>Education:</strong></div>
+                  <div class="ms-2">{{ selectedEmployeeProfile()?.educationBackground }}</div>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.certifications">
-                  <strong>Certifications:</strong> {{ selectedEmployeeProfile()?.certifications }}
+                  <div><strong>Certifications:</strong></div>
+                  <div class="ms-2">{{ selectedEmployeeProfile()?.certifications }}</div>
                 </div>
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.linkedInProfile">
-                  <strong>LinkedIn:</strong> 
-                  <a [href]="selectedEmployeeProfile()?.linkedInProfile" target="_blank" class="text-decoration-none">
-                    <i class="bi bi-linkedin"></i> View Profile
-                  </a>
+                  <div><strong>LinkedIn:</strong></div>
+                  <div class="ms-2">
+                    <a [href]="selectedEmployeeProfile()?.linkedInProfile" target="_blank" class="text-decoration-none">
+                      <i class="bi bi-linkedin"></i> View Profile
+                    </a>
+                  </div>
                 </div>
                 <div class="mb-3" *ngIf="selectedEmployeeProfile()?.gitHubProfile">
-                  <strong>GitHub:</strong> 
-                  <a [href]="selectedEmployeeProfile()?.gitHubProfile" target="_blank" class="text-decoration-none">
-                    <i class="bi bi-github"></i> View Profile
-                  </a>
+                  <div><strong>GitHub:</strong></div>
+                  <div class="ms-2">
+                    <a [href]="selectedEmployeeProfile()?.gitHubProfile" target="_blank" class="text-decoration-none">
+                      <i class="bi bi-github"></i> View Profile
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

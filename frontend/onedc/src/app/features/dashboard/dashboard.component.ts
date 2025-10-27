@@ -1,9 +1,11 @@
 import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
+import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -18,7 +20,7 @@ export interface TimesheetEntry {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -27,6 +29,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private adminService = inject(AdminService);
   private employeeService = inject(EmployeeService);
   private onboardingService = inject(OnboardingService);
+  private allocationService = inject(AllocationService);
   private router = inject(Router);
   private routerSubscription?: Subscription;
 
@@ -47,11 +50,77 @@ export class DashboardComponent implements OnInit, OnDestroy {
   weeklyHours = 0;
   pendingApprovals = 0;
   
+  // Employee allocation data
+  employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
+  allocationSearchTerm = signal('');
+  utilizationFilter = signal<string>('all'); // 'all', 'over100', 'full', '80-99', '50-79', 'under50', '0'
+  displayedEmployeeCount = signal(10); // Initially show 10 employees
+  selectedWeekStart = signal<string>('');
+  selectedWeekEnd = signal<string>('');
+  
+  // Project allocation data
+  projectAllocations = signal<AllocationSummary[]>([]);
+  projectSearchTerm = signal('');
+  
+  filteredEmployeeAllocations = computed(() => {
+    const searchTerm = this.allocationSearchTerm().toLowerCase();
+    const filter = this.utilizationFilter();
+    let allEmployees = this.employeeAllocations();
+    
+    // Apply utilization filter first
+    if (filter !== 'all') {
+      allEmployees = allEmployees.filter(emp => {
+        const utilization = emp.utilizationPercentage;
+        switch(filter) {
+          case 'over100': return utilization > 100; // Over-allocated
+          case 'full': return utilization === 100; // Fully utilized
+          case '80-99': return utilization >= 80 && utilization < 100; // Well utilized
+          case '50-79': return utilization >= 50 && utilization < 80; // Moderately utilized
+          case 'under50': return utilization > 0 && utilization < 50; // Under-utilized
+          case '0': return utilization === 0; // Not allocated
+          default: return true;
+        }
+      });
+    }
+    
+    // Apply search filter
+    if (searchTerm) {
+      // When searching, return all matching results
+      return allEmployees.filter(emp => 
+        emp.userName.toLowerCase().includes(searchTerm) ||
+        emp.userId.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // When utilization filter is active (not 'all'), show all filtered results
+    if (filter !== 'all') {
+      return allEmployees;
+    }
+    
+    // When not searching or filtering, return only the displayed count
+    return allEmployees.slice(0, this.displayedEmployeeCount());
+  });
+  
+  filteredProjectAllocations = computed(() => {
+    const searchTerm = this.projectSearchTerm().toLowerCase();
+    const allProjects = this.projectAllocations();
+    
+    if (searchTerm) {
+      return allProjects.filter(project => 
+        project.projectName.toLowerCase().includes(searchTerm) ||
+        project.projectId.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return allProjects;
+  });
+
   // Loading states
   isLoadingAdminMetrics = false;
   isLoadingTopProjects = false;
   isLoadingProjectsReleaseInfo = false;
   isLoadingEmployeeData = false;
+  isLoadingAllocations = false;
 
   // Computed property to get current user data
   currentUser = computed(() => {
@@ -110,6 +179,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadAdminMetrics();
     this.loadTopProjects();
     this.loadProjectsWithReleaseInfo();
+    this.loadEmployeeAllocations();
   }
 
   private loadAdminMetrics() {
@@ -150,6 +220,56 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: (error: any) => {
         console.error('Error loading projects with release info:', error);
         this.isLoadingProjectsReleaseInfo = false;
+      }
+    });
+  }
+
+  private loadEmployeeAllocations() {
+    this.isLoadingAllocations = true;
+    // Reset displayed count to initial value
+    this.displayedEmployeeCount.set(10);
+    
+    // Get current week start date or use selected date
+    let weekStartDate: string;
+    if (this.selectedWeekStart()) {
+      weekStartDate = this.selectedWeekStart();
+    } else {
+      const today = new Date();
+      const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+      weekStartDate = currentWeekStart.toISOString().split('T')[0];
+      this.selectedWeekStart.set(weekStartDate);
+      
+      // Set week end date (6 days after start)
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      this.selectedWeekEnd.set(weekEnd.toISOString().split('T')[0]);
+    }
+
+    // Load both employee and project allocations
+    this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
+      next: (allocations: EmployeeAllocationSummary[]) => {
+        this.employeeAllocations.set(allocations);
+        this.isLoadingAllocations = false;
+      },
+      error: (error: any) => {
+        console.error('Error loading employee allocations:', error);
+        this.isLoadingAllocations = false;
+      }
+    });
+    
+    // Load project allocations
+    this.loadProjectAllocations(weekStartDate);
+  }
+  
+  private loadProjectAllocations(weekStartDate?: string) {
+    const startDate = weekStartDate || this.selectedWeekStart();
+    
+    this.allocationService.getProjectAllocationSummary(startDate).subscribe({
+      next: (allocations: AllocationSummary[]) => {
+        this.projectAllocations.set(allocations);
+      },
+      error: (error: any) => {
+        console.error('Error loading project allocations:', error);
       }
     });
   }
@@ -500,5 +620,168 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return profile.profilePhotoUrl;
     }
     return null;
+  }
+
+  // Employee allocation methods
+  onAllocationSearch(searchTerm: string): void {
+    this.allocationSearchTerm.set(searchTerm);
+  }
+  
+  // Project allocation methods
+  onProjectSearch(searchTerm: string): void {
+    this.projectSearchTerm.set(searchTerm);
+  }
+
+  onUtilizationFilterChange(filter: string): void {
+    this.utilizationFilter.set(filter);
+    this.displayedEmployeeCount.set(10); // Reset to show first 10 when filter changes
+  }
+
+  getUtilizationFilterCount(filter: string): number {
+    const allEmployees = this.employeeAllocations();
+    
+    switch(filter) {
+      case 'all': 
+        return allEmployees.length;
+      case 'over100': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 100).length;
+      case 'full': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 100).length;
+      case '80-99': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 80 && emp.utilizationPercentage < 100).length;
+      case '50-79': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 50 && emp.utilizationPercentage < 80).length;
+      case 'under50': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 0 && emp.utilizationPercentage < 50).length;
+      case '0': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 0).length;
+      default: 
+        return 0;
+    }
+  }
+
+  onAllocationScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    // Check if scrolled near bottom (within 50px)
+    if (scrollHeight - scrollTop - clientHeight < 50) {
+      const currentCount = this.displayedEmployeeCount();
+      const totalCount = this.employeeAllocations().length;
+      
+      // Load 10 more employees if not all are displayed
+      if (currentCount < totalCount) {
+        this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+      }
+    }
+  }
+
+  loadMoreEmployees(): void {
+    const currentCount = this.displayedEmployeeCount();
+    const totalCount = this.employeeAllocations().length;
+    
+    // Load 10 more employees
+    if (currentCount < totalCount) {
+      this.displayedEmployeeCount.set(Math.min(currentCount + 10, totalCount));
+    }
+  }
+
+  hasMoreEmployeesToLoad(): boolean {
+    // Check if there are more employees to load based on current filters
+    if (this.allocationSearchTerm() || this.utilizationFilter() !== 'all') {
+      // When filtering or searching, all results are already shown
+      return false;
+    }
+    return this.displayedEmployeeCount() < this.employeeAllocations().length;
+  }
+
+  getUtilizationPercentageClass(percentage: number): string {
+    if (percentage >= 90) {
+      return 'text-success fw-bold';
+    } else if (percentage >= 70) {
+      return 'text-warning fw-bold';
+    } else {
+      return 'text-danger fw-bold';
+    }
+  }
+
+  trackByEmployeeId(index: number, employee: EmployeeAllocationSummary): string {
+    return employee.userId;
+  }
+  
+  trackByProjectId(index: number, project: AllocationSummary): string {
+    return project.projectId;
+  }
+
+  // Week navigation for allocations
+  onWeekStartChange(dateString: string): void {
+    if (dateString) {
+      const startDate = new Date(dateString);
+      // Set to Sunday of the selected week
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() - startDate.getDay());
+      
+      const weekStartFormatted = sunday.toISOString().split('T')[0];
+      this.selectedWeekStart.set(weekStartFormatted);
+      
+      // Calculate week end (Saturday)
+      const saturday = new Date(sunday);
+      saturday.setDate(sunday.getDate() + 6);
+      this.selectedWeekEnd.set(saturday.toISOString().split('T')[0]);
+      
+      // Reload allocations for the new week
+      this.loadEmployeeAllocations();
+    }
+  }
+
+  navigateToPreviousWeek(): void {
+    const currentStart = new Date(this.selectedWeekStart());
+    currentStart.setDate(currentStart.getDate() - 7);
+    const newStart = currentStart.toISOString().split('T')[0];
+    this.selectedWeekStart.set(newStart);
+    
+    const newEnd = new Date(currentStart);
+    newEnd.setDate(newEnd.getDate() + 6);
+    this.selectedWeekEnd.set(newEnd.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  navigateToNextWeek(): void {
+    const currentStart = new Date(this.selectedWeekStart());
+    currentStart.setDate(currentStart.getDate() + 7);
+    const newStart = currentStart.toISOString().split('T')[0];
+    this.selectedWeekStart.set(newStart);
+    
+    const newEnd = new Date(currentStart);
+    newEnd.setDate(newEnd.getDate() + 6);
+    this.selectedWeekEnd.set(newEnd.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  navigateToCurrentWeek(): void {
+    const today = new Date();
+    const sunday = new Date(today.setDate(today.getDate() - today.getDay()));
+    const weekStart = sunday.toISOString().split('T')[0];
+    this.selectedWeekStart.set(weekStart);
+    
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    this.selectedWeekEnd.set(saturday.toISOString().split('T')[0]);
+    
+    this.loadEmployeeAllocations();
+  }
+
+  getFormattedWeekRange(): string {
+    if (this.selectedWeekStart() && this.selectedWeekEnd()) {
+      const start = new Date(this.selectedWeekStart());
+      const end = new Date(this.selectedWeekEnd());
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+    }
+    return '';
   }
 }

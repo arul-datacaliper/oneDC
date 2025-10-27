@@ -406,6 +406,103 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("holiday", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.LeaveRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_date");
+
+                    b.Property<string>("ApproverComments")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("approver_comments");
+
+                    b.Property<Guid?>("ApproverId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approver_id");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_date");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("HalfDayPeriod")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("half_day_period");
+
+                    b.Property<bool>("IsHalfDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_half_day");
+
+                    b.Property<string>("LeaveType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("leave_type");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_date");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Pending")
+                        .HasColumnName("status");
+
+                    b.Property<int>("TotalDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_days");
+
+                    b.HasKey("Id")
+                        .HasName("pk_leave_request");
+
+                    b.HasIndex("ApproverId")
+                        .HasDatabaseName("ix_leave_request_approver_id");
+
+                    b.HasIndex("CreatedDate")
+                        .HasDatabaseName("ix_leave_request_created_date");
+
+                    b.HasIndex("EmployeeId")
+                        .HasDatabaseName("ix_leave_request_employee_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_leave_request_status");
+
+                    b.HasIndex("StartDate", "EndDate")
+                        .HasDatabaseName("ix_leave_request_start_date_end_date");
+
+                    b.ToTable("leave_request", "ts");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.PasswordReset", b =>
                 {
                     b.Property<Guid>("ResetId")
@@ -497,6 +594,10 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("default_approver");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
                     b.Property<DateOnly?>("EndDate")
                         .HasColumnType("date")
                         .HasColumnName("end_date");
@@ -575,6 +676,36 @@ namespace OneDc.Infrastructure.Migrations
                         .HasDatabaseName("ix_project_allocation_project_id_user_id_start_date");
 
                     b.ToTable("project_allocation", "ts");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectMember", b =>
+                {
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("ProjectRole")
+                        .HasColumnType("integer")
+                        .HasColumnName("project_role");
+
+                    b.HasKey("ProjectId", "UserId")
+                        .HasName("pk_project_member");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("ix_project_member_project_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_project_member_user_id");
+
+                    b.ToTable("project_member", "ts");
                 });
 
             modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
@@ -679,7 +810,7 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("numeric(4,2)")
                         .HasColumnName("hours");
 
-                    b.Property<Guid>("ProjectId")
+                    b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
@@ -950,6 +1081,26 @@ namespace OneDc.Infrastructure.Migrations
                     b.ToTable("weekly_allocation", "ts");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.LeaveRequest", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "Approver")
+                        .WithMany()
+                        .HasForeignKey("ApproverId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_leave_request_app_user_approver_id");
+
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_leave_request_app_user_employee_id");
+
+                    b.Navigation("Approver");
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.PasswordReset", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.AppUser", "User")
@@ -995,6 +1146,27 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OneDc.Domain.Entities.ProjectMember", b =>
+                {
+                    b.HasOne("OneDc.Domain.Entities.Project", "Project")
+                        .WithMany("ProjectMembers")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_project_member_project_project_id");
+
+                    b.HasOne("OneDc.Domain.Entities.AppUser", "User")
+                        .WithMany("ProjectMemberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_project_member_app_user_user_id");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("OneDc.Domain.Entities.ProjectTask", b =>
                 {
                     b.HasOne("OneDc.Domain.Entities.AppUser", "AssignedUser")
@@ -1021,7 +1193,6 @@ namespace OneDc.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_timesheet_entry_project_project_id");
 
                     b.HasOne("OneDc.Domain.Entities.ProjectTask", "Task")
@@ -1087,6 +1258,16 @@ namespace OneDc.Infrastructure.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.AppUser", b =>
+                {
+                    b.Navigation("ProjectMemberships");
+                });
+
+            modelBuilder.Entity("OneDc.Domain.Entities.Project", b =>
+                {
+                    b.Navigation("ProjectMembers");
                 });
 #pragma warning restore 612, 618
         }

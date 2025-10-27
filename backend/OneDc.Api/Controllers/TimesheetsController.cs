@@ -158,11 +158,20 @@ public class TimesheetsController : BaseController
 
     // GET api/timesheets/user/{userId}?from=2025-09-08&to=2025-09-14
     [HttpGet("user/{userId:guid}")]
-    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> GetForUser(Guid userId, [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
     {
         try
         {
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+
+            // Authorization: Employees can only view their own timesheets
+            // Approvers and Admins can view any timesheet (for now - could be restricted to their projects)
+            if (currentUserRole == "EMPLOYEE" && userId != currentUserId)
+            {
+                return StatusCode(403, "Employees can only view their own timesheets.");
+            }
+
             var fromDate = from.HasValue ? DateOnly.FromDateTime(from.Value) : DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
             var toDate = to.HasValue ? DateOnly.FromDateTime(to.Value) : DateOnly.FromDateTime(DateTime.Today);
             

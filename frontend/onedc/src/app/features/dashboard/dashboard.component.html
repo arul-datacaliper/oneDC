@@ -95,8 +95,374 @@
     </div>
   </div>
 
+  <!-- Employee Allocation Overview -->
+  <div class="row mt-4 g-3">
+    <!-- Week Navigation - Common for both tables -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-body py-2">
+          <div class="d-flex gap-2 align-items-center justify-content-center">
+            <small class="text-muted me-2">
+              <i class="bi bi-calendar-range me-1"></i>
+              Week Selection:
+            </small>
+            <!-- Previous Week Button -->
+            <button 
+              class="btn btn-outline-secondary btn-sm" 
+              (click)="navigateToPreviousWeek()" 
+              title="Previous Week">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            
+            <!-- From Date -->
+            <input 
+              type="date" 
+              class="form-control form-control-sm" 
+              [value]="selectedWeekStart()"
+              (change)="onWeekStartChange($any($event.target).value)"
+              title="Week start date"
+              style="width: 140px;">
+            
+            <span class="text-muted">to</span>
+            
+            <!-- To Date -->
+            <input 
+              type="date" 
+              class="form-control form-control-sm" 
+              [value]="selectedWeekEnd()"
+              readonly
+              title="Week end date (auto-calculated)"
+              style="width: 140px; background-color: #f8f9fa;">
+            
+            <!-- Next Week Button -->
+            <button 
+              class="btn btn-outline-secondary btn-sm" 
+              (click)="navigateToNextWeek()" 
+              title="Next Week">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Employee Allocation Table -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white border-bottom">
+          <div class="row align-items-center">
+            <!-- Title -->
+            <div class="col-md-8">
+              <h5 class="card-title mb-0">Employee Allocation Overview</h5>
+            </div>
+            
+            <!-- Search -->
+            <div class="col-md-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Search employees..." 
+                  [value]="allocationSearchTerm()"
+                  (input)="onAllocationSearch($any($event.target).value)"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+
+          <!-- Utilization Filter Buttons -->
+          <div class="mb-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <small class="text-muted me-2">
+                <i class="bi bi-funnel me-1"></i>
+                Filter by Utilization:
+              </small>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-primary]="utilizationFilter() === 'all'"
+                [class.btn-outline-secondary]="utilizationFilter() !== 'all'"
+                (click)="onUtilizationFilterChange('all')"
+                title="Show all employees">
+                All
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('all') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-danger]="utilizationFilter() === 'over100'"
+                [class.btn-outline-danger]="utilizationFilter() !== 'over100'"
+                (click)="onUtilizationFilterChange('over100')"
+                title="Over-allocated (>100%)">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Over 100%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('over100') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-success]="utilizationFilter() === 'full'"
+                [class.btn-outline-success]="utilizationFilter() !== 'full'"
+                (click)="onUtilizationFilterChange('full')"
+                title="Fully utilized (100%)">
+                100%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('full') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="utilizationFilter() === '80-99'"
+                [class.btn-outline-info]="utilizationFilter() !== '80-99'"
+                (click)="onUtilizationFilterChange('80-99')"
+                title="Well utilized (80-99%)">
+                80-99%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('80-99') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-warning]="utilizationFilter() === '50-79'"
+                [class.btn-outline-warning]="utilizationFilter() !== '50-79'"
+                (click)="onUtilizationFilterChange('50-79')"
+                title="Moderately utilized (50-79%)">
+                50-79%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('50-79') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-warning]="utilizationFilter() === 'under50'"
+                [class.btn-outline-warning]="utilizationFilter() !== 'under50'"
+                (click)="onUtilizationFilterChange('under50')"
+                title="Under-utilized (1-49%)">
+                <i class="bi bi-arrow-down me-1"></i>
+                Under 50%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('under50') }}</span>
+              </button>
+              <button 
+                type="button"
+                class="btn btn-sm"
+                [class.btn-secondary]="utilizationFilter() === '0'"
+                [class.btn-outline-secondary]="utilizationFilter() !== '0'"
+                (click)="onUtilizationFilterChange('0')"
+                title="Not allocated (0%)">
+                <i class="bi bi-x-circle me-1"></i>
+                0%
+                <span class="badge bg-white text-dark ms-1">{{ getUtilizationFilterCount('0') }}</span>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Loading State -->
+          <div *ngIf="isLoadingAllocations" class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-2 mb-0">Loading employee allocations...</p>
+          </div>
+          
+          <!-- No Data State -->
+          <div *ngIf="!isLoadingAllocations && filteredEmployeeAllocations().length === 0" class="text-center p-4">
+            <i class="bi bi-person-x text-muted fs-1"></i>
+            <p class="text-muted mt-2 mb-0">
+              <span *ngIf="allocationSearchTerm()">No employees found matching your search.</span>
+              <span *ngIf="!allocationSearchTerm() && utilizationFilter() !== 'all'">No employees found matching the selected utilization filter.</span>
+              <span *ngIf="!allocationSearchTerm() && utilizationFilter() === 'all'">No employee allocation data available.</span>
+            </p>
+          </div>
+
+          <!-- Allocation Table -->
+          <div *ngIf="!isLoadingAllocations && filteredEmployeeAllocations().length > 0" 
+               class="table-responsive" 
+               style="max-height: 400px; overflow-y: auto;"
+               (scroll)="onAllocationScroll($event)">
+            <table class="table table-hover mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col" class="text-center">Projects</th>
+                  <th scope="col" class="text-center">Total Hours</th>
+                  <th scope="col" class="text-center">Weekly Capacity</th>
+                  <th scope="col" class="text-center">Utilization %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let employee of filteredEmployeeAllocations(); trackBy: trackByEmployeeId">
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-circle bg-primary text-white me-2">
+                        {{ employee.userName.charAt(0).toUpperCase() }}
+                      </div>
+                      <span class="fw-medium">{{ employee.userName }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-info">{{ employee.totalProjects }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="fw-medium">{{ employee.totalAllocatedHours }}h</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="text-muted">{{ employee.weeklyCapacity }}h</span>
+                  </td>
+                  <td class="text-center">
+                    <span [class]="getUtilizationPercentageClass(employee.utilizationPercentage)">
+                      {{ employee.utilizationPercentage | number:'1.0-1' }}%
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Scroll indicator / Load more button -->
+          <div *ngIf="!isLoadingAllocations && !allocationSearchTerm() && utilizationFilter() === 'all' && employeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
+            <div class="d-flex justify-content-between align-items-center">
+              <small class="text-muted">
+                <i class="bi bi-arrow-down-circle me-1"></i>
+                Showing {{ filteredEmployeeAllocations().length }} of {{ employeeAllocations().length }} employees
+              </small>
+              <button 
+                *ngIf="hasMoreEmployeesToLoad()" 
+                class="btn btn-sm btn-outline-primary"
+                (click)="loadMoreEmployees()">
+                <i class="bi bi-plus-circle me-1"></i>
+                Load More
+              </button>
+            </div>
+          </div>
+          
+          <!-- Utilization filter result count -->
+          <div *ngIf="!isLoadingAllocations && !allocationSearchTerm() && utilizationFilter() !== 'all' && filteredEmployeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-funnel me-1"></i>
+              Showing {{ filteredEmployeeAllocations().length }} employee(s) matching the selected utilization filter
+            </small>
+          </div>
+          
+          <!-- Search result count -->
+          <div *ngIf="!isLoadingAllocations && allocationSearchTerm() && filteredEmployeeAllocations().length > 0" class="px-3 py-2 bg-light border-top">
+            <small class="text-muted">
+              <i class="bi bi-search me-1"></i>
+              Found {{ filteredEmployeeAllocations().length }} matching employee(s)
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Project Allocation Table -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100 d-flex flex-column">
+        <div class="card-header bg-white border-bottom">
+          <div class="row align-items-center">
+            <!-- Title -->
+            <div class="col-md-8">
+              <h5 class="card-title mb-0">Project Allocation Overview</h5>
+            </div>
+            
+            <!-- Search -->
+            <div class="col-md-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Search projects..." 
+                  [value]="projectSearchTerm()"
+                  (input)="onProjectSearch($any($event.target).value)"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-0 flex-grow-1 d-flex flex-column">
+          
+          <!-- Loading State -->
+          <div *ngIf="isLoadingAllocations" class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-2 mb-0">Loading project allocations...</p>
+          </div>
+          
+          <!-- No Data State -->
+          <div *ngIf="!isLoadingAllocations && filteredProjectAllocations().length === 0" class="text-center p-4">
+            <i class="bi bi-briefcase-fill text-muted fs-1"></i>
+            <p class="text-muted mt-2 mb-0">
+              <span *ngIf="projectSearchTerm()">No projects found matching your search.</span>
+              <span *ngIf="!projectSearchTerm()">No project allocation data available.</span>
+            </p>
+          </div>
+
+          <!-- Project Allocation Table -->
+          <div *ngIf="!isLoadingAllocations && filteredProjectAllocations().length > 0" 
+               class="table-responsive flex-grow-1" 
+               style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-hover mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th scope="col">Project</th>
+                  <th scope="col" class="text-center">People Allocated</th>
+                  <th scope="col" class="text-center">Total Allocated Hours</th>
+                  <th scope="col" class="text-center">Utilization %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let project of filteredProjectAllocations(); trackBy: trackByProjectId">
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-circle bg-info text-white me-2">
+                        {{ project.projectName.charAt(0).toUpperCase() }}
+                      </div>
+                      <span class="fw-medium">{{ project.projectName }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-primary">{{ project.totalEmployees }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span class="fw-medium">{{ project.totalAllocatedHours }}h</span>
+                  </td>
+                  <td class="text-center">
+                    <span [class]="getUtilizationPercentageClass(project.utilizationPercentage)">
+                      {{ project.utilizationPercentage | number:'1.0-1' }}%
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Search result count -->
+          <div *ngIf="!isLoadingAllocations && projectSearchTerm() && filteredProjectAllocations().length > 0" class="px-3 py-2 bg-light border-top mt-auto">
+            <small class="text-muted">
+              <i class="bi bi-search me-1"></i>
+              Found {{ filteredProjectAllocations().length }} matching project(s)
+            </small>
+          </div>
+          
+          <!-- Total count -->
+          <div *ngIf="!isLoadingAllocations && !projectSearchTerm() && filteredProjectAllocations().length > 0" class="px-3 py-2 bg-light border-top mt-auto">
+            <small class="text-muted">
+              <i class="bi bi-briefcase me-1"></i>
+              Showing {{ filteredProjectAllocations().length }} project(s) with allocations
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Dashboard Tables Row -->
-  <div class="row g-4">
+  <div class="row g-4 mt-4">
     <!-- Top 10 Projects with High Tasks -->
     <div class="col-lg-6">
       <div class="card shadow-sm h-100">
@@ -317,13 +683,13 @@
               <div class="col-6">
                 <div class="text-center">
                   <div class="fw-bold">{{ employeeMetrics?.totalAssignedTasks || 0 }}</div>
-                  <small class="opacity-75">Tasks</small>
+                  <small class="opacity-75">Tasks Assigned</small>
                 </div>
               </div>
               <div class="col-6">
                 <div class="text-center">
                   <div class="fw-bold">{{ employeeMetrics?.totalSubmittedHours || 0 }}</div>
-                  <small class="opacity-75">Hours</small>
+                  <small class="opacity-75">Time Sheet Hours Submitted</small>
                 </div>
               </div>
             </div>

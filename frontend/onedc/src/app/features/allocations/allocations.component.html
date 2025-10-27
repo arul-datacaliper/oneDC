@@ -42,103 +42,26 @@
         </button>
       </div>
       
-      <!-- New Allocation Button -->
-      <button class="btn btn-primary" (click)="openCreateModal()">
-        <i class="bi bi-plus-circle me-2"></i>
-        New Allocation
-      </button>
+      <!-- Action Buttons -->
+      <div class="d-flex gap-2">
+        <button 
+          class="btn btn-success" 
+          (click)="openExportModal()">
+          <i class="bi bi-download me-2"></i>
+          Export CSV
+        </button>
+        <button 
+          *ngIf="canCreateOrEdit()"
+          class="btn btn-primary" 
+          (click)="openCreateModal()">
+          <i class="bi bi-plus-circle me-2"></i>
+          New Allocation
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Export Section -->
-  <div class="card mb-4">
-    <div class="card-header">
-      <div class="d-flex justify-content-between align-items-center">
-        <h6 class="card-title mb-0">
-          <i class="bi bi-download me-2"></i>
-          Export Allocations
-        </h6>
-        <div class="d-flex align-items-center gap-2">
-          <button 
-            class="btn btn-sm" 
-            [class.btn-primary]="selectedExportPeriod() === 'prev-month'"
-            [class.btn-outline-secondary]="selectedExportPeriod() !== 'prev-month'"
-            (click)="setPreviousMonth()" 
-            title="Previous Month">
-            <i class="bi bi-calendar-minus"></i> Prev Month
-          </button>
-          <button 
-            class="btn btn-sm" 
-            [class.btn-primary]="selectedExportPeriod() === 'this-month'"
-            [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-month'"
-            (click)="setCurrentMonth()" 
-            title="Current Month">
-            <i class="bi bi-calendar-check"></i> This Month
-          </button>
-          <button 
-            class="btn btn-sm" 
-            [class.btn-primary]="selectedExportPeriod() === 'this-quarter'"
-            [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-quarter'"
-            (click)="setCurrentQuarter()" 
-            title="Current Quarter">
-            <i class="bi bi-calendar3"></i> This Quarter
-          </button>
-        </div>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-2">
-          <label class="form-label small">From Date</label>
-          <input 
-            type="date" 
-            class="form-control form-control-sm" 
-            [(ngModel)]="exportFromDate"
-            (ngModelChange)="onExportDateChange()"
-            [disabled]="isExporting()">
-        </div>
-        <div class="col-md-2">
-          <label class="form-label small">To Date</label>
-          <input 
-            type="date" 
-            class="form-control form-control-sm" 
-            [(ngModel)]="exportToDate"
-            (ngModelChange)="onExportDateChange()"
-            [disabled]="isExporting()">
-        </div>
-        <div class="col-md-3" *ngIf="viewMode() === 'project'">
-          <label class="form-label small">Selected Project</label>
-          <div class="form-control form-control-sm bg-light">
-            {{ getSelectedProjectName() || 'All Projects' }}
-          </div>
-        </div>
-        <div class="col-md-3" *ngIf="viewMode() === 'employee'">
-          <label class="form-label small">Selected Employee</label>
-          <div class="form-control form-control-sm bg-light">
-            {{ getSelectedEmployeeName() || 'All Employees' }}
-          </div>
-        </div>
-        <div class="col-md-2">
-          <button 
-            class="btn btn-success btn-sm w-100" 
-            (click)="exportToCsv()" 
-            [disabled]="!exportFromDate() || !exportToDate() || isExporting()">
-            <span *ngIf="isExporting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-            <i *ngIf="!isExporting()" class="bi bi-file-earmark-excel me-2"></i>
-            {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
-          </button>
-        </div>
-      </div>
-      <div class="mt-2">
-        <small class="text-muted">
-          <i class="bi bi-info-circle me-1"></i>
-          Export allocations for the selected date range
-          <span *ngIf="viewMode() === 'project' && selectedProjectId()"> for the selected project</span>
-          <span *ngIf="viewMode() === 'employee' && selectedUserId()"> for the selected employee</span>
-        </small>
-      </div>
-    </div>
-  </div>
+
 
   <!-- View Mode Tabs -->
   <div class="card mb-4">
@@ -192,18 +115,29 @@
             <h6 class="card-title mb-0">Projects Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
+            <!-- Loading State for Project Summary -->
+            <div *ngIf="isLoading()" class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading projects...</span>
+              </div>
+              <p class="text-muted mt-2 mb-0">Loading projects summary...</p>
+            </div>
+            
+            <!-- Project Summary Table -->
+            <div *ngIf="!isLoading()" style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onProjectSummaryScroll($event)">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
                     <th>Project</th>
                     <th class="text-center">Employees</th>
                     <th class="text-center">Hours</th>
-                    <th class="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let project of projectSummary()">
+                  <tr *ngFor="let project of filteredProjectSummary()" 
+                      class="cursor-pointer" 
+                      (click)="onProjectSelect(project.projectId)"
+                      title="Click to view project details">
                     <td>
                       <div class="fw-medium">{{ project.projectName }}</div>
                       <small class="text-muted">{{ project.utilizationPercentage }}% utilized</small>
@@ -212,16 +146,15 @@
                       <span class="badge bg-secondary">{{ project.totalEmployees }}</span>
                     </td>
                     <td class="text-center">{{ project.totalAllocatedHours }}h</td>
-                    <td class="text-center">
-                      <button 
-                        class="btn btn-sm btn-outline-primary"
-                        (click)="onProjectSelect(project.projectId)">
-                        View Details
-                      </button>
-                    </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Summary Info -->
+            <div *ngIf="!isLoading()" class="text-center p-2 border-top bg-light">
+              <small class="text-muted">
+                Showing {{ filteredProjectSummary().length }} of {{ projectSummary().length }} projects
+              </small>
             </div>
           </div>
         </div>
@@ -233,18 +166,29 @@
             <h6 class="card-title mb-0">Employees Summary</h6>
           </div>
           <div class="card-body p-0">
-            <div class="table-responsive">
+            <!-- Loading State for Employee Summary -->
+            <div *ngIf="isLoading()" class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading employees...</span>
+              </div>
+              <p class="text-muted mt-2 mb-0">Loading employees summary...</p>
+            </div>
+            
+            <!-- Employee Summary Table -->
+            <div *ngIf="!isLoading()" style="max-height: 450px; overflow-y: scroll; overflow-x: hidden; position: relative;" (scroll)="onEmployeeSummaryScroll($event)">
               <table class="table table-hover mb-0">
-                <thead class="table-light">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa;">
                   <tr>
                     <th>Employee</th>
                     <th class="text-center">Projects</th>
                     <th class="text-center">Hours</th>
-                    <th class="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let employee of employeeSummary()">
+                  <tr *ngFor="let employee of filteredEmployeeSummary()" 
+                      class="cursor-pointer" 
+                      (click)="onEmployeeSelect(employee.userId)"
+                      title="Click to view employee details">
                     <td>
                       <div class="fw-medium">{{ employee.userName }}</div>
                       <small class="text-muted">{{ employee.utilizationPercentage }}% capacity</small>
@@ -253,16 +197,15 @@
                       <span class="badge bg-info">{{ employee.totalProjects }}</span>
                     </td>
                     <td class="text-center">{{ employee.totalAllocatedHours }}h</td>
-                    <td class="text-center">
-                      <button 
-                        class="btn btn-sm btn-outline-primary"
-                        (click)="onEmployeeSelect(employee.userId)">
-                        View Details
-                      </button>
-                    </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Summary Info -->
+            <div *ngIf="!isLoading()" class="text-center p-2 border-top bg-light">
+              <small class="text-muted">
+                Showing {{ filteredEmployeeSummary().length }} of {{ employeeSummary().length }} employees
+              </small>
             </div>
           </div>
         </div>
@@ -275,7 +218,13 @@
     <div class="card">
       <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0">Project Allocations</h6>
+          <div>
+            <h6 class="card-title mb-1">Project Allocations</h6>
+            <small class="text-muted">
+              <i class="bi bi-calendar-week me-1"></i>
+              Week: {{ formatCurrentWeekStart() }} - {{ formatCurrentWeekEnd() }}
+            </small>
+          </div>
           <div style="width: 300px;">
             <ng-select 
               [ngModel]="selectedProjectId()" 
@@ -283,6 +232,7 @@
               placeholder="Search and select a project..."
               [clearable]="true"
               [searchable]="true"
+              [virtualScroll]="true"
               bindLabel="displayName"
               bindValue="projectId"
               [items]="availableProjectsWithDisplayName()">
@@ -294,6 +244,30 @@
         </div>
       </div>
       <div class="card-body p-0">
+        <!-- Project Summary for Selected Week -->
+        <div *ngIf="selectedProjectId()" class="p-3 border-bottom bg-light">
+          <div class="row text-center">
+            <div class="col-md-4">
+              <div class="fw-bold text-primary fs-5">{{ getProjectTotalAllocatedHours() }}h</div>
+              <small class="text-muted">Total Allocated Hours</small>
+            </div>
+            <div class="col-md-4">
+              <div class="fw-bold text-info fs-5">{{ getProjectEmployeeCount() }}</div>
+              <small class="text-muted">Allocated Employees</small>
+            </div>
+            <div class="col-md-4">
+              <div class="fw-bold text-success fs-5">{{ getProjectAverageUtilization() }}%</div>
+              <small class="text-muted">Average Employee Utilization</small>
+            </div>
+          </div>
+          <!-- <div class="mt-2 text-center">
+            <small class="text-muted">
+              <i class="bi bi-calendar-week me-1"></i>
+              Week: {{ formatCurrentWeekStart() }} - {{ formatCurrentWeekEnd() }}
+            </small>
+          </div> -->
+        </div>
+        
         <div *ngIf="selectedProjectId() && filteredAllocations().length === 0" class="text-center p-4">
           <i class="bi bi-inbox text-muted fs-1"></i>
           <p class="text-muted mt-2 mb-0">No allocations found for this project</p>
@@ -305,34 +279,35 @@
               <tr>
                 <th>Employee</th>
                 <th class="text-center">Allocated Hours</th>
-                <th class="text-center">Utilization</th>
                 <th class="text-center">Status</th>
-                <th class="text-center">Actions</th>
+                <th *ngIf="canCreateOrEdit()" class="text-center actions-column">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let allocation of filteredAllocations()">
                 <td>
                   <div class="fw-medium">{{ allocation.userName }}</div>
-                  <small class="text-muted">{{ allocation.weekStartDate | date:'shortDate' }} - {{ allocation.weekEndDate | date:'shortDate' }}</small>
                 </td>
                 <td class="text-center">{{ allocation.allocatedHours }}h</td>
-                <td class="text-center">
-                  <span [class]="getUtilizationBadgeClass(allocation.utilizationPercentage)">
-                    {{ allocation.utilizationPercentage }}%
-                  </span>
-                </td>
                 <td class="text-center">
                   <span [class]="getStatusBadgeClass(allocation.status)">
                     {{ allocation.status }}
                   </span>
                 </td>
-                <td class="text-center">
-                  <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" (click)="openEditModal(allocation)">
+                <td *ngIf="canCreateOrEdit()" class="text-center align-middle">
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                    <button 
+                      type="button"
+                      class="btn btn-outline-primary" 
+                      (click)="openEditModal(allocation)"
+                      title="Edit allocation">
                       <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-outline-danger" (click)="deleteAllocation(allocation)">
+                    <button 
+                      type="button"
+                      class="btn btn-outline-danger" 
+                      (click)="deleteAllocation(allocation)"
+                      title="Delete allocation">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -350,7 +325,13 @@
     <div class="card">
       <div class="card-header">
         <div class="d-flex justify-content-between align-items-center">
-          <h6 class="card-title mb-0">Employee Allocations</h6>
+          <div>
+            <h6 class="card-title mb-1">Employee Allocations</h6>
+            <small class="text-muted">
+              <i class="bi bi-calendar-week me-1"></i>
+              Week: {{ formatCurrentWeekStart() }} - {{ formatCurrentWeekEnd() }}
+            </small>
+          </div>
           <div style="width: 300px;">
             <ng-select 
               [ngModel]="selectedUserId()" 
@@ -358,6 +339,7 @@
               placeholder="Search and select an employee..."
               [clearable]="true"
               [searchable]="true"
+              [virtualScroll]="true"
               bindLabel="userName"
               bindValue="userId"
               [items]="availableEmployees()">
@@ -366,6 +348,34 @@
         </div>
       </div>
       <div class="card-body p-0">
+        <!-- Employee Summary for Selected Week -->
+        <div *ngIf="selectedUserId()" class="p-3 border-bottom bg-light">
+          <div class="row text-center">
+            <div class="col-md-3">
+              <div class="fw-bold text-primary fs-5">{{ getTotalAllocatedHours() }}h</div>
+              <small class="text-muted">Total Allocated Hours</small>
+            </div>
+            <div class="col-md-3">
+              <div class="fw-bold text-success fs-5">{{ getAvailableHours() }}h</div>
+              <small class="text-muted">Available Hours</small>
+            </div>
+            <div class="col-md-3">
+              <div class="fw-bold text-info fs-5">{{ getTotalUtilizedHours() }}h</div>
+              <small class="text-muted">Total Utilized Hours</small>
+            </div>
+            <div class="col-md-3">
+              <div class="fw-bold" [class.text-danger]="getUtilizationPercentage() > 100" [class.text-warning]="getUtilizationPercentage() > 80 && getUtilizationPercentage() <= 100" [class.text-success]="getUtilizationPercentage() <= 80">{{ getUtilizationPercentage() }}%</div>
+              <small class="text-muted">Capacity Utilization</small>
+            </div>
+          </div>
+          <!-- <div class="mt-2 text-center">
+            <small class="text-muted">
+              <i class="bi bi-calendar-week me-1"></i>
+              Week: {{ formatCurrentWeekStart() }} - {{ formatCurrentWeekEnd() }}
+            </small>
+          </div> -->
+        </div>
+        
         <div *ngIf="selectedUserId() && filteredAllocations().length === 0" class="text-center p-4">
           <i class="bi bi-inbox text-muted fs-1"></i>
           <p class="text-muted mt-2 mb-0">No allocations found for this employee</p>
@@ -377,34 +387,35 @@
               <tr>
                 <th>Project</th>
                 <th class="text-center">Allocated Hours</th>
-                <th class="text-center">Utilization</th>
                 <th class="text-center">Status</th>
-                <th class="text-center">Actions</th>
+                <th *ngIf="canCreateOrEdit()" class="text-center actions-column">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let allocation of filteredAllocations()">
                 <td>
                   <div class="fw-medium">{{ allocation.projectName }}</div>
-                  <small class="text-muted">{{ allocation.weekStartDate | date:'shortDate' }} - {{ allocation.weekEndDate | date:'shortDate' }}</small>
                 </td>
                 <td class="text-center">{{ allocation.allocatedHours }}h</td>
-                <td class="text-center">
-                  <span [class]="getUtilizationBadgeClass(allocation.utilizationPercentage)">
-                    {{ allocation.utilizationPercentage }}%
-                  </span>
-                </td>
                 <td class="text-center">
                   <span [class]="getStatusBadgeClass(allocation.status)">
                     {{ allocation.status }}
                   </span>
                 </td>
-                <td class="text-center">
-                  <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" (click)="openEditModal(allocation)">
+                <td *ngIf="canCreateOrEdit()" class="text-center align-middle">
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                    <button 
+                      type="button"
+                      class="btn btn-outline-primary" 
+                      (click)="openEditModal(allocation)"
+                      title="Edit allocation">
                       <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-outline-danger" (click)="deleteAllocation(allocation)">
+                    <button 
+                      type="button"
+                      class="btn btn-outline-danger" 
+                      (click)="deleteAllocation(allocation)"
+                      title="Delete allocation">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -442,6 +453,7 @@
                   placeholder="Search and select a project..."
                   [clearable]="false"
                   [searchable]="true"
+                  [virtualScroll]="true"
                   bindLabel="displayName"
                   bindValue="projectId"
                   [items]="availableProjectsWithDisplayName()">
@@ -485,7 +497,7 @@
                   [disabled]="!!editingAllocation()"
                   (change)="onWeekEndDateChange($any($event.target).value)">
                 <div class="form-text">
-                  <small class="text-muted">Auto-calculated, but editable if needed</small>
+                  <small class="text-muted">Editable if needed</small>
                 </div>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('weekEndDate')?.invalid && allocationForm.get('weekEndDate')?.touched">
@@ -524,18 +536,75 @@
             </div>
           </div>
 
+          <!-- Project Members Information -->
+          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length > 0" class="mb-4">
+            <!-- For Employees -->
+            <div *ngIf="isEmployee()" class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>Project Selected</strong>
+                <p class="mb-0">You have been auto-selected for this allocation. Please enter your allocation hours below.</p>
+              </div>
+            </div>
+            
+            <!-- For Approvers/Admins -->
+            <div *ngIf="!isEmployee()" class="alert alert-success d-flex align-items-start">
+              <i class="bi bi-people-fill me-2 mt-1"></i>
+              <div class="flex-grow-1">
+                <strong>Project Team Members</strong>
+                <p class="mb-2">{{ projectMembers().length }} team members have been added to the allocation:</p>
+                <div class="row g-2">
+                  <div class="col-md-12">
+                    <ul class="mb-0 mt-1">
+                      <li *ngFor="let member of projectMembers()">
+                        <strong>{{ member.userName }}</strong> - {{ member.projectRole }} 
+                        <small class="text-muted">({{ member.role }})</small>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Please enter allocation hours for each team member. You can also add additional members or remove members as needed below.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Members Not Found -->
+          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length === 0" class="mb-4">
+            <div class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>No Project Team Members Found</strong>
+                <p class="mb-0">This project doesn't have any team members assigned. You can manually add employees for allocation using the dropdown below.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Employee Selection Section -->
           <div *ngIf="!editingAllocation()" class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h6 class="mb-0">Employee Allocations</h6>
-              <div class="d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center gap-3" *ngIf="!isEmployee()">
+                <button 
+                  *ngIf="allocationForm.get('projectId')?.value && projectMembers().length > 0"
+                  type="button" 
+                  class="btn btn-outline-primary btn-sm"
+                  (click)="resetToProjectDefaults()"
+                  title="Reset to project team defaults">
+                  <i class="bi bi-arrow-clockwise me-1"></i>
+                  Reset to Project Defaults
+                </button>
+                <small class="text-muted me-2">Add additional members:</small>
                 <ng-select 
                   [ngModel]="selectedEmployeeForDropdown()"
                   (ngModelChange)="onEmployeeAdd($event)"
                   [ngModelOptions]="{standalone: true}"
-                  placeholder="Search and select an employee to add..."
+                  placeholder="Search and add more employees..."
                   [clearable]="true"
                   [searchable]="true"
+                  [virtualScroll]="true"
                   bindLabel="userName"
                   bindValue="userId"
                   [items]="availableEmployeesForSelection()"
@@ -553,9 +622,10 @@
                 <thead class="table-light">
                   <tr>
                     <th>Employee Name</th>
+                    <th *ngIf="!isMultiMonthWeek()" style="width: 280px;">Weekly Capacity</th>
                     <th *ngIf="isMultiMonthWeek()">Period</th>
                     <th style="width: 200px;">Allocated Hours</th>
-                    <th style="width: 100px;" class="text-center">Actions</th>
+                    <th *ngIf="!isEmployee()" style="width: 100px;" class="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -566,6 +636,17 @@
                         <div class="fw-medium">{{ employee.userName }}</div>
                       </td>
                       <td>
+                        <div class="d-flex align-items-center">
+                          <i class="bi bi-calendar-week text-primary me-2"></i>
+                          <div>
+                            <small class="text-muted d-block">{{ getFormattedCapacity(employee.userId) }}</small>
+                            <small class="text-info" [title]="getCapacityDetails(employee.userId)" style="cursor: help;">
+                              <i class="bi bi-info-circle me-1"></i>Details
+                            </small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
                         <input 
                           type="number" 
                           class="form-control" 
@@ -574,7 +655,7 @@
                           min="0" 
                           placeholder="Hours">
                       </td>
-                      <td class="text-center">
+                      <td *ngIf="!isEmployee()" class="text-center">
                         <button 
                           type="button" 
                           class="btn btn-sm btn-outline-danger"
@@ -592,7 +673,12 @@
                       <tr *ngFor="let period of monthPeriods(); let periodIndex = index; trackBy: trackByPeriodIndex" 
                           [class.table-secondary]="periodIndex === 0">
                         <td>
-                          <div class="fw-medium" *ngIf="periodIndex === 0">{{ employee.userName }}</div>
+                          <div *ngIf="periodIndex === 0">
+                            <div class="fw-medium">{{ employee.userName }}</div>
+                            <small class="text-muted d-block mt-1">
+                              <i class="bi bi-calendar-week text-primary me-1"></i>{{ getFormattedCapacity(employee.userId) }}
+                            </small>
+                          </div>
                           <div *ngIf="periodIndex > 0" class="text-muted" style="padding-left: 20px;">└─ Additional Period</div>
                         </td>
                         <td>
@@ -607,9 +693,9 @@
                             (input)="updateEmployeePeriodHours(employee.userId, periodIndex, +$any($event.target).value)"
                             min="0" 
                             placeholder="Hours">
-                          <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 40) }} hours</div>
+                          <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 63) }} hours</div>
                         </td>
-                        <td class="text-center">
+                        <td *ngIf="!isEmployee()" class="text-center">
                           <button 
                             *ngIf="periodIndex === 0"
                             type="button" 
@@ -638,12 +724,25 @@
             <h6 class="mb-3">Employee Allocation</h6>
             <div class="card">
               <div class="card-body">
-                <div class="row align-items-center">
-                  <div class="col-md-6">
-                    <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
-                    <small class="text-muted">Employee</small>
+                <div class="row">
+                  <div class="col-md-12 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
+                        <small class="text-muted">Employee</small>
+                      </div>
+                      <div class="text-end">
+                        <small class="text-muted d-block">
+                          <i class="bi bi-calendar-week text-primary me-1"></i>
+                          {{ getFormattedCapacity(selectedEmployeeAllocations()[0].userId) }}
+                        </small>
+                        <small class="text-info" [title]="getCapacityDetails(selectedEmployeeAllocations()[0].userId)" style="cursor: help;">
+                          <i class="bi bi-info-circle me-1"></i>View Details
+                        </small>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-md-6">
+                  <div class="col-md-12">
                     <label class="form-label">Allocated Hours</label>
                     <input 
                       type="number" 
@@ -674,6 +773,143 @@
   </div>
 </div>
 
-<!-- Modal Backdrop -->
+<!-- Export Modal -->
+<div class="modal fade" [class.show]="showExportModal()" [style.display]="showExportModal() ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" [attr.aria-hidden]="!showExportModal()">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-download me-2"></i>
+          Export Allocations
+        </h5>
+        <button type="button" class="btn-close" (click)="closeExportModal()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Quick Period Selection -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Quick Period Selection</label>
+          <div class="d-flex gap-2 flex-wrap">
+            <button 
+              class="btn btn-sm" 
+              [class.btn-primary]="selectedExportPeriod() === 'prev-month'"
+              [class.btn-outline-secondary]="selectedExportPeriod() !== 'prev-month'"
+              (click)="setPreviousMonth()" 
+              title="Previous Month">
+              <i class="bi bi-calendar-minus me-1"></i> Prev Month
+            </button>
+            <button 
+              class="btn btn-sm" 
+              [class.btn-primary]="selectedExportPeriod() === 'this-month'"
+              [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-month'"
+              (click)="setCurrentMonth()" 
+              title="Current Month">
+              <i class="bi bi-calendar-check me-1"></i> This Month
+            </button>
+            <button 
+              class="btn btn-sm" 
+              [class.btn-primary]="selectedExportPeriod() === 'this-quarter'"
+              [class.btn-outline-secondary]="selectedExportPeriod() !== 'this-quarter'"
+              (click)="setCurrentQuarter()" 
+              title="Current Quarter">
+              <i class="bi bi-calendar3 me-1"></i> This Quarter
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Date Range -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Custom Date Range</label>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small">From Date</label>
+              <input 
+                type="date" 
+                class="form-control" 
+                [(ngModel)]="exportFromDate"
+                (ngModelChange)="onExportDateChange()"
+                [disabled]="isExporting()">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">To Date</label>
+              <input 
+                type="date" 
+                class="form-control" 
+                [(ngModel)]="exportToDate"
+                (ngModelChange)="onExportDateChange()"
+                [disabled]="isExporting()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Information -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Export Scope</label>
+          <div class="card">
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-12">
+                  <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-funnel me-2 text-primary"></i>
+                    <strong>Current Filters Applied:</strong>
+                  </div>
+                  <ul class="list-unstyled mb-0 ms-4">
+                    <li><i class="bi bi-calendar-range me-2"></i>Date Range: {{ exportFromDate() }} to {{ exportToDate() }}</li>
+                    <li *ngIf="viewMode() === 'project' && selectedProjectId()">
+                      <i class="bi bi-briefcase me-2"></i>Project: {{ getSelectedProjectName() }}
+                    </li>
+                    <li *ngIf="viewMode() === 'project' && !selectedProjectId()">
+                      <i class="bi bi-briefcase me-2"></i>All Projects
+                    </li>
+                    <li *ngIf="viewMode() === 'employee' && selectedUserId()">
+                      <i class="bi bi-person me-2"></i>Employee: {{ getSelectedEmployeeName() }}
+                    </li>
+                    <li *ngIf="viewMode() === 'employee' && !selectedUserId()">
+                      <i class="bi bi-people me-2"></i>All Employees
+                    </li>
+                    <li *ngIf="viewMode() === 'overview'">
+                      <i class="bi bi-grid-3x3-gap me-2"></i>Overview: All Projects and Employees
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export Information -->
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Export Details:</strong>
+          <ul class="mb-0 mt-2">
+            <li><strong>Date Range:</strong> {{ exportFromDate() }} to {{ exportToDate() }}</li>
+            <li *ngIf="viewMode() === 'project' && selectedProjectId()"><strong>Filtered by Project:</strong> {{ getSelectedProjectName() }}</li>
+            <li *ngIf="viewMode() === 'project' && !selectedProjectId()"><strong>Scope:</strong> All Projects</li>
+            <li *ngIf="viewMode() === 'employee' && selectedUserId()"><strong>Filtered by Employee:</strong> {{ getSelectedEmployeeName() }}</li>
+            <li *ngIf="viewMode() === 'employee' && !selectedUserId()"><strong>Scope:</strong> All Employees</li>
+            <li *ngIf="viewMode() === 'overview'"><strong>Scope:</strong> All Projects and Employees</li>
+            <li><strong>Current View:</strong> {{ viewMode() === 'overview' ? 'Overview' : viewMode() === 'project' ? 'Project View' : 'Employee View' }}</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeExportModal()">Cancel</button>
+        <button 
+          type="button"
+          class="btn btn-success" 
+          (click)="exportToCsvAndClose()" 
+          [disabled]="!exportFromDate() || !exportToDate() || isExporting()">
+          <span *ngIf="isExporting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i *ngIf="!isExporting()" class="bi bi-file-earmark-excel me-2"></i>
+          {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrops -->
 <div class="modal-backdrop fade" [class.show]="showCreateModal()" *ngIf="showCreateModal()"></div>
+<div class="modal-backdrop fade" [class.show]="showExportModal()" *ngIf="showExportModal()"></div>
 </div>

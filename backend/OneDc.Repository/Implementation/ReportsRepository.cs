@@ -12,18 +12,20 @@ public class ReportsRepository : IReportsRepository
 
     public async Task<IEnumerable<(Guid userId, Guid projectId, bool billable, decimal hours)>> GetApprovedHoursAsync(DateOnly from, DateOnly to)
     {
-        // APPROVED + LOCKED entries only
+        // APPROVED + LOCKED entries only (filter out entries with null ProjectId)
         var rows = await _db.TimesheetEntries
             .Where(t => (t.Status == Domain.Entities.TimesheetStatus.APPROVED
                       || t.Status == Domain.Entities.TimesheetStatus.LOCKED)
-                     && t.WorkDate >= from && t.WorkDate <= to)
+                     && t.WorkDate >= from && t.WorkDate <= to
+                     && t.ProjectId.HasValue)
             .Join(_db.Projects,
                   t => t.ProjectId,
                   p => p.ProjectId,
                   (t, p) => new { t.UserId, t.ProjectId, p.Billable, t.Hours })
             .ToListAsync();
-
-        return rows.Select(x => (x.UserId, x.ProjectId, x.Billable, x.Hours));
+        
+        // ProjectId is guaranteed to have value due to Where filter above
+        return rows.Select(x => (x.UserId, x.ProjectId!.Value, x.Billable, x.Hours));
     }
 
     public async Task<Dictionary<Guid,(string code,string name,bool billable,decimal? budgetHours)>> GetProjectsMetaAsync(IEnumerable<Guid> projectIds)
