@@ -1,4 +1,4 @@
-import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
@@ -9,6 +9,8 @@ import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from 
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartData, ChartEvent, ChartType } from 'chart.js';
 
 export interface TimesheetEntry {
   date: string;
@@ -20,7 +22,7 @@ export interface TimesheetEntry {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BaseChartDirective],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -61,6 +63,85 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Project allocation data
   projectAllocations = signal<AllocationSummary[]>([]);
   projectSearchTerm = signal('');
+  
+  // Chart configuration for employee allocation
+  showAllocationChart = signal(true); // Toggle between chart and table view
+  selectedAllocationFilter = signal<string>(''); // Track which pie segment was clicked
+  
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
+  
+  public pieChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: {
+          generateLabels: (chart) => {
+            const data = chart.data;
+            if (data.labels && data.datasets.length) {
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i] as number;
+                return {
+                  text: `${label}: ${value}`,
+                  fillStyle: (data.datasets[0].backgroundColor as string[])[i],
+                  hidden: false,
+                  index: i
+                };
+              });
+            }
+            return [];
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const label = context.label || '';
+            const value = context.parsed;
+            const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ${value} employees (${percentage}%)`;
+          }
+        }
+      }
+    },
+    onClick: (event: ChartEvent, activeElements: any[]) => {
+      if (activeElements.length > 0) {
+        const index = activeElements[0].index;
+        const filterMap = ['over100', 'full', '80-99', '50-79', 'under50', '0'];
+        const selectedFilter = filterMap[index];
+        this.onPieChartClick(selectedFilter);
+      }
+    }
+  };
+
+  public pieChartData: ChartData<'pie', number[], string> = {
+    labels: [],
+    datasets: [{
+      data: [],
+      backgroundColor: [
+        'rgba(220, 53, 69, 0.8)',   // Red for over 100%
+        'rgba(25, 135, 84, 0.8)',   // Green for 100%
+        'rgba(13, 202, 240, 0.8)',  // Cyan for 80-99%
+        'rgba(255, 193, 7, 0.8)',   // Yellow for 50-79%
+        'rgba(255, 193, 7, 0.6)',   // Light yellow for under 50%
+        'rgba(108, 117, 125, 0.8)'  // Gray for 0%
+      ],
+      borderColor: [
+        'rgba(220, 53, 69, 1)',
+        'rgba(25, 135, 84, 1)',
+        'rgba(13, 202, 240, 1)',
+        'rgba(255, 193, 7, 1)',
+        'rgba(255, 193, 7, 0.8)',
+        'rgba(108, 117, 125, 1)'
+      ],
+      borderWidth: 2
+    }]
+  };
+
+  public pieChartType: ChartType = 'pie';
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
@@ -249,6 +330,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
       next: (allocations: EmployeeAllocationSummary[]) => {
         this.employeeAllocations.set(allocations);
+        this.updatePieChartData(); // Update chart data when allocations are loaded
         this.isLoadingAllocations = false;
       },
       error: (error: any) => {
@@ -272,6 +354,64 @@ export class DashboardComponent implements OnInit, OnDestroy {
         console.error('Error loading project allocations:', error);
       }
     });
+  }
+  
+  // Update pie chart data based on employee allocations
+  private updatePieChartData() {
+    const allocations = this.employeeAllocations();
+    
+    const over100 = allocations.filter(emp => emp.utilizationPercentage > 100).length;
+    const full = allocations.filter(emp => emp.utilizationPercentage === 100).length;
+    const range80to99 = allocations.filter(emp => emp.utilizationPercentage >= 80 && emp.utilizationPercentage < 100).length;
+    const range50to79 = allocations.filter(emp => emp.utilizationPercentage >= 50 && emp.utilizationPercentage < 80).length;
+    const under50 = allocations.filter(emp => emp.utilizationPercentage > 0 && emp.utilizationPercentage < 50).length;
+    const zero = allocations.filter(emp => emp.utilizationPercentage === 0).length;
+    
+    this.pieChartData = {
+      labels: ['Over 100%', '100%', '80-99%', '50-79%', 'Under 50%', '0%'],
+      datasets: [{
+        data: [over100, full, range80to99, range50to79, under50, zero],
+        backgroundColor: [
+          'rgba(220, 53, 69, 0.8)',   // Red for over 100%
+          'rgba(25, 135, 84, 0.8)',   // Green for 100%
+          'rgba(13, 202, 240, 0.8)',  // Cyan for 80-99%
+          'rgba(255, 193, 7, 0.8)',   // Yellow for 50-79%
+          'rgba(255, 193, 7, 0.6)',   // Light yellow for under 50%
+          'rgba(108, 117, 125, 0.8)'  // Gray for 0%
+        ],
+        borderColor: [
+          'rgba(220, 53, 69, 1)',
+          'rgba(25, 135, 84, 1)',
+          'rgba(13, 202, 240, 1)',
+          'rgba(255, 193, 7, 1)',
+          'rgba(255, 193, 7, 0.8)',
+          'rgba(108, 117, 125, 1)'
+        ],
+        borderWidth: 2
+      }]
+    };
+    
+    // Update the chart if it exists
+    if (this.chart) {
+      this.chart.update();
+    }
+  }
+  
+  // Handle pie chart segment click
+  onPieChartClick(filterType: string) {
+    this.selectedAllocationFilter.set(filterType);
+    this.showAllocationChart.set(false);
+    this.utilizationFilter.set(filterType);
+    this.displayedEmployeeCount.set(1000); // Show all filtered employees
+  }
+  
+  // Go back to chart view
+  backToChartView() {
+    this.showAllocationChart.set(true);
+    this.selectedAllocationFilter.set('');
+    this.utilizationFilter.set('all');
+    this.allocationSearchTerm.set('');
+    this.displayedEmployeeCount.set(10);
   }
 
   private loadEmployeeDashboard() {

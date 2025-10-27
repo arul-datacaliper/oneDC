@@ -61,12 +61,9 @@ export class TimesheetEditorComponent implements OnInit {
     const selectedDate = this.selectedDate();
     const currentUser = this.authSvc.getCurrentUser();
     
-    // For admin viewing specific user or all users
-    const targetUserId = this.selectedUserId() || currentUser?.userId;
-    
     return this.approvedLeaves().filter(leave => {
-      // Check if the leave is for the target user (or show all if admin viewing all)
-      const isTargetUser = !this.selectedUserId() || leave.employeeId === targetUserId;
+      // Only show leaves for the current user (no admin filtering)
+      const isTargetUser = leave.employeeId === currentUser?.userId;
       
       // Check if the selected date falls within the leave period
       // Extract just the date part (YYYY-MM-DD) from ISO format
@@ -100,8 +97,6 @@ export class TimesheetEditorComponent implements OnInit {
   // Admin functionality
   isAdmin = signal<boolean>(false);
   users = signal<AppUser[]>([]);
-  selectedUserId = signal<string | null>(null);
-  selectedProjectId = signal<string | null>(null);
   viewMode = signal<'own' | 'user' | 'project' | 'all'>('own');
 
   // Bootstrap-styled toast notification method
@@ -154,26 +149,6 @@ export class TimesheetEditorComponent implements OnInit {
     }));
     
     return options;
-  });
-
-  // Admin dropdown options
-  userOptions = computed<DropdownOption[]>(() => {
-    return this.users().map(user => ({
-      value: user.userId,
-      label: `${user.firstName} ${user.lastName} (${user.email})`,
-      searchableText: `${user.firstName} ${user.lastName} ${user.email}`.toLowerCase()
-    }));
-  });
-
-  projectFilterOptions = computed<DropdownOption[]>(() => {
-    return [
-      { value: '', label: 'All Projects', searchableText: 'all projects' },
-      ...this.projects().map(project => ({
-        value: project.projectId,
-        label: `${project.name} — ${project.client?.name || project.clientId}`,
-        searchableText: `${project.name} ${project.client?.name || project.clientId}`.toLowerCase()
-      }))
-    ];
   });
 
   // Task types for dropdown
@@ -418,27 +393,8 @@ export class TimesheetEditorComponent implements OnInit {
   load() {
     this.loading.set(true);
     
-    // Determine which service method to call based on admin status and selections
-    let timesheetObservable;
-    
-    if (this.isAdmin()) {
-      const selectedUserId = this.selectedUserId();
-      const selectedProjectId = this.selectedProjectId();
-      
-      if (selectedUserId) {
-        // Load timesheets for specific user
-        timesheetObservable = this.tsSvc.listForUser(selectedUserId, this.from(), this.to());
-      } else if (selectedProjectId) {
-        // Load timesheets for specific project (all users)
-        timesheetObservable = this.tsSvc.listForProject(selectedProjectId, this.from(), this.to());
-      } else {
-        // Load all timesheets
-        timesheetObservable = this.tsSvc.listAll(this.from(), this.to());
-      }
-    } else {
-      // Regular user - load their own timesheets
-      timesheetObservable = this.tsSvc.list(this.from(), this.to());
-    }
+    // Regular user - load their own timesheets
+    const timesheetObservable = this.tsSvc.list(this.from(), this.to());
     
     timesheetObservable.subscribe({
       next: (data: any[]) => {
@@ -539,20 +495,8 @@ export class TimesheetEditorComponent implements OnInit {
     const currentUser = this.authSvc.getCurrentUser();
     if (!currentUser) return;
     
-    // For admin, load all approved leaves if viewing all employees
-    // For regular users or admin viewing specific user, load that user's leaves
-    let leaveObservable;
-    
-    if (this.isAdmin() && !this.selectedUserId()) {
-      // Admin viewing all - load all approved leaves
-      leaveObservable = this.leaveSvc.getAllLeaveRequests();
-    } else if (this.isAdmin() && this.selectedUserId()) {
-      // Admin viewing specific user
-      leaveObservable = this.leaveSvc.getEmployeeLeaveRequests(this.selectedUserId()!);
-    } else {
-      // Regular user - load their own leaves
-      leaveObservable = this.leaveSvc.getMyLeaveRequests();
-    }
+    // Load current user's leaves only (no admin filtering)
+    const leaveObservable = this.leaveSvc.getMyLeaveRequests();
     
     leaveObservable.subscribe({
       next: (response: any) => {
@@ -1146,26 +1090,5 @@ export class TimesheetEditorComponent implements OnInit {
     const tasks = this.getTasksForProject(projectId);
     const task = tasks.find(t => t.taskId === taskId);
     return task ? task.title : 'Task not found';
-  }
-
-  // Admin-specific methods
-  onUserSelectionChange(userId: string | null): void {
-    this.selectedUserId.set(userId);
-    this.selectedProjectId.set(null); // Clear project filter when user is selected
-    this.loadApprovedLeaves(); // Reload leaves for the selected user
-    this.load(); // Reload data with new filter
-  }
-
-  onProjectFilterChange(projectId: string | null): void {
-    this.selectedProjectId.set(projectId);
-    this.selectedUserId.set(null); // Clear user filter when project is selected
-    this.load(); // Reload data with new filter
-  }
-
-  clearFilters(): void {
-    this.selectedUserId.set(null);
-    this.selectedProjectId.set(null);
-    this.loadApprovedLeaves(); // Reload leaves for all users
-    this.load(); // Reload all data
   }
 }
