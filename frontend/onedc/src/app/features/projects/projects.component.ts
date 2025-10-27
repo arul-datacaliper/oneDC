@@ -9,6 +9,7 @@ import { UsersService } from '../../core/services/users.service';
 import { Project, Client } from '../../shared/models';
 import { AppUser } from '../../core/services/users.service';
 import { ToastrService } from 'ngx-toastr';
+import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
 
 // Interface for project members
 export interface ProjectMember extends AppUser {
@@ -28,6 +29,7 @@ export class ProjectsComponent implements OnInit {
   private usersService = inject(UsersService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
+  private confirmationDialogService = inject(ConfirmationDialogService);
 
   // Make Math available in template
   Math = Math;
@@ -491,8 +493,16 @@ export class ProjectsComponent implements OnInit {
     }
   }
 
-  deleteProject(project: ProjectResponseDto) {
-    if (confirm(`Are you sure you want to delete project "${project.name}"?`)) {
+  async deleteProject(project: ProjectResponseDto) {
+    const confirmed = await this.confirmationDialogService.open({
+      title: 'Confirm Deletion',
+      message: `Are you sure you want to delete project "${project.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+
+    if (confirmed) {
       this.projectsService.delete(project.projectId).subscribe({
         next: () => {
           this.toastr.success('Project deleted successfully');
