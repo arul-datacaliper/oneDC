@@ -74,14 +74,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   public pieChartOptions: ChartConfiguration<'doughnut'>['options'] = {
     responsive: true,
     maintainAspectRatio: true,
-    aspectRatio: 1,
+    aspectRatio: 1.2,
     cutout: '60%', // Creates the donut hole
     layout: {
       padding: {
-        top: 5,
-        bottom: 5,
-        left: 5,
-        right: 40
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 30
       }
     },
     plugins: {
