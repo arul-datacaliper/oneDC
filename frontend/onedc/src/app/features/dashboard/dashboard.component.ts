@@ -582,8 +582,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const currentUser = this.authService.getCurrentUser();
     
     if (currentUser?.userId) {
-      // Load employee metrics
-      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId).subscribe({
+      // Get date range for filtering
+      const { startDate, endDate } = this.getDateRange();
+      
+      // Load employee metrics with date range
+      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId, startDate, endDate).subscribe({
         next: (metrics) => {
           this.employeeMetrics = metrics;
         },
@@ -612,8 +615,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       });
 
-      // Load project utilization
-      this.employeeService.getProjectUtilization(currentUser.userId).subscribe({
+      // Load project utilization with date range (using same startDate/endDate from above)
+      this.employeeService.getProjectUtilization(currentUser.userId, startDate, endDate).subscribe({
         next: (utilization) => {
           this.projectUtilization = utilization;
           this.isLoadingEmployeeData = false;
@@ -974,11 +977,74 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.dateRange;
   }
 
+  // Get date range based on selected mode (week or month)
+  getDateRange(): { startDate: string; endDate: string } {
+    const today = new Date();
+    let startDate: Date;
+    let endDate: Date;
+
+    if (this.dateRange === 'week') {
+      // Get current week (Sunday to Saturday)
+      const dayOfWeek = today.getDay(); // 0 (Sunday) to 6 (Saturday)
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - dayOfWeek); // Go back to Sunday
+      
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6); // Saturday
+    } else {
+      // Get current month (1st to last day)
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of month
+    }
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    return {
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate)
+    };
+  }
+
   // Toggle date range
   toggleDateRange(): void {
     this.dateRange = this.dateRange === 'week' ? 'month' : 'week';
     if (!this.isAdmin()) {
       this.loadEmployeeDashboard();
+    }
+  }
+
+  // Get formatted date range string for display
+  getFormattedDateRange(): string {
+    const { startDate, endDate } = this.getDateRange();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (this.dateRange === 'week') {
+      // Format: "Week of Jan 14 - Jan 20, 2025"
+      const startMonth = monthNames[start.getMonth()];
+      const endMonth = monthNames[end.getMonth()];
+      const startDay = start.getDate();
+      const endDay = end.getDate();
+      const year = end.getFullYear();
+      
+      if (start.getMonth() === end.getMonth()) {
+        return `Week of ${startMonth} ${startDay} - ${endDay}, ${year}`;
+      } else {
+        return `Week of ${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+      }
+    } else {
+      // Format: "January 2025"
+      const month = monthNames[start.getMonth()];
+      const year = start.getFullYear();
+      return `${month} ${year}`;
     }
   }
 

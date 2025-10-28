@@ -610,11 +610,13 @@
               </small>
             </h5>
             <p class="mb-2 opacity-75">{{ currentUser()?.email || 'user@onedc.local' }}</p>
-            <span class="badge bg-white text-primary px-3 py-1" 
+            <span class="badge px-3 py-1" 
                   [class.bg-warning]="currentUser()?.role === 'ADMIN'" 
                   [class.text-dark]="currentUser()?.role === 'ADMIN'"
                   [class.bg-info]="currentUser()?.role === 'APPROVER'"
-                  [class.text-white]="currentUser()?.role === 'APPROVER'">
+                  [class.text-white]="currentUser()?.role === 'APPROVER'"
+                  [class.bg-white]="currentUser()?.role === 'EMPLOYEE'"
+                  [class.text-primary]="currentUser()?.role === 'EMPLOYEE'">
               {{ getCurrentUserRole() }}
             </span>
             
@@ -677,7 +679,7 @@
                   <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalSubmittedHours || 0 }}</span>
                   <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-warning"></div>
                 </div>
-                <div class="card-subtitle text-muted">Total logged time</div>
+                <div class="card-subtitle text-muted">{{ dateRangeMode() === 'week' ? 'This week' : 'This month' }}</div>
               </div>
             </div>
           </div>
@@ -694,7 +696,7 @@
                   <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalApprovedHours || 0 }}</span>
                   <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-success"></div>
                 </div>
-                <div class="card-subtitle text-muted">Ready for billing</div>
+                <div class="card-subtitle text-muted">{{ dateRangeMode() === 'week' ? 'This week' : 'This month' }}</div>
               </div>
             </div>
           </div>
@@ -754,7 +756,6 @@
                   <tr *ngFor="let task of employeeTasks">
                     <td>
                       <div class="fw-medium">{{ task.taskName }}</div>
-                      <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
                     </td>
                     <td>{{ task.projectName }}</td>
                     <td class="text-center">
@@ -784,7 +785,7 @@
         <div class="card shadow-sm h-100">
           <div class="card-header bg-white">
             <h5 class="card-title mb-0">Project Utilization</h5>
-            <p class="text-muted mb-0 small">Your time allocation and efficiency across projects</p>
+            <p class="text-muted mb-0 small">{{ getFormattedDateRange() }} - Your time allocation and efficiency across projects</p>
           </div>
           <div class="card-body p-0">
             <div *ngIf="isLoadingEmployeeData" class="text-center p-4">

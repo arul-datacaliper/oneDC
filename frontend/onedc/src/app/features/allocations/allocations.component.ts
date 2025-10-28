@@ -1402,9 +1402,10 @@ export class AllocationsComponent implements OnInit {
 
   // Role-based access control methods
   canCreateOrEdit(): boolean {
-    // All authenticated users can create/edit allocations
-    // Backend will enforce proper restrictions
-    return true;
+    // Only ADMIN and APPROVER roles can create/edit allocations
+    // EMPLOYEE role can only view their own allocations
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?.role === 'ADMIN' || currentUser?.role === 'APPROVER';
   }
 
   canView(): boolean {
@@ -1412,7 +1413,7 @@ export class AllocationsComponent implements OnInit {
   }
 
   isReadOnlyUser(): boolean {
-    return false; // No longer needed since everyone can create/edit their own allocations
+    return this.isEmployee(); // Employees are read-only
   }
 
   isEmployee(): boolean {

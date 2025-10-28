@@ -49,8 +49,14 @@ export class EmployeeService {
   private apiUrl = `${environment.apiBaseUrl}`;
 
   // Get employee dashboard metrics
-  getEmployeeDashboardMetrics(userId: string): Observable<EmployeeDashboardMetrics> {
-    return this.http.get<EmployeeDashboardMetrics>(`${this.apiUrl}/employees/${userId}/dashboard-metrics`);
+  getEmployeeDashboardMetrics(userId: string, startDate?: string, endDate?: string): Observable<EmployeeDashboardMetrics> {
+    let params = '';
+    if (startDate && endDate) {
+      params = `?startDate=${startDate}&endDate=${endDate}`;
+    } else if (startDate) {
+      params = `?startDate=${startDate}`;
+    }
+    return this.http.get<EmployeeDashboardMetrics>(`${this.apiUrl}/employees/${userId}/dashboard-metrics${params}`);
   }
 
   // Get tasks assigned to employee
@@ -65,7 +71,13 @@ export class EmployeeService {
   }
 
   // Get project utilization for employee
-  getProjectUtilization(userId: string): Observable<ProjectUtilization[]> {
-    return this.http.get<ProjectUtilization[]>(`${this.apiUrl}/employees/${userId}/project-utilization`);
+  getProjectUtilization(userId: string, startDate?: string, endDate?: string): Observable<ProjectUtilization[]> {
+    let params = '';
+    if (startDate && endDate) {
+      params = `?startDate=${startDate}&endDate=${endDate}`;
+    } else if (startDate) {
+      params = `?startDate=${startDate}`;
+    }
+    return this.http.get<ProjectUtilization[]>(`${this.apiUrl}/employees/${userId}/project-utilization${params}`);
   }
 }

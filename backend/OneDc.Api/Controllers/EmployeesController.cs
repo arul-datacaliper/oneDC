@@ -522,7 +522,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpGet("{userId:guid}/dashboard-metrics")]
-    public async Task<IActionResult> GetEmployeeDashboardMetrics(Guid userId)
+    public async Task<IActionResult> GetEmployeeDashboardMetrics(Guid userId, [FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate)
     {
         try
         {
@@ -531,12 +531,28 @@ public class EmployeesController : ControllerBase
                 .Where(pt => pt.AssignedUserId == userId)
                 .CountAsync();
 
-            // Get timesheet data for hours calculation
-            var now = DateTime.UtcNow;
-            var thirtyDaysAgo = DateOnly.FromDateTime(now.AddDays(-30));
-            var timesheets = await _context.TimesheetEntries
-                .Where(t => t.UserId == userId && t.WorkDate >= thirtyDaysAgo)
-                .ToListAsync();
+            // Get timesheet data for hours calculation with date range filtering
+            IQueryable<TimesheetEntry> timesheetQuery = _context.TimesheetEntries
+                .Where(t => t.UserId == userId);
+
+            // Apply date range filter if provided
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                timesheetQuery = timesheetQuery.Where(t => t.WorkDate >= startDate.Value && t.WorkDate <= endDate.Value);
+            }
+            else if (startDate.HasValue)
+            {
+                timesheetQuery = timesheetQuery.Where(t => t.WorkDate >= startDate.Value);
+            }
+            else
+            {
+                // Default to last 30 days if no date range provided
+                var now = DateTime.UtcNow;
+                var thirtyDaysAgo = DateOnly.FromDateTime(now.AddDays(-30));
+                timesheetQuery = timesheetQuery.Where(t => t.WorkDate >= thirtyDaysAgo);
+            }
+
+            var timesheets = await timesheetQuery.ToListAsync();
 
             var totalSubmittedHours = timesheets.Sum(t => t.Hours);
             var totalApprovedHours = timesheets.Where(t => t.Status == TimesheetStatus.APPROVED).Sum(t => t.Hours);
