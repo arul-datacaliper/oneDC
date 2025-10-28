@@ -7,7 +7,9 @@ import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseI
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
 import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
-import { Subscription, filter } from 'rxjs';
+import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
+import { Subscription, filter, forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData, ChartEvent, ChartType } from 'chart.js';
@@ -17,6 +19,17 @@ export interface TimesheetEntry {
   date: string;
   project: string;
   hours: number;
+  status: string;
+}
+
+export interface ApproverProjectSummary {
+  projectId: string;
+  projectName: string;
+  totalMembers: number;
+  totalAllocatedHours: number;
+  utilizationPercentage: number;
+  openTasksCount: number;
+  totalTasksCount: number;
   status: string;
 }
 
@@ -33,6 +46,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private employeeService = inject(EmployeeService);
   private onboardingService = inject(OnboardingService);
   private allocationService = inject(AllocationService);
+  private tasksService = inject(TasksService);
   private router = inject(Router);
   private routerSubscription?: Subscription;
 
@@ -52,6 +66,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentTimesheets: TimesheetEntry[] = [];
   weeklyHours = 0;
   pendingApprovals = 0;
+  
+  // Approver dashboard data
+  approverProjects = signal<ApproverProjectSummary[]>([]);
+  isLoadingApproverProjects = false;
   
   // Employee allocation data
   employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
@@ -180,6 +198,85 @@ export class DashboardComponent implements OnInit, OnDestroy {
   public pieChartPlugins = [ChartDataLabels];
 
   public pieChartType = 'doughnut' as const;
+  
+  // Bar chart configuration for approver's project open tasks
+  public barChartOptions: ChartConfiguration<'bar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y', // Horizontal bars for better label visibility
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1,
+          font: {
+            size: 11
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      y: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          font: {
+            size: 10
+          }
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 12,
+        boxHeight: 12,
+        callbacks: {
+          label: (context) => {
+            const label = context.dataset.label || '';
+            const value = context.parsed.x;
+            return `${label}: ${value}`;
+          }
+        }
+      },
+      datalabels: {
+        display: false
+      }
+    }
+  };
+
+  public barChartData: ChartData<'bar', number[], string> = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Open Tasks',
+        data: [],
+        backgroundColor: 'rgba(220, 53, 69, 0.7)',
+        borderColor: 'rgba(220, 53, 69, 1)',
+        borderWidth: 2,
+        borderRadius: 4,
+        hoverBackgroundColor: 'rgba(220, 53, 69, 0.85)'
+      }
+    ]
+  };
+
+  public barChartType = 'bar' as const;
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
@@ -498,6 +595,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.isLoadingEmployeeData = false;
         }
       });
+      
+      // Load approver projects if user is an approver
+      if (this.canApprove()) {
+        this.loadApproverProjects();
+      }
     } else {
       // Fallback mock data for testing
       setTimeout(() => {
@@ -514,6 +616,153 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isLoadingEmployeeData = false;
       }, 1000);
     }
+  }
+  
+  // Method to calculate dynamic chart height based on number of projects
+  getChartHeight(): number {
+    const projectsWithTasks = this.approverProjects().filter(p => p.openTasksCount > 0).length;
+    return Math.max(400, projectsWithTasks * 40);
+  }
+  
+  private loadApproverProjects() {
+    this.isLoadingApproverProjects = true;
+    const currentUser = this.authService.getCurrentUser();
+    
+    if (!currentUser?.userId) {
+      this.isLoadingApproverProjects = false;
+      return;
+    }
+    
+    // Get allocation data for the current week
+    const weekStart = this.selectedWeekStart() || this.getCurrentWeekStart();
+    
+    // Use the allocation service which approvers have access to
+    this.allocationService.getProjectAllocationSummary(weekStart).subscribe({
+      next: (allocations: AllocationSummary[]) => {
+        // Create base project summaries
+        const approverProjects: ApproverProjectSummary[] = allocations.map(project => {
+          return {
+            projectId: project.projectId,
+            projectName: project.projectName,
+            totalMembers: project.totalEmployees || 0,
+            totalAllocatedHours: project.totalAllocatedHours || 0,
+            utilizationPercentage: project.utilizationPercentage || 0,
+            openTasksCount: 0,
+            totalTasksCount: 0,
+            status: 'Active'
+          };
+        });
+        
+        // Fetch tasks for each project
+        this.loadTasksForProjects(approverProjects);
+      },
+      error: (error) => {
+        console.error('Error loading allocation data for approver projects:', error);
+        this.isLoadingApproverProjects = false;
+      }
+    });
+  }
+  
+  private loadTasksForProjects(projects: ApproverProjectSummary[]) {
+    if (projects.length === 0) {
+      this.approverProjects.set([]);
+      this.isLoadingApproverProjects = false;
+      return;
+    }
+    
+    // Fetch tasks for all projects in parallel
+    const taskRequests = projects.map(project => 
+      this.tasksService.list(project.projectId, { pageSize: 1000 }).pipe(
+        map(response => ({
+          projectId: project.projectId,
+          tasks: response.tasks
+        })),
+        catchError(error => {
+          console.warn(`Error fetching tasks for project ${project.projectName}:`, error);
+          return of({ projectId: project.projectId, tasks: [] });
+        })
+      )
+    );
+    
+    forkJoin(taskRequests).subscribe({
+      next: (taskResults) => {
+        // Create a map of project tasks
+        const tasksMap = new Map<string, ProjectTask[]>();
+        taskResults.forEach(result => {
+          tasksMap.set(result.projectId, result.tasks);
+        });
+        
+        // Update projects with task counts
+        const updatedProjects = projects.map(project => {
+          const tasks = tasksMap.get(project.projectId) || [];
+          
+          // Count total tasks
+          const totalTasks = tasks.length;
+          
+          // Count open tasks (all except COMPLETED and CANCELLED)
+          const openTasks = tasks.filter(task => 
+            task.status !== 'COMPLETED' && task.status !== 'CANCELLED'
+          ).length;
+          
+          return {
+            ...project,
+            openTasksCount: openTasks,
+            totalTasksCount: totalTasks
+          };
+        });
+        
+        this.approverProjects.set(updatedProjects);
+        this.updateBarChartData();
+        this.isLoadingApproverProjects = false;
+      },
+      error: (error) => {
+        console.error('Error loading tasks for projects:', error);
+        // Set projects without task data
+        this.approverProjects.set(projects);
+        this.updateBarChartData();
+        this.isLoadingApproverProjects = false;
+      }
+    });
+  }
+  
+  private updateBarChartData() {
+    const projects = this.approverProjects();
+    
+    // Filter projects with open tasks and sort by open tasks count (descending)
+    const projectsWithTasks = projects.filter(p => p.openTasksCount > 0);
+    
+    if (projectsWithTasks.length === 0) {
+      // If no tasks data, show all projects by allocated hours instead
+      const allProjects = [...projects]
+        .sort((a, b) => b.totalAllocatedHours - a.totalAllocatedHours);
+      
+      this.barChartData.labels = allProjects.map(p => p.projectName);
+      this.barChartData.datasets[0].data = allProjects.map(p => p.totalAllocatedHours);
+      this.barChartData.datasets[0].label = 'Allocated Hours';
+      this.barChartData.datasets[0].backgroundColor = 'rgba(13, 110, 253, 0.7)';
+      this.barChartData.datasets[0].borderColor = 'rgba(13, 110, 253, 1)';
+    } else {
+      // Sort by open tasks count (descending) and show ALL projects
+      const allProjectsWithTasks = projectsWithTasks
+        .sort((a, b) => b.openTasksCount - a.openTasksCount);
+      
+      this.barChartData.labels = allProjectsWithTasks.map(p => p.projectName);
+      this.barChartData.datasets[0].data = allProjectsWithTasks.map(p => p.openTasksCount);
+      this.barChartData.datasets[0].label = 'Open Tasks';
+      this.barChartData.datasets[0].backgroundColor = 'rgba(220, 53, 69, 0.7)';
+      this.barChartData.datasets[0].borderColor = 'rgba(220, 53, 69, 1)';
+    }
+    
+    // Update chart if it exists
+    if (this.chart) {
+      this.chart.update();
+    }
+  }
+  
+  private getCurrentWeekStart(): string {
+    const today = new Date();
+    const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    return currentWeekStart.toISOString().split('T')[0];
   }
 
   getStatusBadgeClass(status: string): string {
@@ -890,6 +1139,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
   
   trackByProjectId(index: number, project: AllocationSummary): string {
+    return project.projectId;
+  }
+  
+  trackByApproverProjectId(index: number, project: ApproverProjectSummary): string {
     return project.projectId;
   }
 
