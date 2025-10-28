@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
-import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary } from '../../core/services/allocation.service';
+import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary, WeeklyCapacity } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UserManagementService, AppUser } from '../../core/services/user-management.service';
 import { TimesheetsService } from '../../core/services/timesheets.service';
@@ -97,6 +97,9 @@ export class AllocationsComponent implements OnInit {
   // Multi-month allocation signals
   isMultiMonthWeek = signal<boolean>(false);
   monthPeriods = signal<MonthPeriodAllocation[]>([]);
+  
+  // Weekly capacity signals
+  weeklyCapacities = signal<Map<string, any>>(new Map());
   
   // Export functionality
   exportFromDate = signal<string>('');
@@ -337,15 +340,104 @@ export class AllocationsComponent implements OnInit {
   }
 
   private autoAddProjectMembers(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
+    // Get the selected project ID and week dates from the form
+    const projectId = this.allocationForm.get('projectId')?.value;
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+
+    // Fetch weekly capacity for all members
+    if (weekStartDate && weekEndDate && members.length > 0) {
+      const userIds = members.map(m => m.userId);
+      this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+        next: (capacities) => {
+          const capacityMap = new Map();
+          capacities.forEach(cap => {
+            capacityMap.set(cap.userId, cap);
+          });
+          this.weeklyCapacities.set(capacityMap);
+        },
+        error: (error) => {
+          console.error('Error fetching weekly capacity:', error);
+        }
+      });
+    }
+
+    // For employees, only add themselves to the allocation list
+    if (this.isEmployee()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        const currentMember = members.find(m => m.userId === currentUser.userId);
+        if (currentMember) {
+          // Check if there's an existing allocation for this user, project, and week
+          const existingAllocation = this.allocations().find(a => 
+            a.userId === currentUser.userId && 
+            a.projectId === projectId &&
+            a.weekStartDate === weekStartDate &&
+            a.weekEndDate === weekEndDate
+          );
+
+          const allocation: EmployeeAllocation = {
+            userId: currentMember.userId,
+            userName: currentMember.userName,
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+          };
+
+          // Initialize periodHours if multi-month week is detected
+          if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+            allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+          }
+
+          this.selectedEmployeeAllocations.set([allocation]);
+          this.updateAvailableEmployeesForSelection();
+          
+          if (existingAllocation) {
+            this.toastr.info(`Existing allocation found: ${existingAllocation.allocatedHours} hours. You can update the hours below.`);
+          } else {
+            this.toastr.info('You have been auto-selected for allocation. Please enter your allocation hours.');
+          }
+        } else {
+          // Employee is not a team member - keep them in the list (they can still allocate themselves)
+          // Check if there's an existing allocation for this user, project, and week
+          const existingAllocation = this.allocations().find(a => 
+            a.userId === currentUser.userId && 
+            a.projectId === projectId &&
+            a.weekStartDate === weekStartDate &&
+            a.weekEndDate === weekEndDate
+          );
+
+          this.selectedEmployeeAllocations.set([{
+            userId: currentUser.userId,
+            userName: currentUser.name,
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+          }]);
+          this.updateAvailableEmployeesForSelection();
+          
+          if (existingAllocation) {
+            this.toastr.info(`Existing allocation found: ${existingAllocation.allocatedHours} hours. You can update the hours below.`);
+          }
+        }
+      }
+      return;
+    }
+    
+    // For approvers and admins, add all project members
     // Clear existing allocations first
     this.selectedEmployeeAllocations.set([]);
     
-    // Add all project members without default hours - let users enter appropriate hours
+    // Add all project members and pre-fill existing allocation hours
     const allocations: EmployeeAllocation[] = members.map(member => {
+      // Check if there's an existing allocation for this member, project, and week
+      const existingAllocation = this.allocations().find(a => 
+        a.userId === member.userId && 
+        a.projectId === projectId &&
+        a.weekStartDate === weekStartDate &&
+        a.weekEndDate === weekEndDate
+      );
+
       const allocation: EmployeeAllocation = {
         userId: member.userId,
         userName: member.userName,
-        allocatedHours: 0 // No default hours - users should enter appropriate values
+        allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
       };
 
       // Initialize periodHours if multi-month week is detected
@@ -359,7 +451,12 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set(allocations);
     this.updateAvailableEmployeesForSelection();
     
-    if (members.length > 0) {
+    // Check if any existing allocations were found
+    const existingCount = allocations.filter(a => a.allocatedHours > 0).length;
+    
+    if (existingCount > 0) {
+      this.toastr.info(`Auto-added ${members.length} project team members. ${existingCount} member(s) have existing allocations pre-filled.`);
+    } else if (members.length > 0) {
       this.toastr.info(`Auto-added ${members.length} project team members. Please enter allocation hours for each member.`);
     }
   }
@@ -537,6 +634,22 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set([]);
     this.projectMembers.set([]); // Clear project members
     this.selectedEmployeeForDropdown.set(null);
+    
+    // For employees, automatically select themselves
+    if (this.isEmployee()) {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        const currentEmployee = this.availableEmployees().find(emp => emp.userId === currentUser.userId);
+        if (currentEmployee) {
+          this.selectedEmployeeAllocations.set([{
+            userId: currentEmployee.userId,
+            userName: currentEmployee.userName,
+            allocatedHours: 0
+          }]);
+        }
+      }
+    }
+    
     this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
     this.showCreateModal.set(true);
@@ -550,20 +663,46 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
+    // Clear previous state first
+    this.selectedEmployeeAllocations.set([]);
+    this.projectMembers.set([]);
+    this.weeklyCapacities.set(new Map());
+    
+    // Set the allocation being edited FIRST
+    this.editingAllocation.set(allocation);
+    
+    // Set form values
     this.allocationForm.patchValue({
       projectId: allocation.projectId,
       weekStartDate: allocation.weekStartDate,
       weekEndDate: allocation.weekEndDate
     });
-    this.formWeekStartDate.set(allocation.weekStartDate); // Update signal manually
-    // For edit mode, set single employee allocation
+    this.formWeekStartDate.set(allocation.weekStartDate);
+    
+    // Set the specific employee allocation for this edit
     this.selectedEmployeeAllocations.set([{
       userId: allocation.userId,
       userName: allocation.userName,
       allocatedHours: allocation.allocatedHours
     }]);
+    
     this.updateAvailableEmployeesForSelection();
-    this.editingAllocation.set(allocation);
+    
+    // Fetch weekly capacity for the employee being edited
+    this.allocationService.getWeeklyCapacity(allocation.weekStartDate, allocation.weekEndDate, [allocation.userId]).subscribe({
+      next: (capacities) => {
+        const capacityMap = new Map();
+        capacities.forEach(cap => {
+          capacityMap.set(cap.userId, cap);
+        });
+        this.weeklyCapacities.set(capacityMap);
+      },
+      error: (error) => {
+        console.error('Error fetching weekly capacity:', error);
+      }
+    });
+    
+    // Open modal last
     this.showCreateModal.set(true);
   }
 
@@ -648,9 +787,16 @@ export class AllocationsComponent implements OnInit {
 
   // Update employee's allocated hours
   updateEmployeeHours(userId: string, hours: number) {
-    // Basic validation - only check for negative values
+    // Validation for reasonable hours
     if (hours < 0) {
       this.toastr.warning('Allocated hours cannot be negative');
+      return;
+    }
+    
+    // Maximum hours per week: 9 hrs/day × 5 days + 50% overtime = 67.5 hours
+    const MAX_WEEKLY_HOURS = 67.5;
+    if (hours > MAX_WEEKLY_HOURS) {
+      this.toastr.error(`Allocated hours cannot exceed ${MAX_WEEKLY_HOURS} hours per week (9 hrs/day × 5 days + overtime)`);
       return;
     }
 
@@ -776,11 +922,54 @@ export class AllocationsComponent implements OnInit {
   onWeekStartDateChange(weekStartDate: string) {
     this.formWeekStartDate.set(weekStartDate);
     this.checkMultiMonthWeek();
+    this.refreshWeeklyCapacity();
   }
 
   // Handle week end date change to detect multi-month weeks
   onWeekEndDateChange(weekEndDate: string) {
     this.checkMultiMonthWeek();
+    this.refreshWeeklyCapacity();
+  }
+
+  // Refresh weekly capacity for all selected employees
+  private refreshWeeklyCapacity() {
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+    
+    if (!weekStartDate || !weekEndDate) {
+      return;
+    }
+
+    // Get user IDs from selected employees
+    let userIds: string[] = [];
+    
+    if (this.editingAllocation()) {
+      // In edit mode, just get the single employee
+      const employeeId = this.allocationForm.get('employeeId')?.value;
+      if (employeeId) {
+        userIds = [employeeId];
+      }
+    } else {
+      // In create mode, get all selected employees
+      const selectedEmployees = this.selectedEmployeeAllocations();
+      userIds = selectedEmployees.map(emp => emp.userId);
+    }
+
+    if (userIds.length === 0) {
+      return;
+    }
+
+    // Fetch updated capacity
+    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+      next: (capacities) => {
+        const capacityMap = new Map();
+        capacities.forEach(cap => capacityMap.set(cap.userId, cap));
+        this.weeklyCapacities.set(capacityMap);
+      },
+      error: (error) => {
+        console.error('Error fetching weekly capacity:', error);
+      }
+    });
   }
 
   // Check if the selected week spans multiple months
@@ -864,18 +1053,84 @@ export class AllocationsComponent implements OnInit {
     }
   }
 
+  // Get weekly capacity for a specific user
+  getUserWeeklyCapacity(userId: string): any | null {
+    const capacityMap = this.weeklyCapacities();
+    return capacityMap.get(userId) || null;
+  }
+
+  // Get formatted capacity string for display
+  getFormattedCapacity(userId: string): string {
+    const capacity = this.getUserWeeklyCapacity(userId);
+    if (!capacity) {
+      return 'Available: 45h (Standard Week)';
+    }
+
+    const parts: string[] = [];
+    parts.push(`Available: ${capacity.availableHours}h`);
+    
+    // Show breakdown of what reduced the capacity
+    const reductions: string[] = [];
+    if (capacity.holidayDays > 0) {
+      reductions.push(`${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
+    }
+    
+    if (capacity.leaveDays > 0) {
+      const leaveDaysStr = capacity.leaveDays % 1 === 0 
+        ? capacity.leaveDays.toString() 
+        : capacity.leaveDays.toFixed(1);
+      reductions.push(`${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''} leave`);
+    }
+
+    if (reductions.length > 0) {
+      parts.push(reductions.join(', '));
+    }
+
+    return parts.join(' | ');
+  }
+
+  // Get capacity details for tooltip
+  getCapacityDetails(userId: string): string {
+    const capacity = this.getUserWeeklyCapacity(userId);
+    if (!capacity) {
+      return 'Standard working week: 5 days × 9 hours = 45 hours';
+    }
+
+    const details: string[] = [];
+    details.push(`Total Days: ${capacity.totalDays}`);
+    details.push(`Working Days: ${capacity.workingDays}`);
+    
+    if (capacity.holidayDays > 0) {
+      details.push(`Holidays: ${capacity.holidayDays} day${capacity.holidayDays > 1 ? 's' : ''}`);
+    }
+    
+    if (capacity.leaveDays > 0) {
+      const leaveDaysStr = capacity.leaveDays % 1 === 0 
+        ? capacity.leaveDays.toString() 
+        : capacity.leaveDays.toFixed(1);
+      details.push(`Approved Leaves: ${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''}`);
+    }
+    
+    details.push(`Capacity: ${capacity.capacityHours}h`);
+    if (capacity.leaveHours > 0) {
+      details.push(`Leave Hours: ${capacity.leaveHours}h`);
+    }
+    details.push(`Available: ${capacity.availableHours}h`);
+
+    return details.join(' | ');
+  }
+
   getTotalAllocatedHours(): number {
     const selectedUserId = this.selectedUserId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedUserId || !currentWeekStart) {
+    if (!selectedUserId) {
       return 0;
     }
     
-    return this.allocations().filter(allocation => 
-      allocation.userId === selectedUserId && 
-      allocation.weekStartDate === currentWeekStart
-    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+    // Filter by employee only - allocations are already filtered by week
+    return this.filteredAllocations().reduce((sum, allocation) => 
+      sum + allocation.allocatedHours, 0
+    );
   }
 
   // Helper method to format allocation periods for month-split allocations
@@ -927,6 +1182,19 @@ export class AllocationsComponent implements OnInit {
 
   // Update hours for a specific employee and period
   updateEmployeePeriodHours(userId: string, periodIndex: number, hours: number) {
+    // Validation for reasonable hours
+    if (hours < 0) {
+      this.toastr.warning('Allocated hours cannot be negative');
+      return;
+    }
+    
+    // Maximum hours per period: 9 hrs/day × 5 days + 50% overtime = 67.5 hours
+    const MAX_PERIOD_HOURS = 67.5;
+    if (hours > MAX_PERIOD_HOURS) {
+      this.toastr.error(`Allocated hours cannot exceed ${MAX_PERIOD_HOURS} hours per period (9 hrs/day × 5 days + overtime)`);
+      return;
+    }
+    
     const employees = this.selectedEmployeeAllocations();
     const employeeIndex = employees.findIndex(emp => emp.userId === userId);
     
@@ -1085,31 +1353,27 @@ export class AllocationsComponent implements OnInit {
   // Project-level summary methods for "By Project" view
   getProjectTotalAllocatedHours(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
-    return this.allocations().filter(allocation => 
-      allocation.projectId === selectedProjectId && 
-      allocation.weekStartDate === currentWeekStart
-    ).reduce((sum, allocation) => sum + allocation.allocatedHours, 0);
+    // Filter by project only - allocations are already filtered by week
+    return this.filteredAllocations().reduce((sum, allocation) => 
+      sum + allocation.allocatedHours, 0
+    );
   }
 
   getProjectEmployeeCount(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
+    // Filter by project only - allocations are already filtered by week
     const uniqueEmployees = new Set(
-      this.allocations().filter(allocation => 
-        allocation.projectId === selectedProjectId && 
-        allocation.weekStartDate === currentWeekStart
-      ).map(allocation => allocation.userId)
+      this.filteredAllocations().map(allocation => allocation.userId)
     );
     
     return uniqueEmployees.size;
@@ -1117,16 +1381,13 @@ export class AllocationsComponent implements OnInit {
 
   getProjectAverageUtilization(): number {
     const selectedProjectId = this.selectedProjectId();
-    const currentWeekStart = this.currentWeekStart();
     
-    if (!selectedProjectId || !currentWeekStart) {
+    if (!selectedProjectId) {
       return 0;
     }
     
-    const projectAllocations = this.allocations().filter(allocation => 
-      allocation.projectId === selectedProjectId && 
-      allocation.weekStartDate === currentWeekStart
-    );
+    // Filter by project only - allocations are already filtered by week
+    const projectAllocations = this.filteredAllocations();
     
     if (projectAllocations.length === 0) {
       return 0;
@@ -1141,14 +1402,28 @@ export class AllocationsComponent implements OnInit {
 
   // Role-based access control methods
   canCreateOrEdit(): boolean {
-    return this.authService.isAdmin();
+    // All authenticated users can create/edit allocations
+    // Backend will enforce proper restrictions
+    return true;
   }
 
   canView(): boolean {
-    return this.authService.isAdmin() || this.authService.isApprover();
+    return true; // All authenticated users can view (backend filters data)
   }
 
   isReadOnlyUser(): boolean {
-    return this.authService.isApprover() && !this.authService.isAdmin();
+    return false; // No longer needed since everyone can create/edit their own allocations
+  }
+
+  isEmployee(): boolean {
+    return this.authService.getCurrentUser()?.role === 'EMPLOYEE';
+  }
+
+  isApprover(): boolean {
+    return this.authService.isApprover();
+  }
+
+  isAdmin(): boolean {
+    return this.authService.isAdmin();
   }
 }

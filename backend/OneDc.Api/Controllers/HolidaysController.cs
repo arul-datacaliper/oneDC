@@ -7,7 +7,7 @@ namespace OneDc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "ADMIN")]
+[Authorize]
 public class HolidaysController : ControllerBase
 {
     private readonly IComplianceRepository _repository;
@@ -35,6 +35,7 @@ public class HolidaysController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> CreateHoliday([FromBody] Holiday holiday)
     {
         try
@@ -59,6 +60,7 @@ public class HolidaysController : ControllerBase
     }
 
     [HttpPut("{date}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> UpdateHoliday(DateOnly date, [FromBody] Holiday holiday)
     {
         try
@@ -83,6 +85,7 @@ public class HolidaysController : ControllerBase
     }
 
     [HttpDelete("{date}")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> DeleteHoliday(DateOnly date, [FromQuery] string? region = null)
     {
         try
@@ -102,6 +105,7 @@ public class HolidaysController : ControllerBase
     }
 
     [HttpPost("bulk")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> BulkCreateHolidays([FromBody] List<Holiday> holidays)
     {
         try

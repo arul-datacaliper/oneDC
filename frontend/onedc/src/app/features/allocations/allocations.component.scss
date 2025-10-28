@@ -110,6 +110,55 @@ td .dropdown {
   }
 }
 
+// Action buttons specific styling
+.btn-group {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  gap: 0 !important;
+  
+  .btn {
+    margin: 0 !important;
+    white-space: nowrap !important;
+    
+    &.btn-sm {
+      padding: 0.25rem 0.5rem !important;
+      font-size: 0.75rem !important;
+      line-height: 1.5 !important;
+    }
+    
+    &.btn-outline-primary,
+    &.btn-outline-danger {
+      border-width: 1px !important;
+    }
+    
+    // First button
+    &:first-child {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
+    
+    // Last button
+    &:last-child {
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+      margin-left: -1px !important;
+    }
+    
+    // Middle buttons (if any)
+    &:not(:first-child):not(:last-child) {
+      border-radius: 0 !important;
+      margin-left: -1px !important;
+    }
+  }
+}
+
+// Ensure action column doesn't wrap
+.actions-column {
+  white-space: nowrap !important;
+  width: 120px !important;
+  min-width: 120px !important;
+}
+
 // Pagination font sizes
 .pagination {
   .page-link {

@@ -286,6 +286,20 @@ export class AuthService {
     return this.http.post<ApiResponse>(`${environment.apiBaseUrl}/PasswordReset/resend-otp`, request);
   }
 
+  // Refresh the current user's token (useful when role changes)
+  refreshToken(): Observable<AuthResult> {
+    return this.http.post<AuthResult>(`${this.base}/refresh-token`, {}).pipe(
+      tap(result => {
+        if (result && result.token) {
+          localStorage.setItem('auth_token', result.token);
+          this._user.next(result);
+          // Re-check onboarding status with new role
+          this.checkOnboardingStatus();
+        }
+      })
+    );
+  }
+
   // New password change methods
   setInitialPassword(newPassword: string): Observable<{ message: string; token?: string; mustChangePassword?: boolean }> {
     return this.http.post<{ message: string; token?: string; mustChangePassword?: boolean }>(`${this.base}/set-initial-password`, { newPassword }).pipe(

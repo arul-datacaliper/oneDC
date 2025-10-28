@@ -1,14 +1,17 @@
-import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal } from '@angular/core';
+import { Component, computed, OnInit, OnDestroy, inject, HostListener, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
-import { AllocationService, EmployeeAllocationSummary } from '../../core/services/allocation.service';
+import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { Subscription, filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartData, ChartEvent, ChartType } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 export interface TimesheetEntry {
   date: string;
@@ -20,7 +23,7 @@ export interface TimesheetEntry {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BaseChartDirective],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -53,14 +56,153 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Employee allocation data
   employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
   allocationSearchTerm = signal('');
+  utilizationFilter = signal<string>('all'); // 'all', 'over100', 'full', '80-99', '50-79', 'under50', '0'
   displayedEmployeeCount = signal(10); // Initially show 10 employees
   selectedWeekStart = signal<string>('');
   selectedWeekEnd = signal<string>('');
   
+  // Project allocation data
+  projectAllocations = signal<AllocationSummary[]>([]);
+  projectSearchTerm = signal('');
+  
+  // Chart configuration for employee allocation
+  showAllocationChart = signal(true); // Toggle between chart and table view
+  selectedAllocationFilter = signal<string>(''); // Track which pie segment was clicked
+  
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
+  
+  public pieChartOptions: ChartConfiguration<'doughnut'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: true,
+    aspectRatio: 1.2,
+    cutout: '60%', // Creates the donut hole
+    layout: {
+      padding: {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 30
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: {
+          padding: 15,
+          font: {
+            size: 12,
+            family: "'Inter', 'Segoe UI', sans-serif",
+            weight: 'bold'
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 15,
+          boxHeight: 15,
+          generateLabels: (chart) => {
+            const data = chart.data;
+            if (data.labels && data.datasets.length) {
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i] as number;
+                return {
+                  text: `${label}: ${value}`,
+                  fillStyle: (data.datasets[0].backgroundColor as string[])[i],
+                  hidden: false,
+                  index: i,
+                  pointStyle: 'circle'
+                };
+              });
+            }
+            return [];
+          }
+        }
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 12,
+        boxHeight: 12,
+        boxPadding: 6,
+        callbacks: {
+          label: (context) => {
+            const label = context.label || '';
+            const value = context.parsed;
+            const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return `${label}: ${value} employees (${percentage}%)`;
+          }
+        }
+      },
+      datalabels: {
+        display: false // Hide percentage labels on chart segments
+      }
+    },
+    onClick: (event: ChartEvent, activeElements: any[]) => {
+      if (activeElements.length > 0) {
+        const index = activeElements[0].index;
+        const filterMap = ['over100', 'full', '80-99', '50-79', 'under50', '0'];
+        const selectedFilter = filterMap[index];
+        this.onPieChartClick(selectedFilter);
+      }
+    }
+  };
+
+  public pieChartData: ChartData<'doughnut', number[], string> = {
+    labels: [],
+    datasets: [{
+      data: [],
+      backgroundColor: [
+        'rgba(220, 53, 69, 0.85)',   // Red for over 100%
+        'rgba(25, 135, 84, 0.85)',   // Green for 100%
+        'rgba(13, 202, 240, 0.85)',  // Cyan for 80-99%
+        'rgba(255, 193, 7, 0.85)',   // Yellow for 50-79%
+        'rgba(255, 152, 0, 0.85)',   // Orange for under 50%
+        'rgba(0, 150, 136, 0.85)'    // Teal for 0%
+      ],
+      borderColor: '#ffffff',
+      borderWidth: 3,
+      hoverOffset: 15,
+      hoverBorderWidth: 4,
+      hoverBorderColor: '#ffffff'
+    }]
+  };
+
+  public pieChartPlugins = [ChartDataLabels];
+
+  public pieChartType = 'doughnut' as const;
+  
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
-    const allEmployees = this.employeeAllocations();
+    const filter = this.utilizationFilter();
+    let allEmployees = this.employeeAllocations();
     
+    // Apply utilization filter first
+    if (filter !== 'all') {
+      allEmployees = allEmployees.filter(emp => {
+        const utilization = emp.utilizationPercentage;
+        switch(filter) {
+          case 'over100': return utilization > 100; // Over-allocated
+          case 'full': return utilization === 100; // Fully utilized
+          case '80-99': return utilization >= 80 && utilization < 100; // Well utilized
+          case '50-79': return utilization >= 50 && utilization < 80; // Moderately utilized
+          case 'under50': return utilization > 0 && utilization < 50; // Under-utilized
+          case '0': return utilization === 0; // Not allocated
+          default: return true;
+        }
+      });
+    }
+    
+    // Apply search filter
     if (searchTerm) {
       // When searching, return all matching results
       return allEmployees.filter(emp => 
@@ -69,8 +211,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
       );
     }
     
-    // When not searching, return only the displayed count
+    // When utilization filter is active (not 'all'), show all filtered results
+    if (filter !== 'all') {
+      return allEmployees;
+    }
+    
+    // When not searching or filtering, return only the displayed count
     return allEmployees.slice(0, this.displayedEmployeeCount());
+  });
+  
+  filteredProjectAllocations = computed(() => {
+    const searchTerm = this.projectSearchTerm().toLowerCase();
+    const allProjects = this.projectAllocations();
+    
+    if (searchTerm) {
+      return allProjects.filter(project => 
+        project.projectName.toLowerCase().includes(searchTerm) ||
+        project.projectId.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return allProjects;
   });
 
   // Loading states
@@ -203,9 +364,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedWeekEnd.set(weekEnd.toISOString().split('T')[0]);
     }
 
+    // Load both employee and project allocations
     this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
       next: (allocations: EmployeeAllocationSummary[]) => {
         this.employeeAllocations.set(allocations);
+        this.updatePieChartData(); // Update chart data when allocations are loaded
         this.isLoadingAllocations = false;
       },
       error: (error: any) => {
@@ -213,6 +376,80 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isLoadingAllocations = false;
       }
     });
+    
+    // Load project allocations
+    this.loadProjectAllocations(weekStartDate);
+  }
+  
+  private loadProjectAllocations(weekStartDate?: string) {
+    const startDate = weekStartDate || this.selectedWeekStart();
+    
+    this.allocationService.getProjectAllocationSummary(startDate).subscribe({
+      next: (allocations: AllocationSummary[]) => {
+        this.projectAllocations.set(allocations);
+      },
+      error: (error: any) => {
+        console.error('Error loading project allocations:', error);
+      }
+    });
+  }
+  
+  // Update pie chart data based on employee allocations
+  private updatePieChartData() {
+    const allocations = this.employeeAllocations();
+    
+    const over100 = allocations.filter(emp => emp.utilizationPercentage > 100).length;
+    const full = allocations.filter(emp => emp.utilizationPercentage === 100).length;
+    const range80to99 = allocations.filter(emp => emp.utilizationPercentage >= 80 && emp.utilizationPercentage < 100).length;
+    const range50to79 = allocations.filter(emp => emp.utilizationPercentage >= 50 && emp.utilizationPercentage < 80).length;
+    const under50 = allocations.filter(emp => emp.utilizationPercentage > 0 && emp.utilizationPercentage < 50).length;
+    const zero = allocations.filter(emp => emp.utilizationPercentage === 0).length;
+    
+    this.pieChartData = {
+      labels: ['Over 100%', '100%', '80-99%', '50-79%', 'Under 50%', '0%'],
+      datasets: [{
+        data: [over100, full, range80to99, range50to79, under50, zero],
+        backgroundColor: [
+          'rgba(220, 53, 69, 0.8)',   // Red for over 100%
+          'rgba(25, 135, 84, 0.8)',   // Green for 100%
+          'rgba(13, 202, 240, 0.8)',  // Cyan for 80-99%
+          'rgba(255, 193, 7, 0.8)',   // Yellow for 50-79%
+          'rgba(255, 193, 7, 0.6)',   // Light yellow for under 50%
+          'rgba(0, 150, 136, 0.8)'    // Teal for 0%
+        ],
+        borderColor: [
+          'rgba(220, 53, 69, 1)',
+          'rgba(25, 135, 84, 1)',
+          'rgba(13, 202, 240, 1)',
+          'rgba(255, 193, 7, 1)',
+          'rgba(255, 193, 7, 0.8)',
+          'rgba(0, 150, 136, 1)'
+        ],
+        borderWidth: 2
+      }]
+    };
+    
+    // Update the chart if it exists
+    if (this.chart) {
+      this.chart.update();
+    }
+  }
+  
+  // Handle pie chart segment click
+  onPieChartClick(filterType: string) {
+    this.selectedAllocationFilter.set(filterType);
+    this.showAllocationChart.set(false);
+    this.utilizationFilter.set(filterType);
+    this.displayedEmployeeCount.set(1000); // Show all filtered employees
+  }
+  
+  // Go back to chart view
+  backToChartView() {
+    this.showAllocationChart.set(true);
+    this.selectedAllocationFilter.set('');
+    this.utilizationFilter.set('all');
+    this.allocationSearchTerm.set('');
+    this.displayedEmployeeCount.set(10);
   }
 
   private loadEmployeeDashboard() {
@@ -567,6 +804,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onAllocationSearch(searchTerm: string): void {
     this.allocationSearchTerm.set(searchTerm);
   }
+  
+  // Project allocation methods
+  onProjectSearch(searchTerm: string): void {
+    this.projectSearchTerm.set(searchTerm);
+  }
+
+  onUtilizationFilterChange(filter: string): void {
+    this.utilizationFilter.set(filter);
+    this.displayedEmployeeCount.set(10); // Reset to show first 10 when filter changes
+  }
+
+  getUtilizationFilterCount(filter: string): number {
+    const allEmployees = this.employeeAllocations();
+    
+    switch(filter) {
+      case 'all': 
+        return allEmployees.length;
+      case 'over100': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 100).length;
+      case 'full': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 100).length;
+      case '80-99': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 80 && emp.utilizationPercentage < 100).length;
+      case '50-79': 
+        return allEmployees.filter(emp => emp.utilizationPercentage >= 50 && emp.utilizationPercentage < 80).length;
+      case 'under50': 
+        return allEmployees.filter(emp => emp.utilizationPercentage > 0 && emp.utilizationPercentage < 50).length;
+      case '0': 
+        return allEmployees.filter(emp => emp.utilizationPercentage === 0).length;
+      default: 
+        return 0;
+    }
+  }
 
   onAllocationScroll(event: Event): void {
     const element = event.target as HTMLElement;
@@ -597,7 +867,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   hasMoreEmployeesToLoad(): boolean {
-    return this.displayedEmployeeCount() < this.employeeAllocations().length && !this.allocationSearchTerm();
+    // Check if there are more employees to load based on current filters
+    if (this.allocationSearchTerm() || this.utilizationFilter() !== 'all') {
+      // When filtering or searching, all results are already shown
+      return false;
+    }
+    return this.displayedEmployeeCount() < this.employeeAllocations().length;
   }
 
   getUtilizationPercentageClass(percentage: number): string {
@@ -612,6 +887,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   trackByEmployeeId(index: number, employee: EmployeeAllocationSummary): string {
     return employee.userId;
+  }
+  
+  trackByProjectId(index: number, project: AllocationSummary): string {
+    return project.projectId;
   }
 
   // Week navigation for allocations

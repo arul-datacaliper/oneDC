@@ -66,7 +66,7 @@
                     </div>
                     <div class="col-md-6 mb-3">
                       <label class="form-label fw-bold text-muted">Email Address</label>
-                      <p class="mb-0 fs-6">{{ getCurrentUser()?.email }}</p>
+                      <p class="mb-0 fs-6">{{ getDisplayEmail() }}</p>
                     </div>
                     <div class="col-md-6 mb-3">
                       <label class="form-label fw-bold text-muted">Department</label>
@@ -92,10 +92,10 @@
                       <label class="form-label fw-bold text-muted">Role</label>
                       <p class="mb-0 fs-6">
                         <span class="badge" 
-                              [class.bg-warning]="getCurrentUser()?.role === 'ADMIN'" 
-                              [class.bg-info]="getCurrentUser()?.role === 'APPROVER'"
-                              [class.bg-primary]="getCurrentUser()?.role === 'EMPLOYEE'">
-                          {{ getCurrentUser()?.role }}
+                              [class.bg-warning]="getDisplayRole() === 'ADMIN'" 
+                              [class.bg-info]="getDisplayRole() === 'APPROVER'"
+                              [class.bg-primary]="getDisplayRole() === 'EMPLOYEE'">
+                          {{ getDisplayRole() }}
                         </span>
                       </p>
                     </div>

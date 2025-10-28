@@ -31,58 +31,6 @@
 
     <hr>
 
-    <!-- Admin Controls -->
-    <div *ngIf="isAdmin()" class="admin-controls mb-4">
-      <div class="d-flex align-items-center gap-3">
-        <div class="admin-badge">
-          <i class="bi bi-shield-check"></i>
-          <span>Admin View</span>
-        </div>
-        
-        <div class="filter-controls d-flex gap-3 align-items-center">
-          <div class="filter-group">
-            <label class="form-label small mb-1">View by Employee:</label>
-            <app-searchable-dropdown 
-              [ngModel]="selectedUserId()" 
-              (ngModelChange)="onUserSelectionChange($event)"
-              [options]="userOptions()"
-              placeholder="All employees"
-              [allowEmpty]="true"
-              emptyLabel="All employees"
-              noResultsText="No employees found"
-              [searchFields]="['label', 'searchableText']"
-              [style.minWidth.px]="200">
-            </app-searchable-dropdown>
-          </div>
-          
-          <div class="filter-separator">OR</div>
-          
-          <div class="filter-group">
-            <label class="form-label small mb-1">View by Project:</label>
-            <app-searchable-dropdown 
-              [ngModel]="selectedProjectId()" 
-              (ngModelChange)="onProjectFilterChange($event)"
-              [options]="projectFilterOptions()"
-              placeholder="All projects"
-              [allowEmpty]="true"
-              emptyLabel="All projects"
-              noResultsText="No projects found"
-              [searchFields]="['label', 'searchableText']"
-              [style.minWidth.px]="200">
-            </app-searchable-dropdown>
-          </div>
-          
-          <button type="button" class="btn btn-outline-secondary btn-sm" 
-                  (click)="clearFilters()" 
-                  title="Clear all filters"
-                  [disabled]="!selectedUserId() && !selectedProjectId()">
-            <i class="bi bi-x-circle"></i> Clear
-          </button>
-        </div>
-      </div>
-      <hr class="mt-3">
-    </div>
-
     <div class="new-row">
       <div class="title">
         <i class="bi bi-plus-circle-fill"></i> New entry
@@ -166,7 +114,8 @@
         </div>
 
         <div class="col-md-1">
-          <button type="button" class="btn btn-primary w-100" (click)="addRow()" [disabled]="submitting()">
+          <button type="button" class="btn btn-primary w-100" (click)="addRow()" 
+                  [disabled]="submitting()">
             <span *ngIf="submitting()" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
             <i *ngIf="!submitting()" class="bi bi-plus-circle"></i> 
             {{ submitting() ? 'Adding...' : 'Add' }}
@@ -214,7 +163,7 @@
           <tr *ngFor="let g of items.controls; let i = index" [class.editing-row]="isRowInEditMode(i)">
             <td>{{ g.get('workDate')!.value }}</td>
             <td>
-              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value) }}</code>
+              <code class="text-dark">{{ projectLabel(g.get('projectId')!.value, g.get('description')!.value) }}</code>
             </td>
             <td>
               <!-- Display mode: Show as text input (read-only) -->

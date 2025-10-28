@@ -364,7 +364,7 @@
               <small class="text-muted">Total Utilized Hours</small>
             </div>
             <div class="col-md-3">
-              <div class="fw-bold" [class.text-danger]="getUtilizationPercentage() > 100" [class.text-warning]="getUtilizationPercentage() > 80 && getUtilizationPercentage() <= 100" [class.text-success]="getUtilizationPercentage() <= 80">{{ getUtilizationPercentage() }}%</div>
+              <div class="fw-bold fs-5" [class.text-danger]="getUtilizationPercentage() > 100" [class.text-warning]="getUtilizationPercentage() > 80 && getUtilizationPercentage() <= 100" [class.text-success]="getUtilizationPercentage() <= 80">{{ getUtilizationPercentage() }}%</div>
               <small class="text-muted">Capacity Utilization</small>
             </div>
           </div>
@@ -434,11 +434,11 @@
      tabindex="-1" role="dialog" [attr.aria-hidden]="!showCreateModal()">
   <div class="modal-dialog modal-xl" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title mb-0">
           {{ editingAllocation() ? 'Edit Allocation' : 'Create New Allocation' }}
         </h5>
-        <button type="button" class="btn-close" (click)="closeModal()"></button>
+        <button type="button" class="btn-close" (click)="closeModal()" aria-label="Close"></button>
       </div>
       <form [formGroup]="allocationForm" (ngSubmit)="onSubmit()">
         <div class="modal-body">
@@ -497,7 +497,7 @@
                   [disabled]="!!editingAllocation()"
                   (change)="onWeekEndDateChange($any($event.target).value)">
                 <div class="form-text">
-                  <small class="text-muted">Auto-calculated, but editable if needed</small>
+                  <small class="text-muted">Editable if needed</small>
                 </div>
                 <div class="invalid-feedback d-block" 
                      *ngIf="allocationForm.get('weekEndDate')?.invalid && allocationForm.get('weekEndDate')?.touched">
@@ -538,11 +538,21 @@
 
           <!-- Project Members Information -->
           <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length > 0" class="mb-4">
-            <div class="alert alert-success d-flex align-items-start">
+            <!-- For Employees -->
+            <div *ngIf="isEmployee()" class="alert alert-info d-flex align-items-center">
+              <i class="bi bi-info-circle me-2"></i>
+              <div class="flex-grow-1">
+                <strong>Project Selected</strong>
+                <p class="mb-0">You have been auto-selected for this allocation. Please enter your allocation hours below.</p>
+              </div>
+            </div>
+            
+            <!-- For Approvers/Admins -->
+            <div *ngIf="!isEmployee()" class="alert alert-success d-flex align-items-start">
               <i class="bi bi-people-fill me-2 mt-1"></i>
               <div class="flex-grow-1">
-                <strong>Project Team Members Auto-Added!</strong>
-                <p class="mb-2">{{ projectMembers().length }} team members have been automatically added to the allocation:</p>
+                <strong>Project Team Members</strong>
+                <p class="mb-2">{{ projectMembers().length }} team members have been added to the allocation:</p>
                 <div class="row g-2">
                   <div class="col-md-12">
                     <ul class="mb-0 mt-1">
@@ -576,7 +586,7 @@
           <div *ngIf="!editingAllocation()" class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h6 class="mb-0">Employee Allocations</h6>
-              <div class="d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center gap-3" *ngIf="!isEmployee()">
                 <button 
                   *ngIf="allocationForm.get('projectId')?.value && projectMembers().length > 0"
                   type="button" 
@@ -612,9 +622,10 @@
                 <thead class="table-light">
                   <tr>
                     <th>Employee Name</th>
+                    <th *ngIf="!isMultiMonthWeek()" style="width: 280px;">Weekly Capacity</th>
                     <th *ngIf="isMultiMonthWeek()">Period</th>
                     <th style="width: 200px;">Allocated Hours</th>
-                    <th style="width: 100px;" class="text-center">Actions</th>
+                    <th *ngIf="!isEmployee()" style="width: 100px;" class="text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -625,15 +636,28 @@
                         <div class="fw-medium">{{ employee.userName }}</div>
                       </td>
                       <td>
+                        <div class="d-flex align-items-center">
+                          <i class="bi bi-calendar-week text-primary me-2"></i>
+                          <div>
+                            <small class="text-muted d-block">{{ getFormattedCapacity(employee.userId) }}</small>
+                            <small class="text-info" [title]="getCapacityDetails(employee.userId)" style="cursor: help;">
+                              <i class="bi bi-info-circle me-1"></i>Details
+                            </small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
                         <input 
                           type="number" 
                           class="form-control" 
                           [value]="employee.allocatedHours"
                           (input)="updateEmployeeHours(employee.userId, +$any($event.target).value)"
-                          min="0" 
+                          min="0"
+                          max="67.5"
+                          step="0.5" 
                           placeholder="Hours">
                       </td>
-                      <td class="text-center">
+                      <td *ngIf="!isEmployee()" class="text-center">
                         <button 
                           type="button" 
                           class="btn btn-sm btn-outline-danger"
@@ -651,7 +675,12 @@
                       <tr *ngFor="let period of monthPeriods(); let periodIndex = index; trackBy: trackByPeriodIndex" 
                           [class.table-secondary]="periodIndex === 0">
                         <td>
-                          <div class="fw-medium" *ngIf="periodIndex === 0">{{ employee.userName }}</div>
+                          <div *ngIf="periodIndex === 0">
+                            <div class="fw-medium">{{ employee.userName }}</div>
+                            <small class="text-muted d-block mt-1">
+                              <i class="bi bi-calendar-week text-primary me-1"></i>{{ getFormattedCapacity(employee.userId) }}
+                            </small>
+                          </div>
                           <div *ngIf="periodIndex > 0" class="text-muted" style="padding-left: 20px;">└─ Additional Period</div>
                         </td>
                         <td>
@@ -668,7 +697,7 @@
                             placeholder="Hours">
                           <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 63) }} hours</div>
                         </td>
-                        <td class="text-center">
+                        <td *ngIf="!isEmployee()" class="text-center">
                           <button 
                             *ngIf="periodIndex === 0"
                             type="button" 
@@ -697,21 +726,36 @@
             <h6 class="mb-3">Employee Allocation</h6>
             <div class="card">
               <div class="card-body">
-                <div class="row align-items-center">
-                  <div class="col-md-6">
-                    <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
-                    <small class="text-muted">Employee</small>
+                <div class="row">
+                  <div class="col-md-12 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
+                        <small class="text-muted">Employee</small>
+                      </div>
+                      <div class="text-end">
+                        <small class="text-muted d-block">
+                          <i class="bi bi-calendar-week text-primary me-1"></i>
+                          {{ getFormattedCapacity(selectedEmployeeAllocations()[0].userId) }}
+                        </small>
+                        <small class="text-info" [title]="getCapacityDetails(selectedEmployeeAllocations()[0].userId)" style="cursor: help;">
+                          <i class="bi bi-info-circle me-1"></i>View Details
+                        </small>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-md-6">
+                  <div class="col-md-12">
                     <label class="form-label">Allocated Hours</label>
                     <input 
                       type="number" 
                       class="form-control" 
                       [value]="selectedEmployeeAllocations()[0].allocatedHours"
                       (input)="updateEmployeeHours(selectedEmployeeAllocations()[0].userId, +$any($event.target).value)"
-                      min="0" 
+                      min="0"
+                      max="67.5"
+                      step="0.5" 
                       placeholder="Hours">
-                    <div class="form-text">Enter allocation hours for this employee</div>
+                    <div class="form-text">Enter allocation hours for this employee (max 67.5 hours)</div>
                   </div>
                 </div>
               </div>
@@ -738,12 +782,12 @@
      tabindex="-1" role="dialog" [attr.aria-hidden]="!showExportModal()">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title mb-0">
           <i class="bi bi-download me-2"></i>
           Export Allocations
         </h5>
-        <button type="button" class="btn-close" (click)="closeExportModal()"></button>
+        <button type="button" class="btn-close" (click)="closeExportModal()" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <!-- Quick Period Selection -->

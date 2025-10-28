@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } 
 import { LeaveService, LeaveRequest, LeaveRequestCreate, LeaveBalance } from '../../core/services/leave.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
+import { HolidayService, Holiday } from '../../core/services/holiday.service';
 
 @Component({
   selector: 'app-leave-management',
@@ -26,8 +27,11 @@ export class LeaveManagementComponent implements OnInit {
   selectedEmployeeId = signal<string | null>(null);
   employeeLeaveRequests = signal<LeaveRequest[]>([]);
   
+  // Holidays
+  holidays = signal<Holiday[]>([]);
+  
   // UI state
-  activeTab = signal<'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records'>('my-leaves');
+  activeTab = signal<'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records' | 'holidays'>('my-leaves');
   showLeaveForm = signal(false);
   editingLeave = signal<LeaveRequest | null>(null);
 
@@ -43,7 +47,8 @@ export class LeaveManagementComponent implements OnInit {
     private leaveService: LeaveService,
     private authService: AuthService,
     private fb: FormBuilder,
-    private confirmationDialogService: ConfirmationDialogService
+    private confirmationDialogService: ConfirmationDialogService,
+    private holidayService: HolidayService
   ) {
     this.leaveForm = this.fb.group({
       startDate: ['', [Validators.required]],
@@ -115,6 +120,7 @@ export class LeaveManagementComponent implements OnInit {
       await this.loadMyLeaveRequests();
       await this.loadLeaveTypes();
       await this.loadLeaveBalance();
+      await this.loadHolidays();
 
       // Load approvals if user is approver or admin
       if (this.isApprover() || this.isAdmin()) {
@@ -194,6 +200,18 @@ export class LeaveManagementComponent implements OnInit {
     }
   }
 
+  async loadHolidays() {
+    try {
+      console.log('LeaveManagement: Loading holidays...');
+      const holidays = await this.holidayService.getCurrentYearHolidays().toPromise();
+      this.holidays.set(holidays || []);
+      console.log('LeaveManagement: Holidays loaded:', holidays);
+    } catch (error) {
+      console.error('LeaveManagement: Error loading holidays:', error);
+      this.holidays.set([]);
+    }
+  }
+
   private calculateLeaveBalanceLocally() {
     const currentUser = this.currentUser();
     if (!currentUser) {
@@ -263,7 +281,7 @@ export class LeaveManagementComponent implements OnInit {
     }
   }
 
-  setActiveTab(tab: 'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records') {
+  setActiveTab(tab: 'my-leaves' | 'apply-leave' | 'approvals' | 'employee-records' | 'holidays') {
     this.activeTab.set(tab);
     if (tab === 'apply-leave') {
       this.showLeaveForm.set(true);
@@ -283,6 +301,11 @@ export class LeaveManagementComponent implements OnInit {
     // Load employee list when accessing employee records tab
     if (tab === 'employee-records' && this.isAdmin()) {
       this.loadEmployeeList();
+    }
+
+    // Reload holidays when accessing holidays tab
+    if (tab === 'holidays') {
+      this.loadHolidays();
     }
   }
 
@@ -516,7 +539,12 @@ export class LeaveManagementComponent implements OnInit {
       reason: 'Reason',
       halfDayPeriod: 'Half Day Period'
     };
-    return displayNames[fieldName] || fieldName;
+    return displayNames[fieldName] || this.capitalizeFirstLetter(fieldName);
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
   // Helper methods for leave balance display
@@ -570,5 +598,49 @@ export class LeaveManagementComponent implements OnInit {
     
     const requestedDays = this.calculateRequestedDays();
     return requestedDays > balance.remainingDays;
+  }
+
+  // Holiday helper methods
+  formatHolidayDate(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } catch (error) {
+      return dateString;
+    }
+  }
+
+  getMonthName(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'long' });
+    } catch (error) {
+      return '';
+    }
+  }
+
+  groupHolidaysByMonth(): { month: string; holidays: Holiday[] }[] {
+    const holidayList = this.holidays();
+    const grouped = new Map<string, Holiday[]>();
+
+    holidayList.forEach(holiday => {
+      const month = this.getMonthName(holiday.holidayDate);
+      if (!grouped.has(month)) {
+        grouped.set(month, []);
+      }
+      grouped.get(month)!.push(holiday);
+    });
+
+    return Array.from(grouped.entries()).map(([month, holidays]) => ({
+      month,
+      holidays: holidays.sort((a, b) => 
+        new Date(a.holidayDate).getTime() - new Date(b.holidayDate).getTime()
+      )
+    }));
   }
 }

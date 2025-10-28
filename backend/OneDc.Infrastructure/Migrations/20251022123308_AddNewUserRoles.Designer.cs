@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OneDc.Infrastructure;
@@ -11,9 +12,11 @@ using OneDc.Infrastructure;
 namespace OneDc.Infrastructure.Migrations
 {
     [DbContext(typeof(OneDcDbContext))]
-    partial class OneDcDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251022123308_AddNewUserRoles")]
+    partial class AddNewUserRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -810,7 +813,7 @@ namespace OneDc.Infrastructure.Migrations
                         .HasColumnType("numeric(4,2)")
                         .HasColumnName("hours");
 
-                    b.Property<Guid?>("ProjectId")
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
@@ -1193,6 +1196,7 @@ namespace OneDc.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
                         .HasConstraintName("fk_timesheet_entry_project_project_id");
 
                     b.HasOne("OneDc.Domain.Entities.ProjectTask", "Task")

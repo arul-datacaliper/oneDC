@@ -13,6 +13,7 @@ export interface ProjectCreateDto {
   clientId: string;
   code: string;
   name: string;
+  description?: string; // Add description field
   status: string;
   billable: boolean;
   defaultApprover?: string;
@@ -45,6 +46,7 @@ export interface ProjectResponseDto {
   clientId: string;
   code: string;
   name: string;
+  description?: string; // Add description field
   status: string;
   billable: boolean;
   defaultApprover?: string;

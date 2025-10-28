@@ -138,12 +138,15 @@ export class SearchableDropdownComponent implements ControlValueAccessor {
 
   // ControlValueAccessor implementation
   writeValue(value: any): void {
-    if (value) {
-      this.selectedOption = this.options.find(opt => opt.value === value) || null;
-      this.displayValue = this.selectedOption?.label || '';
-    } else {
+    // Handle empty string, null, or undefined as "no selection"
+    if (value === null || value === undefined || value === '') {
       this.selectedOption = null;
       this.displayValue = '';
+      this.searchText = '';
+    } else {
+      this.selectedOption = this.options.find(opt => opt.value === value) || null;
+      this.displayValue = this.selectedOption?.label || '';
+      this.searchText = '';
     }
   }
 
@@ -161,6 +164,12 @@ export class SearchableDropdownComponent implements ControlValueAccessor {
     this.displayValue = value;
     this.filteredOptions = this.filterOptions(value);
     this.showDropdown = true;
+    
+    // If user clears the input completely, clear the selection
+    if (!value || value.trim() === '') {
+      this.selectedOption = null;
+      this.onChange(null);
+    }
   }
 
   onInputFocus() {
@@ -176,17 +185,21 @@ export class SearchableDropdownComponent implements ControlValueAccessor {
   }
 
   selectOption(option: DropdownOption | null) {
+    const previousValue = this.selectedOption?.value;
     this.selectedOption = option;
     this.showDropdown = false;
     
     if (option) {
       this.displayValue = option.label;
+      // Always call onChange to ensure form control updates, even if same value
+      // This allows re-selecting the same project after creating an entry
       this.onChange(option.value);
     } else {
       this.displayValue = '';
       this.onChange(null);
     }
     
+    // Always emit selection change to notify parent components
     this.selectionChange.emit(option);
   }
 

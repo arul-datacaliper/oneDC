@@ -12,7 +12,7 @@ public class LockService : ILockService
 
     public async Task<LockResult> LockAsync(LockRequest req)
     {
-        if (req.From > req.To) throw new ArgumentException("from must be <= to");
+        if (req.From > req.To) throw new ArgumentException("From must be <= to");
         // Guard huge ranges (accidental lock of years)
         if ((req.To.ToDateTime(TimeOnly.MinValue) - req.From.ToDateTime(TimeOnly.MinValue)).TotalDays > 62)
             throw new ArgumentException("Range too large (max 62 days).");

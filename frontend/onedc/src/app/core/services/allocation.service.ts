@@ -48,6 +48,20 @@ export interface EmployeeAllocationSummary {
   utilizationPercentage: number;
 }
 
+export interface WeeklyCapacity {
+  userId: string;
+  userName: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  totalDays: number;
+  workingDays: number;
+  holidayDays: number;
+  leaveDays: number;
+  capacityHours: number;
+  leaveHours: number;
+  availableHours: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -103,6 +117,19 @@ export class AllocationService {
   // Get available employees for allocation
   getAvailableEmployees(): Observable<{userId: string, userName: string, role: string}[]> {
     return this.http.get<{userId: string, userName: string, role: string}[]>(`${this.apiUrl}/available-employees`);
+  }
+
+  // Get weekly capacity for users (considering approved leaves and holidays)
+  getWeeklyCapacity(weekStartDate: string, weekEndDate: string, userIds?: string[]): Observable<WeeklyCapacity[]> {
+    let params = new HttpParams()
+      .set('weekStartDate', weekStartDate)
+      .set('weekEndDate', weekEndDate);
+    
+    if (userIds && userIds.length > 0) {
+      params = params.set('userIds', userIds.join(','));
+    }
+    
+    return this.http.get<WeeklyCapacity[]>(`${this.apiUrl}/weekly-capacity`, { params });
   }
 
   // Export allocations to CSV

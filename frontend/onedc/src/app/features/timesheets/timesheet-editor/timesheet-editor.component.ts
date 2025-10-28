@@ -8,6 +8,8 @@ import { ProjectsService } from '../../../core/services/projects.service';
 import { TasksService, ProjectTask } from '../../../core/services/tasks.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { UsersService, AppUser } from '../../../core/services/users.service';
+import { HolidayService, Holiday } from '../../../core/services/holiday.service';
+import { LeaveService, LeaveRequest } from '../../../core/services/leave.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
@@ -42,15 +44,59 @@ export class TimesheetEditorComponent implements OnInit {
   private tasksSvc = inject(TasksService);
   private authSvc = inject(AuthService);
   private usersSvc = inject(UsersService);
+  private holidaySvc = inject(HolidayService);
+  private leaveSvc = inject(LeaveService);
   
   tasks = signal<ProjectTask[]>([]);
   private tasksByProject: Record<string, ProjectTask[]> = {};
+  
+  // Holidays and leaves for the selected date
+  holidays = signal<Holiday[]>([]);
+  approvedLeaves = signal<LeaveRequest[]>([]);
+  currentDateHoliday = computed<Holiday | null>(() => {
+    const selectedDate = this.selectedDate();
+    return this.holidays().find(h => h.holidayDate === selectedDate) || null;
+  });
+  currentDateLeaves = computed<LeaveRequest[]>(() => {
+    const selectedDate = this.selectedDate();
+    const currentUser = this.authSvc.getCurrentUser();
+    
+    return this.approvedLeaves().filter(leave => {
+      // Only show leaves for the current user (no admin filtering)
+      const isTargetUser = leave.employeeId === currentUser?.userId;
+      
+      // Check if the selected date falls within the leave period
+      // Extract just the date part (YYYY-MM-DD) from ISO format
+      const leaveStartDate = leave.startDate.substring(0, 10);
+      const leaveEndDate = leave.endDate.substring(0, 10);
+      
+      // For date comparison, need to handle if backend sends endDate as next day at 00:00:00
+      // Create Date objects for proper comparison
+      const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+      const startDateObj = new Date(leaveStartDate + 'T00:00:00');
+      const endDateObj = new Date(leaveEndDate + 'T00:00:00');
+      
+      // If endDate time is 00:00:00, it likely means end of previous day
+      // Check if original endDate has time component
+      const hasTimeComponent = leave.endDate.includes('T');
+      const endDateTime = hasTimeComponent ? leave.endDate.split('T')[1] : '';
+      const isEndDateMidnight = endDateTime.startsWith('00:00:00');
+      
+      // Adjust end date if it's midnight (subtract 1 day)
+      if (hasTimeComponent && isEndDateMidnight) {
+        endDateObj.setDate(endDateObj.getDate() - 1);
+      }
+      
+      return isTargetUser && 
+             leave.status === 'Approved' && 
+             selectedDateObj >= startDateObj && 
+             selectedDateObj <= endDateObj;
+    });
+  });
 
   // Admin functionality
   isAdmin = signal<boolean>(false);
   users = signal<AppUser[]>([]);
-  selectedUserId = signal<string | null>(null);
-  selectedProjectId = signal<string | null>(null);
   viewMode = signal<'own' | 'user' | 'project' | 'all'>('own');
 
   // Bootstrap-styled toast notification method
@@ -103,26 +149,6 @@ export class TimesheetEditorComponent implements OnInit {
     }));
     
     return options;
-  });
-
-  // Admin dropdown options
-  userOptions = computed<DropdownOption[]>(() => {
-    return this.users().map(user => ({
-      value: user.userId,
-      label: `${user.firstName} ${user.lastName} (${user.email})`,
-      searchableText: `${user.firstName} ${user.lastName} ${user.email}`.toLowerCase()
-    }));
-  });
-
-  projectFilterOptions = computed<DropdownOption[]>(() => {
-    return [
-      { value: '', label: 'All Projects', searchableText: 'all projects' },
-      ...this.projects().map(project => ({
-        value: project.projectId,
-        label: `${project.name} — ${project.client?.name || project.clientId}`,
-        searchableText: `${project.name} ${project.client?.name || project.clientId}`.toLowerCase()
-      }))
-    ];
   });
 
   // Task types for dropdown
@@ -179,20 +205,28 @@ export class TimesheetEditorComponent implements OnInit {
       
       this.selectedDate.set(newDateStr);
       this.load(); // Refresh entries for the new date
+      
+      // Auto-create holiday/leave entry after a short delay to ensure data is loaded
+      setTimeout(() => this.autoCreateHolidayOrLeaveEntry(), 100);
     }
   }
 
   // computed totals
   totalHours = computed(() => this.items.controls.reduce((sum, g) => sum + (+g.get('hours')!.value || 0), 0));
   
-  // Daily total for the selected date
+  // Daily total for the selected date (excluding holiday/leave entries for limit check)
   dailyTotal = computed(() => {
     const dateStr = this.selectedDate();
     
     // Calculate from the rows signal (actual data from backend) instead of form controls
     // This ensures we get the saved values, not the form values
+    // Exclude holiday/leave entries from the total for daily limit checking
     return this.rows()
-      .filter(row => row.workDate === dateStr)
+      .filter(row => 
+        row.workDate === dateStr && 
+        !row.description?.includes('Holiday') && 
+        !row.description?.includes('Leave')
+      )
       .reduce((sum, row) => sum + (row.hours || 0), 0);
   });
 
@@ -216,16 +250,28 @@ export class TimesheetEditorComponent implements OnInit {
     }
     
     this.loadProjects();
+    this.loadHolidays();
+    this.loadApprovedLeaves();
     this.load();
     this.updateNewRowDate();
     this.newRow.get('workDate')?.valueChanges.subscribe(newDate => {
       if (newDate && typeof newDate === 'string' && newDate !== this.selectedDate()) {
         this.selectedDate.set(newDate);
         this.load();
+        // Auto-create holiday/leave entry when date changes
+        setTimeout(() => this.autoCreateHolidayOrLeaveEntry(), 100);
       }
     });
     this.newRow.get('projectId')?.valueChanges.subscribe(pid => {
-      if (pid) this.loadTasksForProject(pid);
+      // Clear task selection when project changes
+      this.newRow.patchValue({ taskId: '' }, { emitEvent: false });
+      
+      if (pid) {
+        this.loadTasksForProject(pid);
+      } else {
+        // Clear tasks when no project is selected
+        this.tasks.set([]);
+      }
     });
   }
 
@@ -233,6 +279,96 @@ export class TimesheetEditorComponent implements OnInit {
     const selectedDateStr = this.selectedDate();
     // Use the UTC date string directly for the date input (YYYY-MM-DD format)
     this.newRow.patchValue({ workDate: selectedDateStr }, { emitEvent: false });
+    
+    // Auto-create entry for holiday or leave
+    this.autoCreateHolidayOrLeaveEntry();
+  }
+  
+  autoCreateHolidayOrLeaveEntry() {
+    const holiday = this.currentDateHoliday();
+    const leaves = this.currentDateLeaves();
+    const selectedDate = this.selectedDate();
+    
+    // Check if there's already a holiday/leave entry for this date
+    const existingEntry = this.rows().find(r => 
+      r.workDate === selectedDate && 
+      (r.description?.includes('Holiday') || r.description?.includes('Leave'))
+    );
+    
+    // If there's already an entry, clear the form and don't create duplicate
+    if (existingEntry) {
+      this.newRow.patchValue({
+        projectId: '',
+        taskId: '',
+        hours: 0,
+        description: '',
+        taskType: '',
+        ticketRef: ''
+      }, { emitEvent: false });
+      return;
+    }
+    
+    // Find "Internal" project for holidays/leaves, or use first available project as fallback
+    let projectForLeave = this.projects().find(p => 
+      p.code === 'INTERNAL' || p.name.toLowerCase().includes('internal')
+    );
+    
+    // If Internal project not found, use the first available project
+    if (!projectForLeave && this.projects().length > 0) {
+      projectForLeave = this.projects()[0];
+    }
+    
+    // Only proceed if we have a project
+    if (!projectForLeave) {
+      return;
+    }
+    
+    let description = '';
+    let shouldCreate = false;
+    
+    if (holiday) {
+      description = `Holiday - ${holiday.name}`;
+      shouldCreate = true;
+    } else if (leaves.length > 0) {
+      const leaveInfo = leaves.map(l => l.leaveType).join(', ');
+      description = `Leave - ${leaveInfo}`;
+      shouldCreate = true;
+    }
+    
+    // Automatically create the entry if it's a holiday or leave
+    if (shouldCreate) {
+      const dto = {
+        projectId: projectForLeave.projectId,
+        workDate: selectedDate,
+        hours: 9,
+        description: description,
+        ticketRef: undefined,
+        taskType: 0 as TaskType, // Development
+        taskId: undefined
+      };
+      
+      this.tsSvc.create(dto).subscribe({
+        next: (created: any) => {
+          this.showNotification(`${holiday ? 'Holiday' : 'Leave'} entry created automatically`, 'OK', { duration: 2000 });
+          // Reload to show the new entry
+          this.load();
+        },
+        error: (err) => {
+          console.error('Auto-create entry error:', err);
+          // Silently fail - user can still add manually if needed
+        }
+      });
+    } else {
+      // Clear the form for normal working days
+      this.newRow.patchValue({
+        projectId: '',
+        taskId: '',
+        hours: 0,
+        description: '',
+        taskType: '',
+        ticketRef: ''
+      }, { emitEvent: false });
+    }
   }
 
   loadProjects() {
@@ -257,27 +393,8 @@ export class TimesheetEditorComponent implements OnInit {
   load() {
     this.loading.set(true);
     
-    // Determine which service method to call based on admin status and selections
-    let timesheetObservable;
-    
-    if (this.isAdmin()) {
-      const selectedUserId = this.selectedUserId();
-      const selectedProjectId = this.selectedProjectId();
-      
-      if (selectedUserId) {
-        // Load timesheets for specific user
-        timesheetObservable = this.tsSvc.listForUser(selectedUserId, this.from(), this.to());
-      } else if (selectedProjectId) {
-        // Load timesheets for specific project (all users)
-        timesheetObservable = this.tsSvc.listForProject(selectedProjectId, this.from(), this.to());
-      } else {
-        // Load all timesheets
-        timesheetObservable = this.tsSvc.listAll(this.from(), this.to());
-      }
-    } else {
-      // Regular user - load their own timesheets
-      timesheetObservable = this.tsSvc.list(this.from(), this.to());
-    }
+    // Regular user - load their own timesheets
+    const timesheetObservable = this.tsSvc.list(this.from(), this.to());
     
     timesheetObservable.subscribe({
       next: (data: any[]) => {
@@ -357,6 +474,57 @@ export class TimesheetEditorComponent implements OnInit {
     });
   }
 
+  private loadHolidays(): void {
+    // Load holidays for current year
+    const currentYear = new Date().getFullYear();
+    const from = `${currentYear}-01-01`;
+    const to = `${currentYear}-12-31`;
+    
+    this.holidaySvc.getHolidays(from, to).subscribe({
+      next: (holidays) => {
+        this.holidays.set(holidays);
+      },
+      error: (error) => {
+        console.error('Error loading holidays:', error);
+        // Don't show error to user, just fail silently as it's not critical
+      }
+    });
+  }
+
+  private loadApprovedLeaves(): void {
+    const currentUser = this.authSvc.getCurrentUser();
+    if (!currentUser) return;
+    
+    // Load current user's leaves only (no admin filtering)
+    const leaveObservable = this.leaveSvc.getMyLeaveRequests();
+    
+    leaveObservable.subscribe({
+      next: (response: any) => {
+        // Handle different response structures
+        let leaves: LeaveRequest[] = [];
+        
+        if (Array.isArray(response)) {
+          leaves = response;
+        } else if (response && Array.isArray(response.data)) {
+          leaves = response.data;
+        } else if (response && Array.isArray(response.leaveRequests)) {
+          leaves = response.leaveRequests;
+        } else {
+          console.warn('Unexpected leave response format:', response);
+          leaves = [];
+        }
+        
+        // Filter only approved leaves
+        const approvedLeaves = leaves.filter(leave => leave.status === 'Approved');
+        this.approvedLeaves.set(approvedLeaves);
+      },
+      error: (error) => {
+        console.error('Error loading approved leaves:', error);
+        // Don't show error to user, just fail silently as it's not critical
+      }
+    });
+  }
+
   getTasksForProject(projectId: string | null | undefined): ProjectTask[] {
     if (!projectId) {
       return [];
@@ -369,10 +537,8 @@ export class TimesheetEditorComponent implements OnInit {
     
     const result = this.tasksByProject[cacheKey] || [];
     
-    // If this is for the currently selected project, update the signal to trigger reactivity
-    if (projectId === this.newRow.get('projectId')?.value && result.length > 0) {
-      this.tasks.set(result);
-    }
+    // Don't write to signals during template rendering - this causes NG0600 error
+    // The tasks signal is already set by loadTasksForProject when needed
     
     return result;
   }
@@ -426,24 +592,82 @@ export class TimesheetEditorComponent implements OnInit {
     
     const val = this.newRow.value;
     
+    // Check if this is a holiday or leave entry (by description or by date)
+    const isHolidayOrLeaveByDescription = val.description?.includes('Holiday') || val.description?.includes('Leave');
+    const isHolidayOrLeaveByDate = this.currentDateHoliday() !== null || this.currentDateLeaves().length > 0;
+    const isHolidayOrLeave = isHolidayOrLeaveByDescription || isHolidayOrLeaveByDate;
+    
     // validations
     const hours = Number(val.hours ?? 0);
-    if (!val.workDate || !val.projectId) {
-      this.showNotification('Select date and project', 'OK', { duration: 2000 });
+    if (!val.workDate) {
+      this.showNotification('Select date', 'OK', { duration: 2000 });
       return;
     }
+    
+    // Only require project if it's NOT a holiday/leave entry
+    if (!isHolidayOrLeave && !val.projectId) {
+      this.showNotification('Select project', 'OK', { duration: 2000 });
+      return;
+    }
+    
+    // Check for duplicate project+task combination for the same date
+    if (val.projectId) {
+      const existingEntries = this.rows();
+      const duplicateEntry = existingEntries.find(entry => 
+        entry.workDate === val.workDate && 
+        entry.projectId === val.projectId && 
+        entry.taskId === val.taskId
+      );
+      
+      if (duplicateEntry) {
+        const projectName = this.projects().find(p => p.projectId === val.projectId)?.name || 'this project';
+        const taskName = val.taskId ? 
+          this.getTasksForProject(val.projectId).find(t => t.taskId === val.taskId)?.title || 'this task' : 
+          'no task';
+        
+        this.showNotification(
+          `An entry already exists for ${projectName} with task "${taskName}" on this date. Please select a different task or edit the existing entry.`,
+          'OK',
+          { duration: 5000 }
+        );
+        return;
+      }
+    }
+    
+    // For holiday/leave, try to find and auto-select Internal project, but allow without it
+    if (isHolidayOrLeave && !val.projectId) {
+      const internalProject = this.projects().find(p => 
+        p.code === 'INTERNAL' || p.name.toLowerCase().includes('internal')
+      );
+      if (internalProject) {
+        this.newRow.patchValue({ projectId: internalProject.projectId }, { emitEvent: false });
+        val.projectId = internalProject.projectId;
+      }
+      // If Internal project not found, we'll use the first available project as fallback
+      if (!val.projectId && this.projects().length > 0) {
+        const fallbackProject = this.projects()[0];
+        this.newRow.patchValue({ projectId: fallbackProject.projectId }, { emitEvent: false });
+        val.projectId = fallbackProject.projectId;
+      }
+    }
+    
     if (hours < 0 || hours > 24) {
+      console.log('Validation failed: Hours out of range');
       this.showNotification('Hours must be between 0 and 24', 'OK', { duration: 2000 });
       return;
     }
     if (hours > 0 && !val.description?.trim()) {
+      console.log('Validation failed: Description required');
       this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
     if (val.taskType === null || val.taskType === undefined || val.taskType === '') {
+      console.log('Validation failed: Task type required');
       this.showNotification('Please select a task type', 'OK', { duration: 2000 });
       return;
     }
+    
+    console.log('All validations passed, creating entry');
 
     this.submitting.set(true); // Set submitting state
 
@@ -779,7 +1003,11 @@ export class TimesheetEditorComponent implements OnInit {
     return this.toUtcDateString(d);
   }
 
-  projectLabel(id: string) {
+  projectLabel(id: string, description?: string) {
+    // For holiday/leave entries, show dash instead of project
+    if (description && (description.includes('Holiday') || description.includes('Leave'))) {
+      return '—';
+    }
     const p = this.projects().find(x => x.projectId === id);
     return p ? `${p.name} — ${p.client?.name || p.clientId}` : id;
   }
@@ -853,33 +1081,14 @@ export class TimesheetEditorComponent implements OnInit {
     const isUserSpecific = !this.isAdmin() && currentUser?.userId;
     const cacheKey = isUserSpecific ? `${projectId}_${currentUser.userId}` : projectId;
     
-    // If tasks aren't loaded for this project yet, try to load them
+    // Don't load tasks during rendering - this causes NG0600 error
+    // Tasks should already be loaded when displaying existing entries
     if (!this.tasksByProject[cacheKey]) {
-      this.loadTasksForProject(projectId);
-      return 'Loading...';
+      return 'No task selected';
     }
     
     const tasks = this.getTasksForProject(projectId);
     const task = tasks.find(t => t.taskId === taskId);
     return task ? task.title : 'Task not found';
-  }
-
-  // Admin-specific methods
-  onUserSelectionChange(userId: string | null): void {
-    this.selectedUserId.set(userId);
-    this.selectedProjectId.set(null); // Clear project filter when user is selected
-    this.load(); // Reload data with new filter
-  }
-
-  onProjectFilterChange(projectId: string | null): void {
-    this.selectedProjectId.set(projectId);
-    this.selectedUserId.set(null); // Clear user filter when project is selected
-    this.load(); // Reload data with new filter
-  }
-
-  clearFilters(): void {
-    this.selectedUserId.set(null);
-    this.selectedProjectId.set(null);
-    this.load(); // Reload all data
   }
 }

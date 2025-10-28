@@ -8,6 +8,7 @@ import { EmployeesService } from '../../core/services/employees.service';
 import { OnboardingService, UserProfile, UserSkill } from '../../core/services/onboarding.service';
 import { Employee, UserRole, Gender, EmployeeType, Address } from '../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
+import { AuthService } from '../../core/services/auth.service';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -119,6 +120,30 @@ function phoneNumberValidator(): ValidatorFn {
   };
 }
 
+// Custom validator for zip codes (alphanumeric only, no special characters)
+function zipCodeValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.trim();
+    
+    // Allow only alphanumeric characters, spaces, and hyphens
+    // This covers formats like: 12345, 12345-6789, SW1A 1AA (UK), K1A 0B1 (Canada)
+    const zipCodePattern = /^[A-Za-z0-9\s\-]+$/;
+    
+    if (!zipCodePattern.test(value)) {
+      return { invalidZipCode: true };
+    }
+    
+    // Ensure it's not too long (most zip codes are under 10 characters)
+    if (value.length > 10) {
+      return { zipCodeTooLong: true };
+    }
+    
+    return null;
+  };
+}
+
 @Component({
   selector: 'app-employees',
   standalone: true,
@@ -129,6 +154,7 @@ function phoneNumberValidator(): ValidatorFn {
 export class EmployeesComponent implements OnInit {
   private employeesService = inject(EmployeesService);
   private onboardingService = inject(OnboardingService);
+  private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private toastr = inject(ToastrService);
@@ -174,7 +200,10 @@ export class EmployeesComponent implements OnInit {
   availableRoles = [
     { value: UserRole.EMPLOYEE, label: 'Employee' },
     { value: UserRole.APPROVER, label: 'Approver' },
-    { value: UserRole.ADMIN, label: 'Admin' }
+    { value: UserRole.ADMIN, label: 'Admin' },
+    { value: UserRole.INFRA, label: 'Infra' },
+    { value: UserRole.HR, label: 'HR' },
+    { value: UserRole.OPERATION, label: 'Operation' }
   ];
 
   availableGenders = [
@@ -244,7 +273,7 @@ export class EmployeesComponent implements OnInit {
         city: [''],
         state: [''],
         country: [''],
-        zipCode: ['']
+        zipCode: ['', [zipCodeValidator()]]
       }),
       permanentAddress: this.fb.group({
         addressLine1: [''],
@@ -252,7 +281,7 @@ export class EmployeesComponent implements OnInit {
         city: [''],
         state: [''],
         country: [''],
-        zipCode: ['']
+        zipCode: ['', [zipCodeValidator()]]
       })
     });
   }
@@ -578,6 +607,11 @@ export class EmployeesComponent implements OnInit {
           permanentZipCode: formValue.permanentAddress?.zipCode || ''
         };
 
+        // Check if we're updating the current logged-in user's role
+        const currentUser = this.authService.getCurrentUser();
+        const isUpdatingCurrentUser = currentUser && this.editingEmployee()!.userId === currentUser.userId;
+        const roleChanged = isUpdatingCurrentUser && this.editingEmployee()!.role !== formValue.role;
+
         this.employeesService.update(this.editingEmployee()!.userId, employeeData).subscribe({
           next: (updatedEmployee) => {
             const employees = this.employees();
@@ -587,8 +621,36 @@ export class EmployeesComponent implements OnInit {
               this.employees.set([...employees]);
               this.setupFiltering();
             }
+            this.loadEmployeeCounts(); // Update employee counts (in case status changed)
             this.toastr.success('Employee updated successfully');
             this.closeModal();
+
+            // If the current user's role was changed, refresh the token
+            if (roleChanged) {
+              this.toastr.info('Your role has been updated. Refreshing your session...', 'Role Updated', {
+                timeOut: 3000
+              });
+              
+              // Refresh the token to get updated role information
+              this.authService.refreshToken().subscribe({
+                next: () => {
+                  this.toastr.success('Session refreshed successfully. Your new permissions are now active.', 'Success', {
+                    timeOut: 3000
+                  });
+                  // Force a small delay to ensure the UI updates
+                  setTimeout(() => {
+                    // Optionally reload the current page to reflect new permissions
+                    window.location.reload();
+                  }, 1000);
+                },
+                error: (error) => {
+                  console.error('Error refreshing token:', error);
+                  this.toastr.warning('Please log out and log back in to see your new role permissions.', 'Session Refresh Failed', {
+                    timeOut: 5000
+                  });
+                }
+              });
+            }
           },
           error: (error) => {
             console.error('Error updating employee:', error);
@@ -636,6 +698,7 @@ export class EmployeesComponent implements OnInit {
           next: (newEmployee) => {
             this.employees.set([...this.employees(), newEmployee]);
             this.setupFiltering();
+            this.loadEmployeeCounts(); // Update employee counts
             this.toastr.success('Employee created successfully');
             this.closeModal();
           },
@@ -658,6 +721,7 @@ export class EmployeesComponent implements OnInit {
           const employees = this.employees().filter(e => e.userId !== employee.userId);
           this.employees.set(employees);
           this.setupFiltering();
+          this.loadEmployeeCounts(); // Update employee counts
           this.toastr.success('Employee deleted successfully');
         },
         error: (error) => {
@@ -687,6 +751,9 @@ export class EmployeesComponent implements OnInit {
       case UserRole.ADMIN: return 'badge bg-danger';
       case UserRole.APPROVER: return 'badge bg-warning';
       case UserRole.EMPLOYEE: return 'badge bg-info';
+      case UserRole.INFRA: return 'badge bg-primary';
+      case UserRole.HR: return 'badge bg-success';
+      case UserRole.OPERATION: return 'badge bg-secondary';
       default: return 'badge bg-secondary';
     }
   }
@@ -796,9 +863,9 @@ export class EmployeesComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.employeeForm.get(fieldName);
     if (field && field.errors) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
       if (field.errors['email']) return 'Please enter a valid email';
-      if (field.errors['minlength']) return `${fieldName} must be at least ${field.errors['minlength'].requiredLength} characters`;
+      if (field.errors['minlength']) return `${this.capitalizeFirstLetter(fieldName)} must be at least ${field.errors['minlength'].requiredLength} characters`;
       if (field.errors['futureDate']) return 'Date cannot be in the future';
       if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
       if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
@@ -806,6 +873,8 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['invalidPhoneNumber']) return 'Phone number can only contain digits, spaces, hyphens, parentheses, and +';
       if (field.errors['phoneNumberTooShort']) return 'Phone number must be at least 10 digits';
       if (field.errors['phoneNumberTooLong']) return 'Phone number cannot exceed 15 digits';
+      if (field.errors['invalidZipCode']) return 'Zip code can only contain letters, numbers, spaces, and hyphens';
+      if (field.errors['zipCodeTooLong']) return 'Zip code cannot exceed 10 characters';
     }
     return '';
   }
@@ -848,5 +917,10 @@ export class EmployeesComponent implements OnInit {
       }
     });
     return errors;
+  }
+
+  private capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }

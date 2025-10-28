@@ -21,6 +21,9 @@ public class TimesheetService : ITimesheetService
 
     public async Task<TimesheetEntry> CreateDraftAsync(Guid userId, TimesheetCreateDto dto)
     {
+        if (dto.ProjectId == Guid.Empty)
+            throw new ArgumentException("ProjectId is required.", nameof(dto.ProjectId));
+            
         ValidateHours(dto.Hours);
         RequireDescriptionIfHours(dto.Hours, dto.Description);
 

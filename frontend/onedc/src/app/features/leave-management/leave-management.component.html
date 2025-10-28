@@ -46,6 +46,15 @@
         {{ editingLeave() ? 'Edit Leave' : 'Apply for Leave' }}
       </button>
     </li>
+    <li class="nav-item">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab() === 'holidays'"
+        (click)="setActiveTab('holidays')">
+        <i class="bi bi-calendar-event me-2"></i>
+        Holidays
+      </button>
+    </li>
     <li class="nav-item" *ngIf="isApprover() || isAdmin()">
       <button 
         class="nav-link position-relative" 
@@ -551,6 +560,60 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holidays Tab -->
+  <div *ngIf="activeTab() === 'holidays'" class="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <div class="row align-items-center">
+          <div class="col-md-6">
+            <h5 class="mb-0">
+              <i class="bi bi-calendar-event me-2"></i>
+              Company Holidays {{ getCurrentYear() }}
+            </h5>
+          </div>
+          <div class="col-md-6 text-end">
+            <span class="badge bg-primary fs-6">{{ holidays().length }} Holiday{{ holidays().length !== 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div *ngIf="isLoading()" class="text-center p-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-2 mb-0">Loading holidays...</p>
+        </div>
+
+        <div *ngIf="!isLoading() && holidays().length === 0" class="text-center p-4">
+          <i class="bi bi-calendar-x text-muted fs-1"></i>
+          <p class="text-muted mt-2 mb-0">No holidays found for this year</p>
+        </div>
+
+        <div *ngIf="!isLoading() && holidays().length > 0" class="p-3">
+          <div *ngFor="let monthGroup of groupHolidaysByMonth()" class="mb-4">
+            <h6 class="text-primary mb-3">
+              <i class="bi bi-calendar3 me-2"></i>
+              {{ monthGroup.month }}
+            </h6>
+            <div class="list-group">
+              <div *ngFor="let holiday of monthGroup.holidays" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                  <div class="fw-bold">{{ holiday.name }}</div>
+                  <small class="text-muted">
+                    <i class="bi bi-calendar-date me-1"></i>
+                    {{ formatHolidayDate(holiday.holidayDate) }}
+                  </small>
+                </div>
+                <span class="badge bg-success rounded-pill">{{ holiday.region || 'IN' }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

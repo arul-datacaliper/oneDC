@@ -7,6 +7,7 @@ public class ProjectCreateDto
     public Guid ClientId { get; set; }
     public string Code { get; set; } = null!;
     public string Name { get; set; } = null!;
+    public string? Description { get; set; } // Add description field
     public string Status { get; set; } = "ACTIVE";
     public bool Billable { get; set; } = true;
     public Guid? DefaultApprover { get; set; }
@@ -35,6 +36,7 @@ public class ProjectResponseDto
     public Guid ClientId { get; set; }
     public string Code { get; set; } = null!;
     public string Name { get; set; } = null!;
+    public string? Description { get; set; } // Add description field
     public string Status { get; set; } = null!;
     public bool Billable { get; set; }
     public Guid? DefaultApprover { get; set; }
