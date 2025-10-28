@@ -31,6 +31,13 @@ export interface ApproverProjectSummary {
   openTasksCount: number;
   totalTasksCount: number;
   status: string;
+  // Detailed task status counts for stacked bar chart
+  newTasksCount: number;
+  inProgressTasksCount: number;
+  blockedTasksCount: number;
+  onHoldTasksCount: number;
+  completedTasksCount: number;
+  cancelledTasksCount: number;
 }
 
 @Component({
@@ -207,6 +214,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     scales: {
       x: {
         beginAtZero: true,
+        stacked: true, // Enable stacking on x-axis
         ticks: {
           stepSize: 1,
           font: {
@@ -218,6 +226,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       },
       y: {
+        stacked: true, // Enable stacking on y-axis
         grid: {
           display: false
         },
@@ -230,7 +239,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
     plugins: {
       legend: {
-        display: false
+        display: true, // Show legend for stacked chart
+        position: 'top',
+        labels: {
+          font: {
+            size: 11
+          },
+          padding: 15,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
       },
       tooltip: {
         enabled: true,
@@ -252,6 +270,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
             const label = context.dataset.label || '';
             const value = context.parsed.x;
             return `${label}: ${value}`;
+          },
+          footer: (tooltipItems) => {
+            // Calculate total tasks for the project
+            let total = 0;
+            tooltipItems.forEach(item => {
+              if (item.parsed.x !== null) {
+                total += item.parsed.x;
+              }
+            });
+            return `Total: ${total}`;
           }
         }
       },
@@ -620,8 +648,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   
   // Method to calculate dynamic chart height based on number of projects
   getChartHeight(): number {
-    const projectsWithTasks = this.approverProjects().filter(p => p.openTasksCount > 0).length;
-    return Math.max(400, projectsWithTasks * 40);
+    const projectsWithTasks = this.approverProjects().filter(p => p.totalTasksCount > 0).length;
+    // Add 80px for legend space, then 40px per project bar
+    return Math.max(450, 80 + (projectsWithTasks * 40));
   }
   
   private loadApproverProjects() {
@@ -649,7 +678,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
             utilizationPercentage: project.utilizationPercentage || 0,
             openTasksCount: 0,
             totalTasksCount: 0,
-            status: 'Active'
+            status: 'Active',
+            // Initialize detailed task status counts
+            newTasksCount: 0,
+            inProgressTasksCount: 0,
+            blockedTasksCount: 0,
+            onHoldTasksCount: 0,
+            completedTasksCount: 0,
+            cancelledTasksCount: 0
           };
         });
         
@@ -704,10 +740,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
             task.status !== 'COMPLETED' && task.status !== 'CANCELLED'
           ).length;
           
+          // Count tasks by specific status for stacked bar chart
+          const newTasks = tasks.filter(task => task.status === 'NEW').length;
+          const inProgressTasks = tasks.filter(task => task.status === 'IN_PROGRESS').length;
+          const blockedTasks = tasks.filter(task => task.status === 'BLOCKED').length;
+          const completedTasks = tasks.filter(task => task.status === 'COMPLETED').length;
+          const cancelledTasks = tasks.filter(task => task.status === 'CANCELLED').length;
+          
           return {
             ...project,
             openTasksCount: openTasks,
-            totalTasksCount: totalTasks
+            totalTasksCount: totalTasks,
+            newTasksCount: newTasks,
+            inProgressTasksCount: inProgressTasks,
+            blockedTasksCount: blockedTasks,
+            onHoldTasksCount: 0, // Not used in current TaskStatus type
+            completedTasksCount: completedTasks,
+            cancelledTasksCount: cancelledTasks
           };
         });
         
@@ -728,8 +777,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private updateBarChartData() {
     const projects = this.approverProjects();
     
-    // Filter projects with open tasks and sort by open tasks count (descending)
-    const projectsWithTasks = projects.filter(p => p.openTasksCount > 0);
+    // Filter projects with tasks and sort by total tasks count (descending)
+    const projectsWithTasks = projects.filter(p => p.totalTasksCount > 0)
+      .sort((a, b) => b.totalTasksCount - a.totalTasksCount);
     
     if (projectsWithTasks.length === 0) {
       // If no tasks data, show all projects by allocated hours instead
@@ -737,20 +787,53 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .sort((a, b) => b.totalAllocatedHours - a.totalAllocatedHours);
       
       this.barChartData.labels = allProjects.map(p => p.projectName);
-      this.barChartData.datasets[0].data = allProjects.map(p => p.totalAllocatedHours);
-      this.barChartData.datasets[0].label = 'Allocated Hours';
-      this.barChartData.datasets[0].backgroundColor = 'rgba(13, 110, 253, 0.7)';
-      this.barChartData.datasets[0].borderColor = 'rgba(13, 110, 253, 1)';
+      this.barChartData.datasets = [{
+        data: allProjects.map(p => p.totalAllocatedHours),
+        label: 'Allocated Hours',
+        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+        borderColor: 'rgba(13, 110, 253, 1)',
+        borderWidth: 1
+      }];
     } else {
-      // Sort by open tasks count (descending) and show ALL projects
-      const allProjectsWithTasks = projectsWithTasks
-        .sort((a, b) => b.openTasksCount - a.openTasksCount);
-      
-      this.barChartData.labels = allProjectsWithTasks.map(p => p.projectName);
-      this.barChartData.datasets[0].data = allProjectsWithTasks.map(p => p.openTasksCount);
-      this.barChartData.datasets[0].label = 'Open Tasks';
-      this.barChartData.datasets[0].backgroundColor = 'rgba(220, 53, 69, 0.7)';
-      this.barChartData.datasets[0].borderColor = 'rgba(220, 53, 69, 1)';
+      // Create stacked bar chart with multiple datasets for each task status
+      this.barChartData.labels = projectsWithTasks.map(p => p.projectName);
+      this.barChartData.datasets = [
+        {
+          data: projectsWithTasks.map(p => p.newTasksCount),
+          label: 'New',
+          backgroundColor: 'rgba(13, 110, 253, 0.8)',  // Blue
+          borderColor: 'rgba(13, 110, 253, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.inProgressTasksCount),
+          label: 'In Progress',
+          backgroundColor: 'rgba(255, 193, 7, 0.8)',  // Yellow/Orange
+          borderColor: 'rgba(255, 193, 7, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.blockedTasksCount),
+          label: 'Blocked',
+          backgroundColor: 'rgba(220, 53, 69, 0.8)',  // Red
+          borderColor: 'rgba(220, 53, 69, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.completedTasksCount),
+          label: 'Completed',
+          backgroundColor: 'rgba(25, 135, 84, 0.8)',  // Green
+          borderColor: 'rgba(25, 135, 84, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.cancelledTasksCount),
+          label: 'Cancelled',
+          backgroundColor: 'rgba(108, 117, 125, 0.8)',  // Gray
+          borderColor: 'rgba(108, 117, 125, 1)',
+          borderWidth: 1
+        }
+      ];
     }
     
     // Update chart if it exists
