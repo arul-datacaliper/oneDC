@@ -44,10 +44,13 @@ public class PasswordResetService : IPasswordResetService
             // Generate new OTP
             var otp = GenerateOtp();
             
+            // Hash the OTP before storing (security best practice)
+            var hashedOtp = HashOtp(otp);
+            
             var passwordReset = new PasswordReset
             {
                 UserId = user.UserId,
-                Otp = otp,
+                Otp = hashedOtp, // Store hashed version
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
                 IsUsed = false,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -55,7 +58,7 @@ public class PasswordResetService : IPasswordResetService
 
             await _passwordResetRepository.CreateAsync(passwordReset);
             
-            // Send email
+            // Send email with plain OTP (user receives unhashed version)
             var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, $"{user.FirstName} {user.LastName}", otp);
             
             if (!emailSent)
@@ -92,7 +95,8 @@ public class PasswordResetService : IPasswordResetService
                 return false;
             }
 
-            return passwordReset.IsValid && passwordReset.Otp == otp;
+            // Verify hashed OTP
+            return passwordReset.IsValid && VerifyOtp(otp, passwordReset.Otp);
         }
         catch (Exception ex)
         {
@@ -112,7 +116,13 @@ public class PasswordResetService : IPasswordResetService
             }
 
             var passwordReset = await _passwordResetRepository.GetActiveByUserIdAsync(user.UserId);
-            if (passwordReset == null || !passwordReset.IsValid || passwordReset.Otp != otp)
+            if (passwordReset == null || !passwordReset.IsValid)
+            {
+                return null;
+            }
+
+            // Verify OTP hash
+            if (!VerifyOtp(otp, passwordReset.Otp))
             {
                 return null;
             }
@@ -138,9 +148,16 @@ public class PasswordResetService : IPasswordResetService
             }
 
             var passwordReset = await _passwordResetRepository.GetActiveByUserIdAsync(user.UserId);
-            if (passwordReset == null || !passwordReset.IsValid || passwordReset.Otp != otp)
+            if (passwordReset == null || !passwordReset.IsValid)
             {
                 _logger.LogWarning("Invalid OTP for password reset. User: {UserId}", user.UserId);
+                return false;
+            }
+
+            // Verify hashed OTP
+            if (!VerifyOtp(otp, passwordReset.Otp))
+            {
+                _logger.LogWarning("OTP verification failed for user {UserId}", user.UserId);
                 return false;
             }
 
@@ -193,6 +210,26 @@ public class PasswordResetService : IPasswordResetService
         rng.GetBytes(bytes);
         var number = BitConverter.ToUInt32(bytes, 0);
         return (number % 1000000).ToString("D6");
+    }
+
+    /// <summary>
+    /// Hash OTP using SHA256 for secure storage
+    /// </summary>
+    private static string HashOtp(string otp)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(otp);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
+    }
+
+    /// <summary>
+    /// Verify plain OTP against hashed OTP
+    /// </summary>
+    private static bool VerifyOtp(string plainOtp, string hashedOtp)
+    {
+        var hashOfInput = HashOtp(plainOtp);
+        return hashOfInput == hashedOtp;
     }
 
     private static string HashPassword(string password)
