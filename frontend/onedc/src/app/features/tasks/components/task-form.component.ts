@@ -58,7 +58,10 @@ function dateRangeValidator(): ValidatorFn {
       </div>
       <div class="col-md-6">
         <label class="form-label">Estimated Hours</label>
-        <input type="number" step="0.25" class="form-control" formControlName="estimatedHours" [readonly]="mode === 'view'">
+        <input type="number" step="0.25" min="0" class="form-control" formControlName="estimatedHours" [readonly]="mode === 'view'" placeholder="Enter hours (e.g., 2.5)">
+        <div class="invalid-feedback" *ngIf="form.get('estimatedHours')?.invalid && form.get('estimatedHours')?.touched">
+          Estimated hours must be a positive number
+        </div>
       </div>
       <div class="col-md-6">
         <label class="form-label">Start Date</label>
@@ -146,7 +149,7 @@ export class TaskFormComponent implements OnChanges {
     description: [''],
     label: [''],
     assignedUserId: [''],
-    estimatedHours: [null as number | null],
+    estimatedHours: [null as number | null, [Validators.min(0)]],
     startDate: [''],
     endDate: [''],
     status: ['NEW' as TaskStatus]

@@ -197,6 +197,8 @@ using (var scope = app.Services.CreateScope())
     // Apply any pending migrations
     await context.Database.MigrateAsync();
     
+    // Temporarily disabled seed data - use /api/auth/seed-admin endpoint instead
+    /*
     // Only seed data in development environment
     if (app.Environment.IsDevelopment())
     {
@@ -207,6 +209,7 @@ using (var scope = app.Services.CreateScope())
         // In production, only create the admin user if it doesn't exist
         await SeedProductionDataAsync(context);
     }
+    */
 }
 
 app.UseSwagger();
@@ -263,6 +266,8 @@ static string HashPassword(string password)
     return $"10000.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
 }
 
+// Temporarily disabled - use /api/auth/seed-admin endpoint instead
+/*
 static async Task SeedTestDataAsync(OneDcDbContext context)
 {
     // Force update password hashes to fix format mismatch
@@ -770,8 +775,10 @@ static async Task SeedTestDataAsync(OneDcDbContext context)
     // Save all changes
     await context.SaveChangesAsync();
 }
+*/
 
 // Production data seeding - only creates essential admin user
+/*
 static async Task SeedProductionDataAsync(OneDcDbContext context)
 {
     // Check if any users exist
@@ -819,7 +826,7 @@ static async Task SeedProductionDataAsync(OneDcDbContext context)
         Console.WriteLine("IMPORTANT: Change these credentials after first login!");
     }
 }
-
+*/
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);

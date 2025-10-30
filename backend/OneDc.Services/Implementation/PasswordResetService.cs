@@ -58,8 +58,12 @@ public class PasswordResetService : IPasswordResetService
 
             await _passwordResetRepository.CreateAsync(passwordReset);
             
+            _logger.LogInformation("OTP created and stored (hashed) for user {UserId}. Sending email with plain OTP to {Email}", user.UserId, user.Email);
+            
             // Send email with plain OTP (user receives unhashed version)
             var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email, $"{user.FirstName} {user.LastName}", otp);
+            
+            _logger.LogInformation("Email send result for {Email}: {EmailSent}", user.Email, emailSent);
             
             if (!emailSent)
             {
@@ -67,7 +71,7 @@ public class PasswordResetService : IPasswordResetService
                 return string.Empty;
             }
 
-            _logger.LogInformation("Password reset initiated for user {UserId} with email {Email}", user.UserId, email);
+            _logger.LogInformation("Password reset initiated successfully for user {UserId} with email {Email}. OTP: {Otp}", user.UserId, email, otp);
             return otp;
         }
         catch (Exception ex)

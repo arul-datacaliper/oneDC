@@ -706,7 +706,7 @@ public class AllocationsController : BaseController
                 AllocatedHours = wa.AllocatedHours,
                 UtilizationPercentage = wa.UtilizationPercentage,
                 Status = wa.Status,
-                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-dd")
             })
             .ToListAsync();
 

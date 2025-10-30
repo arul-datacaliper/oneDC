@@ -14,11 +14,13 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IEmailService _emailService;
+    private readonly OneDc.Repository.Interfaces.IUserRepository _userRepository;
 
-    public AuthController(IAuthService authService, IEmailService emailService)
+    public AuthController(IAuthService authService, IEmailService emailService, OneDc.Repository.Interfaces.IUserRepository userRepository)
     {
         _authService = authService;
         _emailService = emailService;
+        _userRepository = userRepository;
     }
 
     [HttpPost("login")]
@@ -232,6 +234,74 @@ public class AuthController : ControllerBase
         {
             return BadRequest($"Failed to set password: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// DEVELOPMENT ONLY: Creates default admin user
+    /// Remove this endpoint in production!
+    /// </summary>
+    [HttpPost("seed-admin")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SeedAdminUser()
+    {
+        try
+        {
+            // Check if admin already exists
+            var existingAdmin = await _userRepository.GetByEmailAsync("admin@onedc.com");
+            if (existingAdmin != null)
+            {
+                return BadRequest(new { message = "Admin user already exists" });
+            }
+
+            // Hash password using same method as AuthService
+            var passwordHash = HashPassword("password123");
+
+            // Create admin user with hashed password
+            var adminUser = new OneDc.Domain.Entities.AppUser
+            {
+                UserId = Guid.NewGuid(),
+                EmployeeId = "EMP001",
+                Email = "admin@onedc.com",
+                WorkEmail = "admin@onedc.com",
+                FirstName = "Admin",
+                LastName = "User",
+                Role = OneDc.Domain.Entities.UserRole.ADMIN,
+                Department = "IT",
+                JobTitle = "System Administrator",
+                EmployeeType = OneDc.Domain.Entities.EmployeeType.FULL_TIME,
+                IsActive = true,
+                MustChangePassword = false,
+                DateOfJoining = DateOnly.FromDateTime(DateTime.Now),
+                CreatedAt = DateTimeOffset.UtcNow,
+                PasswordHash = passwordHash
+            };
+
+            var created = await _userRepository.CreateAsync(adminUser);
+            
+            return Ok(new 
+            { 
+                message = "Admin user created successfully",
+                email = "admin@onedc.com",
+                password = "password123",
+                userId = adminUser.UserId
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Error creating admin user: {ex.Message}" });
+        }
+    }
+
+    private string HashPassword(string password)
+    {
+        const int iterations = 10000;
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        var salt = new byte[32];
+        rng.GetBytes(salt);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(
+            password, salt, iterations, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        var hash = pbkdf2.GetBytes(32);
+        return $"{iterations}.{Convert.ToBase64String(salt)}.{Convert.ToBase64String(hash)}";
     }
 }
 

@@ -264,6 +264,15 @@ public class EmployeesController : ControllerBase
 
         try
         {
+            // Check if email already exists
+            var existingEmployee = await _context.AppUsers
+                .FirstOrDefaultAsync(u => u.Email == request.WorkEmail || u.WorkEmail == request.WorkEmail);
+            
+            if (existingEmployee != null)
+            {
+                return BadRequest(new { message = "An employee with this work email already exists" });
+            }
+
             // Generate the next employee ID
             var employeeId = await GenerateNextEmployeeIdAsync();
             
@@ -382,6 +391,18 @@ public class EmployeesController : ControllerBase
             if (existingEmployee == null)
             {
                 return NotFound($"Employee with ID {id} not found");
+            }
+
+            // Check if work email is being changed and if it already exists for another employee
+            if (!string.IsNullOrEmpty(request.WorkEmail) && request.WorkEmail != existingEmployee.WorkEmail)
+            {
+                var duplicateEmail = await _context.AppUsers
+                    .AnyAsync(u => (u.Email == request.WorkEmail || u.WorkEmail == request.WorkEmail) && u.UserId != id);
+                
+                if (duplicateEmail)
+                {
+                    return BadRequest(new { message = "An employee with this work email already exists" });
+                }
             }
 
             // Check if manager has changed
