@@ -36,16 +36,18 @@ public class ProjectsController : BaseController
             return Ok(allItems);
         }
         
-        // For Approver users, return only projects they manage
+        // For Approver users, return projects they manage OR where they are team members
         if (IsApprover())
         {
             var currentUserId = GetCurrentUserId();
-            var managedProjects = await _db.Projects
+            var approverProjects = await _db.Projects
                 .Include(p => p.Client)
-                .Where(p => p.DefaultApprover == currentUserId)
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                .Distinct()
                 .AsNoTracking()
                 .ToListAsync();
-            return Ok(managedProjects);
+            return Ok(approverProjects);
         }
         
         // For Employee users, return projects they have tasks assigned to
@@ -166,7 +168,7 @@ public class ProjectsController : BaseController
                 return Ok(allItems);
             }
             
-            // For Approver users, return only projects they manage with members
+            // For Approver users, return projects they manage OR where they are team members with members
             if (IsApprover())
             {
                 var currentUserId = GetCurrentUserId();
@@ -174,7 +176,9 @@ public class ProjectsController : BaseController
                     .Include(p => p.Client)
                     .Include(p => p.ProjectMembers)
                         .ThenInclude(pm => pm.User)
-                    .Where(p => p.DefaultApprover == currentUserId)
+                    .Where(p => p.DefaultApprover == currentUserId || 
+                               _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                    .Distinct()
                     .AsNoTracking()
                     .Select(project => new ProjectResponseDto
                     {
