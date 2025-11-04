@@ -846,6 +846,28 @@ export class AllocationsComponent implements OnInit {
       this.selectedEmployeeAllocations.update(current => [...current, newEmployeeAllocation]);
       this.updateAvailableEmployeesForSelection();
       console.log('Updated selectedEmployeeAllocations:', this.selectedEmployeeAllocations());
+      
+      // Load weekly capacity for the newly added employee based on selected date range
+      const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+      const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+      if (weekStartDate && weekEndDate) {
+        this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, [userId]).subscribe({
+          next: (capacities) => {
+            if (capacities && capacities.length > 0) {
+              const capacity = capacities[0];
+              this.weeklyCapacities.update(current => {
+                const newMap = new Map(current);
+                newMap.set(capacity.userId, capacity);
+                return newMap;
+              });
+              console.log('Loaded capacity for new employee:', capacity);
+            }
+          },
+          error: (error) => {
+            console.error('Error fetching weekly capacity for new employee:', error);
+          }
+        });
+      }
     }
   }
 
