@@ -24,7 +24,7 @@ public class EmailService : IEmailService
             AzureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? configuration["AzureEmail:ConnectionString"] ?? "",
             FromEmail = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_EMAIL") ?? configuration["AzureEmail:FromEmail"] ?? "noreply@onedc.local",
             FromName = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_NAME") ?? configuration["AzureEmail:FromName"] ?? "OneDC System",
-            BaseUrl = Environment.GetEnvironmentVariable("BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
+            BaseUrl = Environment.GetEnvironmentVariable("APP_BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
         };
         
         // Log email configuration status
@@ -146,8 +146,7 @@ public class EmailService : IEmailService
                     <h2>Hello {userName},</h2>
                     <p>Your OneDC account has been successfully created. You can now access the system using the credentials below:</p>
                     
-                    <div class='credentials'>
-                        <strong>Login URL:</strong> {_emailConfig.BaseUrl}<br>
+                    <div class='credentials'>                       
                         <strong>Email:</strong> {toEmail}<br>
                         <strong>Temporary Password:</strong> {temporaryPassword}
                     </div>
@@ -172,8 +171,7 @@ public class EmailService : IEmailService
         Hello {userName},
         
         Your OneDC account has been successfully created. You can now access the system using the credentials below:
-        
-        Login URL: {_emailConfig.BaseUrl}
+                
         Email: {toEmail}
         Temporary Password: {temporaryPassword}
         

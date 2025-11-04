@@ -139,7 +139,7 @@ import { AuthService } from '../../core/services/auth.service';
                       <i class="fas fa-info-circle text-info me-2 mt-1"></i>
                       <div>
                         <small class="text-muted">
-                          <strong>Password Requirements:</strong><br>
+                          <strong>Password Suggestions:</strong><br>
                           • Minimum 8 characters<br>
                           • Use a mix of letters, numbers and symbols for better security
                         </small>
