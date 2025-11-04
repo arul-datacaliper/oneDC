@@ -10,9 +10,18 @@ PROJECT_ROOT="/Users/arul/oneDC/MVP-ver1/oneDC"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 BUILD_DIR="$BACKEND_DIR/publish/linux-x64-final"
 DEPLOY_DIR="$HOME/onedc-deploys"
-SERVER_IP="135.233.176.35"
 SERVER_USER="azureuser"
-SERVER_PATH="/home/azureuser/datacaliper/backendnew"
+
+# Environment-specific configuration
+if [ "$ENVIRONMENT" == "production" ]; then
+    SERVER_IP="40.74.201.85"  # Production server IP
+    SERVER_PATH="/home/azureuser/datacaliper/onedc-prod"
+    SERVER_PORT="5000"
+else
+    SERVER_IP="135.233.176.35"  # Development server IP
+    SERVER_PATH="/home/azureuser/datacaliper/onedc-dev"
+    SERVER_PORT="5260"
+fi
 
 echo "========================================="
 echo "OneDC Automated Deployment Script"
@@ -160,7 +169,7 @@ echo "✓ Files deployed to \$RELEASE_DIR"
 # Start new instance
 echo "Starting new instance..."
 cd $SERVER_PATH/current
-nohup ./OneDc.Api --urls "http://0.0.0.0:5000" > $SERVER_PATH/logs/onedc.log 2>&1 &
+nohup ./OneDc.Api --urls "http://0.0.0.0:$SERVER_PORT" > $SERVER_PATH/logs/onedc.log 2>&1 &
 echo \$! > $SERVER_PATH/onedc.pid
 
 echo "✓ Application started (PID: \$(cat $SERVER_PATH/onedc.pid))"
@@ -188,7 +197,10 @@ ENDSSH
     echo "✓ Deployment completed successfully!"
     echo "========================================="
     echo ""
-    echo "Application URL: http://$SERVER_IP:5000"
+    echo "Environment:      $ENVIRONMENT"
+    echo "Server:           $SERVER_IP"
+    echo "Deployment Path:  $SERVER_PATH"
+    echo "Application URL:  http://$SERVER_IP:$SERVER_PORT"
     echo ""
     echo "Useful commands:"
     echo "  View logs:    ssh $SERVER_USER@$SERVER_IP 'tail -f $SERVER_PATH/logs/onedc.log'"
