@@ -256,11 +256,23 @@ export class LeaveService {
   }
 
   canEdit(leaveRequest: LeaveRequest): boolean {
-    return leaveRequest.status === 'Pending' && this.isUpcoming(leaveRequest.startDate);
+    // Can edit if pending and the leave hasn't started yet (using current date, not future-only)
+    const leaveStart = new Date(leaveRequest.startDate);
+    leaveStart.setHours(0, 0, 0, 0); // Set to start of day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day
+    
+    return leaveRequest.status === 'Pending' && leaveStart >= today;
   }
 
   canDelete(leaveRequest: LeaveRequest): boolean {
-    return leaveRequest.status === 'Pending' && this.isUpcoming(leaveRequest.startDate);
+    // Can delete if pending and the leave hasn't started yet (using current date, not future-only)
+    const leaveStart = new Date(leaveRequest.startDate);
+    leaveStart.setHours(0, 0, 0, 0); // Set to start of day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day
+    
+    return leaveRequest.status === 'Pending' && leaveStart >= today;
   }
 
   // Leave entitlement calculations
