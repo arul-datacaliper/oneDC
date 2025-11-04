@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
-import { AllocationService, WeeklyAllocation, CreateAllocationRequest, AllocationSummary, EmployeeAllocationSummary, WeeklyCapacity } from '../../core/services/allocation.service';
+import { AllocationService, WeeklyAllocation, CreateAllocationRequest, UpdateAllocationRequest, AllocationSummary, EmployeeAllocationSummary, WeeklyCapacity } from '../../core/services/allocation.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { UserManagementService, AppUser } from '../../core/services/user-management.service';
 import { TimesheetsService } from '../../core/services/timesheets.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Project } from '../../shared/models';
+import { ConfirmationDialogComponent, ConfirmationDialogData } from '../../shared/components/confirmation-dialog.component';
 
 // Interface for multiple employee allocation
 export interface EmployeeAllocation {
@@ -30,7 +31,7 @@ export interface MonthPeriodAllocation {
 @Component({
   selector: 'app-allocations',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule, ConfirmationDialogComponent],
   templateUrl: './allocations.component.html',
   styleUrl: './allocations.component.scss'
 })
@@ -89,6 +90,12 @@ export class AllocationsComponent implements OnInit {
   isLoading = signal(false);
   showCreateModal = signal(false);
   showExportModal = signal(false);
+  showDeleteModal = signal(false);
+  deleteDialogData = signal<ConfirmationDialogData | null>(null);
+  showUpdateConfirmModal = signal(false);
+  updateConfirmDialogData = signal<ConfirmationDialogData | null>(null);
+  pendingUpdateRequests = signal<{ allocationId: string; request: UpdateAllocationRequest; userName: string }[]>([]);
+  pendingCreateRequests = signal<CreateAllocationRequest[]>([]);
   editingAllocation = signal<WeeklyAllocation | null>(null);
   selectedEmployeeAllocations = signal<EmployeeAllocation[]>([]);
   availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
@@ -345,10 +352,62 @@ export class AllocationsComponent implements OnInit {
     const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
     const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
 
-    // Fetch weekly capacity for all members
-    if (weekStartDate && weekEndDate && members.length > 0) {
-      const userIds = members.map(m => m.userId);
-      this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+    console.log('autoAddProjectMembers - Project ID:', projectId);
+    console.log('autoAddProjectMembers - Week Start:', weekStartDate);
+    console.log('autoAddProjectMembers - Week End:', weekEndDate);
+    console.log('autoAddProjectMembers - All allocations:', this.allocations());
+
+    // Normalize dates to YYYY-MM-DD format for comparison
+    const normalizeDate = (dateStr: string): string => {
+      if (!dateStr) return '';
+      // Handle both YYYY-MM-DD and ISO date formats
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const normalizedWeekStart = normalizeDate(weekStartDate);
+    const normalizedWeekEnd = normalizeDate(weekEndDate);
+
+    console.log('Normalized Week Start:', normalizedWeekStart);
+    console.log('Normalized Week End:', normalizedWeekEnd);
+
+    // Get all existing allocations for this project that overlap with the selected week period
+    // Instead of exact date match, check for ANY overlap with the selected week
+    const existingAllocations = this.allocations().filter(a => {
+      const normalizedAllocStart = normalizeDate(a.weekStartDate);
+      const normalizedAllocEnd = normalizeDate(a.weekEndDate);
+      
+      // Check if the allocation overlaps with the selected week
+      // Overlap occurs if: allocation_start <= week_end AND allocation_end >= week_start
+      const overlaps = a.projectId === projectId &&
+        normalizedAllocStart <= normalizedWeekEnd &&
+        normalizedAllocEnd >= normalizedWeekStart;
+      
+      console.log(`Checking allocation: ${a.userName} - ProjectMatch: ${a.projectId === projectId}, Overlaps: ${overlaps} (Alloc: ${normalizedAllocStart} to ${normalizedAllocEnd}, Week: ${normalizedWeekStart} to ${normalizedWeekEnd})`);
+      return overlaps;
+    });
+
+    console.log('autoAddProjectMembers - Existing allocations found:', existingAllocations);
+
+    // Create a map of existing allocations by userId for quick lookup
+    const existingAllocationMap = new Map<string, WeeklyAllocation>();
+    existingAllocations.forEach(alloc => {
+      existingAllocationMap.set(alloc.userId, alloc);
+    });
+
+    // Get all unique user IDs from both project members and existing allocations
+    const allUserIds = new Set<string>([
+      ...members.map(m => m.userId),
+      ...existingAllocations.map(a => a.userId)
+    ]);
+
+    // Fetch weekly capacity for all users
+    if (weekStartDate && weekEndDate && allUserIds.size > 0) {
+      const userIdsArray = Array.from(allUserIds);
+      this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIdsArray).subscribe({
         next: (capacities) => {
           const capacityMap = new Map();
           capacities.forEach(cap => {
@@ -368,13 +427,8 @@ export class AllocationsComponent implements OnInit {
       if (currentUser) {
         const currentMember = members.find(m => m.userId === currentUser.userId);
         if (currentMember) {
-          // Check if there's an existing allocation for this user, project, and week
-          const existingAllocation = this.allocations().find(a => 
-            a.userId === currentUser.userId && 
-            a.projectId === projectId &&
-            a.weekStartDate === weekStartDate &&
-            a.weekEndDate === weekEndDate
-          );
+          // Check if there's an existing allocation for this user
+          const existingAllocation = existingAllocationMap.get(currentUser.userId);
 
           const allocation: EmployeeAllocation = {
             userId: currentMember.userId,
@@ -420,20 +474,17 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
-    // For approvers and admins, add all project members
+    // For approvers and admins, add all project members AND existing allocations
     // Clear existing allocations first
     this.selectedEmployeeAllocations.set([]);
     
-    // Add all project members and pre-fill existing allocation hours
-    const allocations: EmployeeAllocation[] = members.map(member => {
-      // Check if there's an existing allocation for this member, project, and week
-      const existingAllocation = this.allocations().find(a => 
-        a.userId === member.userId && 
-        a.projectId === projectId &&
-        a.weekStartDate === weekStartDate &&
-        a.weekEndDate === weekEndDate
-      );
-
+    // Create a map to track all unique users (both project members and existing allocations)
+    const userMap = new Map<string, EmployeeAllocation>();
+    
+    // First, add all project members
+    members.forEach(member => {
+      const existingAllocation = existingAllocationMap.get(member.userId);
+      
       const allocation: EmployeeAllocation = {
         userId: member.userId,
         userName: member.userName,
@@ -445,19 +496,50 @@ export class AllocationsComponent implements OnInit {
         allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
       }
 
-      return allocation;
+      userMap.set(member.userId, allocation);
     });
+    
+    // Then, add any existing allocations for users who are NOT project members
+    existingAllocations.forEach(existingAlloc => {
+      if (!userMap.has(existingAlloc.userId)) {
+        const allocation: EmployeeAllocation = {
+          userId: existingAlloc.userId,
+          userName: existingAlloc.userName,
+          allocatedHours: existingAlloc.allocatedHours
+        };
+
+        // Initialize periodHours if multi-month week is detected
+        if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
+          allocation.periodHours = new Array(this.monthPeriods().length).fill(0);
+        }
+
+        userMap.set(existingAlloc.userId, allocation);
+      }
+    });
+
+    // Convert map to array
+    const allocations = Array.from(userMap.values());
 
     this.selectedEmployeeAllocations.set(allocations);
     this.updateAvailableEmployeesForSelection();
     
     // Check if any existing allocations were found
     const existingCount = allocations.filter(a => a.allocatedHours > 0).length;
+    const projectMemberCount = members.length;
+    const additionalMembersCount = allocations.length - projectMemberCount;
     
     if (existingCount > 0) {
-      this.toastr.info(`Auto-added ${members.length} project team members. ${existingCount} member(s) have existing allocations pre-filled.`);
-    } else if (members.length > 0) {
-      this.toastr.info(`Auto-added ${members.length} project team members. Please enter allocation hours for each member.`);
+      if (additionalMembersCount > 0) {
+        this.toastr.info(`Loaded ${projectMemberCount} project team members and ${additionalMembersCount} additional members with existing allocations. ${existingCount} member(s) have existing hours pre-filled.`);
+      } else {
+        this.toastr.info(`Auto-added ${projectMemberCount} project team members. ${existingCount} member(s) have existing allocations pre-filled.`);
+      }
+    } else if (allocations.length > 0) {
+      if (additionalMembersCount > 0) {
+        this.toastr.info(`Loaded ${projectMemberCount} project team members and ${additionalMembersCount} additional members. Please enter allocation hours for each member.`);
+      } else {
+        this.toastr.info(`Auto-added ${projectMemberCount} project team members. Please enter allocation hours for each member.`);
+      }
     }
   }
 
@@ -846,15 +928,17 @@ export class AllocationsComponent implements OnInit {
         // Check for existing allocations before creating new ones
         const existingAllocations = this.allocations();
         let createRequests: CreateAllocationRequest[] = [];
+        let updateRequests: { allocationId: string; request: UpdateAllocationRequest; userName: string }[] = [];
 
         if (this.isMultiMonthWeek() && this.monthPeriods().length > 0) {
           // Create allocations for each month period for each employee using employee-specific hours
-          createRequests = this.selectedEmployeeAllocations().flatMap(emp => 
+          const allRequests = this.selectedEmployeeAllocations().flatMap(emp => 
             this.monthPeriods().map((period, periodIndex) => {
               const periodHours = emp.periodHours?.[periodIndex] || 0;
               return {
                 projectId: formValue.projectId,
                 userId: emp.userId,
+                userName: emp.userName,
                 weekStartDate: period.startDate,
                 weekEndDate: period.endDate,
                 allocatedHours: periodHours
@@ -862,56 +946,106 @@ export class AllocationsComponent implements OnInit {
             }).filter(request => request.allocatedHours > 0) // Only create allocations with hours > 0
           );
 
-          if (createRequests.length === 0) {
+          if (allRequests.length === 0) {
             this.toastr.warning('Please enter allocation hours for at least one period for at least one employee');
             return;
           }
+
+          // Separate into create and update based on existing allocations
+          allRequests.forEach(request => {
+            const existing = existingAllocations.find(a => 
+              a.projectId === request.projectId && 
+              a.userId === request.userId && 
+              a.weekStartDate === request.weekStartDate &&
+              a.weekEndDate === request.weekEndDate
+            );
+
+            if (existing) {
+              updateRequests.push({
+                allocationId: existing.allocationId,
+                request: { allocatedHours: request.allocatedHours },
+                userName: request.userName
+              });
+            } else {
+              createRequests.push({
+                projectId: request.projectId,
+                userId: request.userId,
+                weekStartDate: request.weekStartDate,
+                weekEndDate: request.weekEndDate,
+                allocatedHours: request.allocatedHours
+              });
+            }
+          });
         } else {
           // Standard week allocation
-          createRequests = this.selectedEmployeeAllocations().map(emp => ({
-            projectId: formValue.projectId,
-            userId: emp.userId,
-            weekStartDate: formValue.weekStartDate,
-            weekEndDate: formValue.weekEndDate,
-            allocatedHours: emp.allocatedHours
-          }));
+          this.selectedEmployeeAllocations().forEach(emp => {
+            const existing = existingAllocations.find(a => 
+              a.projectId === formValue.projectId && 
+              a.userId === emp.userId && 
+              a.weekStartDate === formValue.weekStartDate &&
+              a.weekEndDate === formValue.weekEndDate
+            );
+
+            if (existing) {
+              updateRequests.push({
+                allocationId: existing.allocationId,
+                request: { allocatedHours: emp.allocatedHours },
+                userName: emp.userName
+              });
+            } else {
+              createRequests.push({
+                projectId: formValue.projectId,
+                userId: emp.userId,
+                weekStartDate: formValue.weekStartDate,
+                weekEndDate: formValue.weekEndDate,
+                allocatedHours: emp.allocatedHours
+              });
+            }
+          });
         }
 
-        // Check for duplicates
-        const duplicates = createRequests.filter(request => 
-          existingAllocations.some(existing => 
-            existing.projectId === request.projectId && 
-            existing.userId === request.userId && 
-            existing.weekStartDate === request.weekStartDate
-          )
-        );
-
-        if (duplicates.length > 0) {
-          const duplicateEmployees = duplicates.map(dup => 
-            this.selectedEmployeeAllocations().find(emp => emp.userId === dup.userId)?.userName
-          ).join(', ');
-          this.toastr.warning(`Allocation already exists for: ${duplicateEmployees}. Please check existing allocations.`);
+        // Show confirmation if there are updates
+        if (updateRequests.length > 0 && createRequests.length === 0) {
+          // All are updates - show confirmation dialog
+          const employeeNames = updateRequests.map(u => u.userName).join(', ');
+          this.pendingUpdateRequests.set(updateRequests);
+          this.pendingCreateRequests.set(createRequests);
+          
+          this.updateConfirmDialogData.set({
+            title: 'Update Existing Allocations?',
+            message: `Allocation(s) already exist for the selected employee(s). Do you want to update them with the new hours?`,
+            type: 'warning',
+            confirmText: 'Yes, Update',
+            cancelText: 'Cancel',
+            details: updateRequests.map(u => `${u.userName}: ${u.request.allocatedHours} hours`),
+            showDetailsAsAlert: false
+          });
+          this.showUpdateConfirmModal.set(true);
+          return;
+        } else if (updateRequests.length > 0 && createRequests.length > 0) {
+          // Mix of updates and creates - show confirmation dialog
+          const updateNames = updateRequests.map(u => u.userName).join(', ');
+          this.pendingUpdateRequests.set(updateRequests);
+          this.pendingCreateRequests.set(createRequests);
+          
+          this.updateConfirmDialogData.set({
+            title: 'Update & Create Allocations?',
+            message: `Some allocations already exist. Do you want to update existing ones and create new ones?`,
+            type: 'warning',
+            confirmText: 'Yes, Proceed',
+            cancelText: 'Cancel',
+            details: [
+              ...updateRequests.map(u => `UPDATE: ${u.userName} - ${u.request.allocatedHours} hours`),
+              `CREATE: ${createRequests.length} new allocation(s)`
+            ],
+            showDetailsAsAlert: false
+          });
+          this.showUpdateConfirmModal.set(true);
           return;
         }
 
-        // Create all allocations
-        const allocationPromises = createRequests.map(request => 
-          this.allocationService.createAllocation(request).toPromise()
-        );
-
-        Promise.all(allocationPromises).then((results) => {
-          // Each result is now a single allocation
-          this.toastr.success(`${results.length} allocation(s) created successfully`);
-          this.closeModal();
-          this.loadInitialData();
-        }).catch((error) => {
-          if (error.status === 409) {
-            this.toastr.error('One or more allocations already exist for this project and week. Please check existing allocations.');
-          } else {
-            this.toastr.error('Error creating allocations: ' + (error.error?.message || error.message || 'Unknown error'));
-          }
-          console.error('Error creating allocations:', error);
-        });
+        // If only creates, proceed directly
+        this.executeAllocations(updateRequests, createRequests);
       }
     } else if (this.selectedEmployeeAllocations().length === 0) {
       this.toastr.warning('Please select at least one employee for allocation');
@@ -1022,18 +1156,100 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
-    if (confirm(`Are you sure you want to delete the allocation for ${allocation.userName} on ${allocation.projectName}?`)) {
-      this.allocationService.deleteAllocation(allocation.allocationId).subscribe({
-        next: () => {
-          this.toastr.success('Allocation deleted successfully');
-          this.loadInitialData();
-        },
-        error: (error) => {
-          this.toastr.error('Error deleting allocation');
-          console.error('Error deleting allocation:', error);
-        }
-      });
-    }
+    // Create confirmation dialog data
+    this.deleteDialogData.set({
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this allocation?',
+      type: 'danger',
+      confirmText: 'Delete Allocation',
+      cancelText: 'Cancel',
+      details: [
+        `Employee: ${allocation.userName}`,
+        `Project: ${allocation.projectName}`,
+        `Week: ${new Date(allocation.weekStartDate).toLocaleDateString()} - ${new Date(allocation.weekEndDate).toLocaleDateString()}`,
+        `Hours: ${allocation.allocatedHours}h`
+      ],
+      showDetailsAsAlert: false
+    });
+    
+    // Store allocation ID for deletion
+    this.allocationIdToDelete = allocation.allocationId;
+    this.showDeleteModal.set(true);
+  }
+
+  private allocationIdToDelete: string = '';
+
+  private executeAllocations(
+    updateRequests: { allocationId: string; request: UpdateAllocationRequest; userName: string }[],
+    createRequests: CreateAllocationRequest[]
+  ) {
+    // Execute updates and creates
+    const updatePromises = updateRequests.map(u => 
+      this.allocationService.updateAllocation(u.allocationId, u.request).toPromise()
+    );
+    const createPromises = createRequests.map(request => 
+      this.allocationService.createAllocation(request).toPromise()
+    );
+
+    Promise.all([...updatePromises, ...createPromises]).then((results) => {
+      const updatedCount = updateRequests.length;
+      const createdCount = createRequests.length;
+      
+      if (updatedCount > 0 && createdCount > 0) {
+        this.toastr.success(`${updatedCount} allocation(s) updated and ${createdCount} allocation(s) created successfully`);
+      } else if (updatedCount > 0) {
+        this.toastr.success(`${updatedCount} allocation(s) updated successfully`);
+      } else {
+        this.toastr.success(`${createdCount} allocation(s) created successfully`);
+      }
+      
+      this.closeModal();
+      this.loadInitialData();
+    }).catch((error) => {
+      if (error.status === 409) {
+        this.toastr.error('Error: Duplicate allocation detected. Please refresh and try again.');
+      } else {
+        this.toastr.error('Error processing allocations: ' + (error.error?.message || error.message || 'Unknown error'));
+      }
+      console.error('Error processing allocations:', error);
+    });
+  }
+
+  onUpdateConfirmed() {
+    const updateRequests = this.pendingUpdateRequests();
+    const createRequests = this.pendingCreateRequests();
+    
+    this.closeUpdateConfirmModal();
+    this.executeAllocations(updateRequests, createRequests);
+  }
+
+  closeUpdateConfirmModal() {
+    this.showUpdateConfirmModal.set(false);
+    this.updateConfirmDialogData.set(null);
+    this.pendingUpdateRequests.set([]);
+    this.pendingCreateRequests.set([]);
+  }
+
+  onDeleteConfirmed() {
+    if (!this.allocationIdToDelete) return;
+
+    this.allocationService.deleteAllocation(this.allocationIdToDelete).subscribe({
+      next: () => {
+        this.toastr.success('Allocation deleted successfully');
+        this.closeDeleteModal();
+        this.loadInitialData();
+      },
+      error: (error) => {
+        this.toastr.error('Error deleting allocation');
+        console.error('Error deleting allocation:', error);
+      }
+    });
+  }
+
+  closeDeleteModal() {
+    this.showDeleteModal.set(false);
+    this.deleteDialogData.set(null);
+    this.allocationIdToDelete = '';
   }
 
   getUtilizationBadgeClass(percentage: number): string {
@@ -1051,6 +1267,15 @@ export class AllocationsComponent implements OnInit {
       case 'cancelled': return 'badge bg-danger';
       default: return 'badge bg-secondary';
     }
+  }
+
+  // Calculate number of days in allocation period
+  getAllocationDays(startDate: string, endDate: string): number {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    return diffDays;
   }
 
   // Get weekly capacity for a specific user
@@ -1426,5 +1651,18 @@ export class AllocationsComponent implements OnInit {
 
   isAdmin(): boolean {
     return this.authService.isAdmin();
+  }
+
+  // Helper methods for template
+  getEmployeesWithAllocations(): number {
+    return this.selectedEmployeeAllocations().filter(emp => emp.allocatedHours > 0).length;
+  }
+
+  getEmployeesWithoutAllocations(): number {
+    return this.selectedEmployeeAllocations().filter(emp => emp.allocatedHours === 0).length;
+  }
+
+  hasEmployeesWithAllocations(): boolean {
+    return this.getEmployeesWithAllocations() > 0;
   }
 }

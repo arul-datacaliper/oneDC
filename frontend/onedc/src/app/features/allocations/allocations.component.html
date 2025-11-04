@@ -287,6 +287,13 @@
               <tr *ngFor="let allocation of filteredAllocations()">
                 <td>
                   <div class="fw-medium">{{ allocation.userName }}</div>
+                  <small class="text-muted d-flex align-items-center">
+                    <i class="bi bi-calendar-range me-1"></i>
+                    <span>{{ allocation.weekStartDate | date:'MMM d' }} - {{ allocation.weekEndDate | date:'MMM d, y' }}</span>
+                    <span class="badge bg-light text-dark ms-2" style="font-size: 0.75rem;">
+                      {{ getAllocationDays(allocation.weekStartDate, allocation.weekEndDate) }} days
+                    </span>
+                  </small>
                 </td>
                 <td class="text-center">{{ allocation.allocatedHours }}h</td>
                 <td class="text-center">
@@ -395,6 +402,13 @@
               <tr *ngFor="let allocation of filteredAllocations()">
                 <td>
                   <div class="fw-medium">{{ allocation.projectName }}</div>
+                  <small class="text-muted d-flex align-items-center">
+                    <i class="bi bi-calendar-range me-1"></i>
+                    <span>{{ allocation.weekStartDate | date:'MMM d' }} - {{ allocation.weekEndDate | date:'MMM d, y' }}</span>
+                    <span class="badge bg-light text-dark ms-2" style="font-size: 0.75rem;">
+                      {{ getAllocationDays(allocation.weekStartDate, allocation.weekEndDate) }} days
+                    </span>
+                  </small>
                 </td>
                 <td class="text-center">{{ allocation.allocatedHours }}h</td>
                 <td class="text-center">
@@ -537,47 +551,83 @@
           </div>
 
           <!-- Project Members Information -->
-          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length > 0" class="mb-4">
+          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value" class="mb-4">
             <!-- For Employees -->
-            <div *ngIf="isEmployee()" class="alert alert-info d-flex align-items-center">
+            <div *ngIf="isEmployee() && projectMembers().length > 0" class="alert alert-info d-flex align-items-center">
               <i class="bi bi-info-circle me-2"></i>
               <div class="flex-grow-1">
                 <strong>Project Selected</strong>
-                <p class="mb-0">You have been auto-selected for this allocation. Please enter your allocation hours below.</p>
+                <p class="mb-0">You have been auto-selected for this allocation. 
+                  <span *ngIf="selectedEmployeeAllocations().length > 0 && selectedEmployeeAllocations()[0].allocatedHours > 0" class="fw-bold text-primary">
+                    Existing allocation: {{ selectedEmployeeAllocations()[0].allocatedHours }} hours.
+                  </span>
+                  Please update your allocation hours below.
+                </p>
               </div>
             </div>
             
-            <!-- For Approvers/Admins -->
-            <div *ngIf="!isEmployee()" class="alert alert-success d-flex align-items-start">
+            <!-- For Approvers/Admins with project members -->
+            <div *ngIf="!isEmployee() && projectMembers().length > 0" class="alert alert-success d-flex align-items-start">
               <i class="bi bi-people-fill me-2 mt-1"></i>
               <div class="flex-grow-1">
-                <strong>Project Team Members</strong>
-                <p class="mb-2">{{ projectMembers().length }} team members have been added to the allocation:</p>
+                <strong>Team Members Loaded</strong>
+                <p class="mb-2" *ngIf="hasEmployeesWithAllocations()">
+                  Found {{ selectedEmployeeAllocations().length }} total members for this project and week:
+                  <span class="text-primary fw-bold">{{ getEmployeesWithAllocations() }} with existing allocations</span>,
+                  <span class="text-muted">{{ getEmployeesWithoutAllocations() }} without allocations</span>
+                </p>
+                <p class="mb-2" *ngIf="!hasEmployeesWithAllocations()">
+                  {{ projectMembers().length }} project team members have been added. No existing allocations found for this week.
+                </p>
                 <div class="row g-2">
                   <div class="col-md-12">
-                    <ul class="mb-0 mt-1">
-                      <li *ngFor="let member of projectMembers()">
-                        <strong>{{ member.userName }}</strong> - {{ member.projectRole }} 
-                        <small class="text-muted">({{ member.role }})</small>
-                      </li>
-                    </ul>
+                    <details>
+                      <summary class="text-primary" style="cursor: pointer;">
+                        <i class="bi bi-list-ul me-1"></i>View all members
+                      </summary>
+                      <ul class="mb-0 mt-2">
+                        <li *ngFor="let member of selectedEmployeeAllocations()">
+                          <strong>{{ member.userName }}</strong>
+                          <span *ngIf="member.allocatedHours > 0" class="text-primary"> - {{ member.allocatedHours }} hours (existing)</span>
+                          <span *ngIf="member.allocatedHours === 0" class="text-muted"> - Not allocated</span>
+                        </li>
+                      </ul>
+                    </details>
                   </div>
                 </div>
                 <small class="text-muted mt-2 d-block">
                   <i class="bi bi-info-circle me-1"></i>
-                  Please enter allocation hours for each team member. You can also add additional members or remove members as needed below.
+                  Update allocation hours below. You can also add or remove members as needed.
                 </small>
               </div>
             </div>
-          </div>
 
-          <!-- Project Members Not Found -->
-          <div *ngIf="!editingAllocation() && allocationForm.get('projectId')?.value && projectMembers().length === 0" class="mb-4">
-            <div class="alert alert-info d-flex align-items-center">
+            <!-- Project Members Not Found -->
+            <div *ngIf="projectMembers().length === 0 && selectedEmployeeAllocations().length === 0" class="alert alert-info d-flex align-items-center">
               <i class="bi bi-info-circle me-2"></i>
               <div class="flex-grow-1">
-                <strong>No Project Team Members Found</strong>
-                <p class="mb-0">This project doesn't have any team members assigned. You can manually add employees for allocation using the dropdown below.</p>
+                <strong>No Team Members Found</strong>
+                <p class="mb-0">This project doesn't have any team members assigned, and no existing allocations found. You can manually add employees using the dropdown below.</p>
+              </div>
+            </div>
+            
+            <!-- No project members but has existing allocations -->
+            <div *ngIf="projectMembers().length === 0 && selectedEmployeeAllocations().length > 0" class="alert alert-warning d-flex align-items-start">
+              <i class="bi bi-exclamation-triangle me-2 mt-1"></i>
+              <div class="flex-grow-1">
+                <strong>Existing Allocations Found</strong>
+                <p class="mb-2">
+                  This project doesn't have team members defined, but {{ selectedEmployeeAllocations().length }} existing allocation(s) were found for this week:
+                </p>
+                <ul class="mb-0">
+                  <li *ngFor="let member of selectedEmployeeAllocations()">
+                    <strong>{{ member.userName }}</strong> - {{ member.allocatedHours }} hours
+                  </li>
+                </ul>
+                <small class="text-muted mt-2 d-block">
+                  <i class="bi bi-info-circle me-1"></i>
+                  You can update existing hours or add more employees using the dropdown below.
+                </small>
               </div>
             </div>
           </div>
@@ -912,6 +962,24 @@
     </div>
   </div>
 </div>
+
+<!-- Delete Confirmation Dialog (Reusable Component) -->
+<app-confirmation-dialog
+  *ngIf="deleteDialogData()"
+  [visible]="showDeleteModal()"
+  [data]="deleteDialogData()!"
+  (confirmed)="onDeleteConfirmed()"
+  (cancelled)="closeDeleteModal()">
+</app-confirmation-dialog>
+
+<!-- Update Confirmation Dialog (Reusable Component) -->
+<app-confirmation-dialog
+  *ngIf="updateConfirmDialogData()"
+  [visible]="showUpdateConfirmModal()"
+  [data]="updateConfirmDialogData()!"
+  (confirmed)="onUpdateConfirmed()"
+  (cancelled)="closeUpdateConfirmModal()">
+</app-confirmation-dialog>
 
 <!-- Modal Backdrops -->
 <div class="modal-backdrop fade" [class.show]="showCreateModal()" *ngIf="showCreateModal()"></div>
