@@ -42,6 +42,7 @@ Buttons: [Cancel] [Yes, Update]
 When some employees have existing allocations and some don't:
 ```
 Dialog Title: "Update & Create Allocations?"
+Type: warning (yellow header)
 Message: "Some allocations already exist. Do you want to update existing ones and create new ones?"
 Details:
   - UPDATE: John Doe - 40 hours

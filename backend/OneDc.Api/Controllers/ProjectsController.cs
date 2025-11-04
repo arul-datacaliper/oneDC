@@ -36,17 +36,35 @@ public class ProjectsController : BaseController
             return Ok(allItems);
         }
         
-        // For Approver users, return projects they manage OR where they are team members
+        // For Approver users, return projects they manage OR where they are team members OR have allocations
         if (IsApprover())
         {
             var currentUserId = GetCurrentUserId();
-            var approverProjects = await _db.Projects
-                .Include(p => p.Client)
+            
+            // Get projects where approver is DefaultApprover or ProjectMember
+            var approverProjectIds = await _db.Projects
                 .Where(p => p.DefaultApprover == currentUserId || 
                            _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            // Get projects where approver has allocations
+            var allocationProjectIds = await _db.WeeklyAllocations
+                .Where(wa => wa.UserId == currentUserId)
+                .Select(wa => wa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            // Combine both lists
+            var allProjectIds = approverProjectIds.Union(allocationProjectIds).ToList();
+            
+            var approverProjects = await _db.Projects
+                .Include(p => p.Client)
+                .Where(p => allProjectIds.Contains(p.ProjectId))
                 .Distinct()
                 .AsNoTracking()
                 .ToListAsync();
+            
             return Ok(approverProjects);
         }
         
@@ -168,16 +186,33 @@ public class ProjectsController : BaseController
                 return Ok(allItems);
             }
             
-            // For Approver users, return projects they manage OR where they are team members with members
+            // For Approver users, return projects they manage OR where they are team members OR have allocations with members
             if (IsApprover())
             {
                 var currentUserId = GetCurrentUserId();
+                
+                // Get projects where approver is DefaultApprover or ProjectMember
+                var approverProjectIds = await _db.Projects
+                    .Where(p => p.DefaultApprover == currentUserId || 
+                               _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                    .Select(p => p.ProjectId)
+                    .ToListAsync();
+                
+                // Get projects where approver has allocations
+                var allocationProjectIds = await _db.WeeklyAllocations
+                    .Where(wa => wa.UserId == currentUserId)
+                    .Select(wa => wa.ProjectId)
+                    .Distinct()
+                    .ToListAsync();
+                
+                // Combine both lists
+                var allProjectIds = approverProjectIds.Union(allocationProjectIds).ToList();
+                
                 var managedProjects = await _db.Projects
                     .Include(p => p.Client)
                     .Include(p => p.ProjectMembers)
                         .ThenInclude(pm => pm.User)
-                    .Where(p => p.DefaultApprover == currentUserId || 
-                               _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                    .Where(p => allProjectIds.Contains(p.ProjectId))
                     .Distinct()
                     .AsNoTracking()
                     .Select(project => new ProjectResponseDto
