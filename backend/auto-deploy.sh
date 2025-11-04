@@ -10,17 +10,18 @@ PROJECT_ROOT="/Users/arul/oneDC/MVP-ver1/oneDC"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 BUILD_DIR="$BACKEND_DIR/publish/linux-x64-final"
 DEPLOY_DIR="$HOME/onedc-deploys"
-SERVER_USER="azureuser"
 
 # Environment-specific configuration
 if [ "$ENVIRONMENT" == "production" ]; then
     SERVER_IP="40.74.201.85"  # Production server IP
-    SERVER_PATH="/home/azureuser/datacaliper/onedc-prod"
+    SERVER_USER="datacaliperuser"  # Production user
+    SERVER_PATH="/home/datacaliperuser/datacaliper/onedc-prod"
     SERVER_PORT="5000"
 else
     SERVER_IP="135.233.176.35"  # Development server IP
+    SERVER_USER="azureuser"  # Development user
     SERVER_PATH="/home/azureuser/datacaliper/onedc-dev"
-    SERVER_PORT="5260"
+    SERVER_PORT="5000"  # Use same port 5000 for dev
 fi
 
 echo "========================================="
@@ -85,40 +86,44 @@ APP_URL=$(grep "APP_BASE_URL=" "$BUILD_DIR/.env" | cut -d'=' -f2)
 echo "  APP_BASE_URL: $APP_URL"
 
 # Step 3: Create Deployment Package
+echo ""
+echo "Step 3: Creating deployment package..."
+echo "-----------------------------------"
+mkdir -p "$DEPLOY_DIR"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
 if [ "$ENVIRONMENT" == "production" ]; then
-    echo ""
-    echo "Step 3: Creating deployment package..."
-    echo "-----------------------------------"
-    mkdir -p "$DEPLOY_DIR"
-    TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-    PACKAGE_NAME="onedc-backend-$TIMESTAMP.tar.gz"
-    
-    # Package only the build output (not source code)
-    cd "$BUILD_DIR"
-    tar -czf "$DEPLOY_DIR/$PACKAGE_NAME" .
-    echo "✓ Package created: $PACKAGE_NAME"
-    
-    # Step 4: Transfer to Server
-    echo ""
-    echo "Step 4: Transferring to production server..."
-    echo "-----------------------------------"
-    echo "Uploading to $SERVER_USER@$SERVER_IP:$SERVER_PATH..."
-    
-    scp "$DEPLOY_DIR/$PACKAGE_NAME" "$SERVER_USER@$SERVER_IP:/tmp/"
-    
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to transfer package to server"
-        exit 1
-    fi
-    
-    echo "✓ Transfer complete"
-    
-    # Step 5: Deploy on Server
-    echo ""
-    echo "Step 5: Deploying on production server..."
-    echo "-----------------------------------"
-    
-    ssh "$SERVER_USER@$SERVER_IP" << ENDSSH
+    PACKAGE_NAME="onedc-prod-$TIMESTAMP.tar.gz"
+else
+    PACKAGE_NAME="onedc-dev-$TIMESTAMP.tar.gz"
+fi
+
+# Package only the build output (not source code)
+cd "$BUILD_DIR"
+tar -czf "$DEPLOY_DIR/$PACKAGE_NAME" .
+echo "✓ Package created: $PACKAGE_NAME"
+
+# Step 4: Transfer to Server
+echo ""
+echo "Step 4: Transferring to $ENVIRONMENT server..."
+echo "-----------------------------------"
+echo "Uploading to $SERVER_USER@$SERVER_IP:$SERVER_PATH..."
+
+scp "$DEPLOY_DIR/$PACKAGE_NAME" "$SERVER_USER@$SERVER_IP:/tmp/"
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to transfer package to server"
+    exit 1
+fi
+
+echo "✓ Transfer complete"
+
+# Step 5: Deploy on Server
+echo ""
+echo "Step 5: Deploying on $ENVIRONMENT server..."
+echo "-----------------------------------"
+
+ssh "$SERVER_USER@$SERVER_IP" << ENDSSH
 set -e
 
 # Stop old instance first
@@ -207,16 +212,3 @@ ENDSSH
     echo "  Check status: ssh $SERVER_USER@$SERVER_IP 'ps aux | grep OneDc.Api'"
     echo "  Stop app:     ssh $SERVER_USER@$SERVER_IP 'pkill -f OneDc.Api'"
     echo ""
-    
-else
-    # Development mode
-    echo ""
-    echo "========================================="
-    echo "✓ Development build completed!"
-    echo "========================================="
-    echo ""
-    echo "To run locally:"
-    echo "  cd $BUILD_DIR"
-    echo "  ./OneDc.Api --urls \"http://localhost:5000\""
-    echo ""
-fi
