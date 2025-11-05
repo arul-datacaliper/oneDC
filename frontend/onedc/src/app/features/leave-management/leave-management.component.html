@@ -278,7 +278,7 @@
                 id="startDate" 
                 class="form-control" 
                 formControlName="startDate"
-                [min]="getTodayDate()">
+                [min]="getMinDate()">
               <div *ngIf="getFormError('startDate')" class="text-danger small mt-1">
                 {{ getFormError('startDate') }}
               </div>
@@ -292,7 +292,7 @@
                 id="endDate" 
                 class="form-control" 
                 formControlName="endDate"
-                [min]="leaveForm.get('startDate')?.value || getTodayDate()"
+                [min]="leaveForm.get('startDate')?.value || getMinDate()"
                 [readonly]="leaveForm.get('isHalfDay')?.value">
               <div *ngIf="getFormError('endDate')" class="text-danger small mt-1">
                 {{ getFormError('endDate') }}
