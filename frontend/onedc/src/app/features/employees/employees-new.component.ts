@@ -77,6 +77,21 @@ function joiningDateValidator(): ValidatorFn {
   };
 }
 
+// Custom validator for alphanumeric Employee ID
+function alphanumericValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value) return null;
+    
+    const value = control.value.toString();
+    const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+    
+    if (!alphanumericRegex.test(value)) {
+      return { alphanumeric: true };
+    }
+    return null;
+  };
+}
+
 // Custom async validator to check for duplicate employee IDs
 function employeeIdAsyncValidator(employeesService: EmployeesService, currentEmployeeId?: string): AsyncValidatorFn {
   return (control: AbstractControl): Observable<ValidationErrors | null> => {
@@ -213,7 +228,7 @@ export class EmployeesComponent implements OnInit {
   constructor() {
     this.employeeForm = this.fb.group({
       employeeId: ['', 
-        [Validators.required, Validators.maxLength(20)],
+        [Validators.required, Validators.maxLength(20), alphanumericValidator()],
         [employeeIdAsyncValidator(this.employeesService)] // Add async validator for duplicate check
       ],
       firstName: ['', [Validators.required, Validators.maxLength(80)]],
@@ -641,6 +656,7 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
       if (field.errors['email']) return 'Invalid email format';
       if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} must be ${field.errors['maxlength'].requiredLength} characters or less`;
+      if (field.errors['alphanumeric']) return `${this.capitalizeFirstLetter(fieldName)} can only contain letters and numbers (no special characters or spaces)`;
       if (field.errors['futureDate']) return 'Date cannot be in the future';
       if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
       if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
@@ -758,6 +774,51 @@ export class EmployeesComponent implements OnInit {
     if (!managerId) return 'No Manager';
     const manager = this.employees().find(emp => emp.userId === managerId);
     return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
+  }
+
+  // Method to handle keypress events for Employee ID field (allow only alphanumeric)
+  onEmployeeIdKeypress(event: KeyboardEvent): void {
+    const char = event.key;
+    const alphanumericRegex = /^[a-zA-Z0-9]$/;
+    
+    // Allow backspace, delete, tab, escape, enter, and arrow keys
+    if (event.key === 'Backspace' || event.key === 'Delete' || event.key === 'Tab' || 
+        event.key === 'Escape' || event.key === 'Enter' || 
+        event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      return;
+    }
+    
+    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z
+    if (event.ctrlKey || event.metaKey) {
+      return;
+    }
+    
+    // Block non-alphanumeric characters
+    if (!alphanumericRegex.test(char)) {
+      event.preventDefault();
+    }
+  }
+
+  // Method to handle paste events for Employee ID field (filter non-alphanumeric)
+  onEmployeeIdPaste(event: ClipboardEvent): void {
+    event.preventDefault();
+    const paste = event.clipboardData?.getData('text') || '';
+    const filtered = paste.replace(/[^a-zA-Z0-9]/g, '');
+    
+    const control = this.employeeForm.get('employeeId');
+    if (control) {
+      const currentValue = control.value || '';
+      const cursorPosition = (event.target as HTMLInputElement).selectionStart || 0;
+      const newValue = currentValue.slice(0, cursorPosition) + filtered + currentValue.slice(cursorPosition);
+      
+      // Respect maxLength constraint
+      const maxLength = 20;
+      const finalValue = newValue.length > maxLength ? newValue.slice(0, maxLength) : newValue;
+      
+      control.setValue(finalValue);
+      control.markAsTouched();
+    }
   }
 
   private capitalizeFirstLetter(str: string): string {
