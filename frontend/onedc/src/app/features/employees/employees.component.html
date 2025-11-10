@@ -351,7 +351,9 @@
                   <div class="position-relative">
                     <input type="text" class="form-control" formControlName="employeeId"
                            [class.is-invalid]="isFieldInvalid('employeeId')"
-                           placeholder="Enter unique employee ID">
+                           placeholder="Enter unique employee ID (letters and numbers only)"
+                           (keypress)="onEmployeeIdKeypress($event)"
+                           (paste)="onEmployeeIdPaste($event)">
                     <div class="position-absolute top-50 end-0 translate-middle-y me-2" *ngIf="isFieldPending('employeeId')">
                       <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
                     </div>
@@ -360,6 +362,9 @@
                        [style.display]="isFieldInvalid('employeeId') ? 'block' : 'none'">
                     {{ getFieldError('employeeId') }}
                   </div>
+                  <small class="form-text text-muted" *ngIf="!isFieldInvalid('employeeId')">
+                    Only letters and numbers allowed. No spaces or special characters.
+                  </small>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Date of Joining <span class="text-danger">*</span></label>

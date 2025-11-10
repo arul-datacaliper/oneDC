@@ -340,6 +340,7 @@
 
 .invalid-feedback {
   font-size: 0.75rem;
+  margin-top: 0.25rem !important;
 }
 
 .form-text {
@@ -472,22 +473,6 @@
       // Keep the red border for invalid state
       border-color: #dc3545;
       padding-right: calc(1.5em + 0.75rem); // Standard padding for date input
-    }
-    
-    // Ensure error feedback appears below the input
-    & ~ .invalid-feedback {
-      display: block;
-      margin-top: 0.25rem;
-      position: relative;
-      z-index: 1;
-    }
-  }
-  
-  // Also fix for other input types if needed
-  .form-control.is-invalid {
-    & ~ .invalid-feedback {
-      display: block;
-      margin-top: 0.25rem;
     }
   }
 }

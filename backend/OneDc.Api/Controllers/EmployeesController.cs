@@ -6,8 +6,27 @@ using OneDc.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace OneDc.Api.Controllers;
+
+// Custom validation attribute for alphanumeric Employee ID
+public class AlphanumericAttribute : ValidationAttribute
+{
+    public override bool IsValid(object? value)
+    {
+        if (value == null || string.IsNullOrEmpty(value.ToString()))
+            return true; // Let [Required] handle null/empty validation
+
+        var stringValue = value.ToString()!;
+        return Regex.IsMatch(stringValue, @"^[a-zA-Z0-9]+$");
+    }
+
+    public override string FormatErrorMessage(string name)
+    {
+        return $"{name} can only contain letters and numbers (no special characters or spaces).";
+    }
+}
 
 public class CreateEmployeeRequest
 {
@@ -27,6 +46,8 @@ public class CreateEmployeeRequest
     public UserRole Role { get; set; } = UserRole.EMPLOYEE;
     
     [Required]
+    [Alphanumeric]
+    [MaxLength(20)]
     public string EmployeeId { get; set; } = null!;
     
     public Gender? Gender { get; set; }
@@ -75,6 +96,8 @@ public class UpdateEmployeeRequest
     public UserRole Role { get; set; }
     
     [Required]
+    [Alphanumeric]
+    [MaxLength(20)]
     public string EmployeeId { get; set; } = null!;
     
     public Gender? Gender { get; set; }
