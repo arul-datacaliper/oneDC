@@ -416,6 +416,7 @@ export class ProjectsComponent implements OnInit {
             this.toastr.success('Project updated successfully');
             this.loadProjects();
             this.closeModal();
+            this.submitting.set(false); // Reset submitting state on success
           },
           error: (err) => {
             console.error('Update failed:', err);
@@ -434,9 +435,7 @@ export class ProjectsComponent implements OnInit {
               // Generic error handling
               this.toastr.error(`Failed to update project: ${err.error?.title || err.error?.detail || err.message}`);
             }
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       } else {
@@ -464,6 +463,7 @@ export class ProjectsComponent implements OnInit {
             this.toastr.success('Project created successfully');
             this.loadProjects();
             this.closeModal();
+            this.submitting.set(false); // Reset submitting state on success
           },
           error: (err) => {
             console.error('Create failed:', err);
@@ -482,9 +482,7 @@ export class ProjectsComponent implements OnInit {
               // Generic error handling
               this.toastr.error(`Failed to create project: ${err.error?.title || err.error?.detail || err.message}`);
             }
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       }

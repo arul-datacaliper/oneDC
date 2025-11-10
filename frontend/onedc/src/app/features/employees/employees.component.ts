@@ -623,7 +623,7 @@ export class EmployeesComponent implements OnInit {
             }
             this.loadEmployeeCounts(); // Update employee counts (in case status changed)
             this.toastr.success('Employee updated successfully');
-            this.submitting.set(false); // Reset submitting state
+            this.submitting.set(false); // Reset submitting state on success
             this.closeModal();
 
             // If the current user's role was changed, refresh the token
@@ -655,9 +655,25 @@ export class EmployeesComponent implements OnInit {
           },
           error: (error) => {
             console.error('Error updating employee:', error);
-            // Check if the error has a specific message from the backend
-            const errorMessage = error?.error?.message || 'Failed to update employee';
-            this.toastr.error(errorMessage);
+            
+            // Handle specific error types
+            if (error.status === 409) {
+              // Conflict - duplicate email or employee ID
+              this.toastr.error(error.error?.detail || error.error?.message || 'An employee with this email already exists');
+            } else if (error.status === 400) {
+              // Bad request - validation errors
+              this.toastr.error(error.error?.detail || error.error?.message || 'Invalid employee data provided');
+            } else if (error.status === 408) {
+              // Request timeout
+              this.toastr.error(error.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (error.status === 500) {
+              // Internal server error
+              this.toastr.error(error.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              const errorMessage = error?.error?.message || 'Failed to update employee';
+              this.toastr.error(errorMessage);
+            }
             this.submitting.set(false); // Reset submitting state on error
           }
         });
@@ -701,14 +717,30 @@ export class EmployeesComponent implements OnInit {
             this.setupFiltering();
             this.loadEmployeeCounts(); // Update employee counts
             this.toastr.success('Employee created successfully');
-            this.submitting.set(false); // Reset submitting state
+            this.submitting.set(false); // Reset submitting state on success
             this.closeModal();
           },
           error: (error) => {
             console.error('Error creating employee:', error);
-            // Check if the error has a specific message from the backend
-            const errorMessage = error?.error?.message || 'Failed to create employee';
-            this.toastr.error(errorMessage);
+            
+            // Handle specific error types
+            if (error.status === 409) {
+              // Conflict - duplicate email or employee ID
+              this.toastr.error(error.error?.detail || error.error?.message || 'An employee with this email already exists');
+            } else if (error.status === 400) {
+              // Bad request - validation errors
+              this.toastr.error(error.error?.detail || error.error?.message || 'Invalid employee data provided');
+            } else if (error.status === 408) {
+              // Request timeout
+              this.toastr.error(error.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (error.status === 500) {
+              // Internal server error
+              this.toastr.error(error.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              const errorMessage = error?.error?.message || 'Failed to create employee';
+              this.toastr.error(errorMessage);
+            }
             this.submitting.set(false); // Reset submitting state on error
           }
         });

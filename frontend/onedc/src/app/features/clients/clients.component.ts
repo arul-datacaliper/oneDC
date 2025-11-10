@@ -249,13 +249,26 @@ export class ClientsComponent implements OnInit {
             this.toastr.success('Client updated successfully');
             this.loadClients();
             this.closeModal();
+            this.submitting.set(false); // Reset submitting state on success
           },
           error: (err) => {
             console.error('Failed to update client:', err);
-            this.toastr.error('Failed to update client');
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate client code or name
+              this.toastr.error(err.error?.detail || 'A client with this name or code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to update client: ${err.error?.title || err.error?.detail || err.message || 'Please try again'}`);
+            }
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       } else {
@@ -279,13 +292,26 @@ export class ClientsComponent implements OnInit {
             this.toastr.success('Client created successfully');
             this.loadClients();
             this.closeModal();
+            this.submitting.set(false); // Reset submitting state on success
           },
           error: (err) => {
             console.error('Failed to create client:', err);
-            this.toastr.error('Failed to create client');
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            
+            // Handle specific error types
+            if (err.status === 409) {
+              // Conflict - duplicate client code or name
+              this.toastr.error(err.error?.detail || 'A client with this name or code already exists');
+            } else if (err.status === 408) {
+              // Request timeout
+              this.toastr.error(err.error?.detail || 'Request timed out. Please try again in a moment.');
+            } else if (err.status === 500) {
+              // Internal server error
+              this.toastr.error(err.error?.detail || 'An unexpected error occurred. Please try again.');
+            } else {
+              // Generic error handling
+              this.toastr.error(`Failed to create client: ${err.error?.title || err.error?.detail || err.message || 'Please try again'}`);
+            }
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       }
