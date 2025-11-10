@@ -328,7 +328,7 @@ export class AllocationsComponent implements OnInit {
 
     this.projectService.getByIdWithMembers(projectId).subscribe({
       next: (projectDetails) => {
-        const members = projectDetails.projectMembers.map(member => ({
+        const members = (projectDetails.projectMembers || []).map(member => ({
           userId: member.userId,
           userName: `${member.firstName} ${member.lastName}`,
           role: member.role,
@@ -336,26 +336,24 @@ export class AllocationsComponent implements OnInit {
         }));
         this.projectMembers.set(members);
         
-        // Auto-add project members to the allocation list with default hours
-        this.autoAddProjectMembers(members);
+        // Auto-load all employees with allocations for this project
+        this.loadAllProjectEmployees(members);
       },
       error: (error) => {
         console.error('Error loading project members:', error);
+        console.error('Error details:', error.error);
+        console.error('Error status:', error.status);
         this.projectMembers.set([]);
+        this.toastr.error(`Failed to load project members: ${error.error?.message || error.message || 'Unknown error'}`);
       }
     });
   }
 
-  private autoAddProjectMembers(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
+  private loadAllProjectEmployees(members: {userId: string, userName: string, role: string, projectRole: string}[]) {
     // Get the selected project ID and week dates from the form
     const projectId = this.allocationForm.get('projectId')?.value;
     const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
     const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
-
-    console.log('autoAddProjectMembers - Project ID:', projectId);
-    console.log('autoAddProjectMembers - Week Start:', weekStartDate);
-    console.log('autoAddProjectMembers - Week End:', weekEndDate);
-    console.log('autoAddProjectMembers - All allocations:', this.allocations());
 
     // Normalize dates to YYYY-MM-DD format for comparison
     const normalizeDate = (dateStr: string): string => {
@@ -371,11 +369,7 @@ export class AllocationsComponent implements OnInit {
     const normalizedWeekStart = normalizeDate(weekStartDate);
     const normalizedWeekEnd = normalizeDate(weekEndDate);
 
-    console.log('Normalized Week Start:', normalizedWeekStart);
-    console.log('Normalized Week End:', normalizedWeekEnd);
-
     // Get all existing allocations for this project that overlap with the selected week period
-    // Instead of exact date match, check for ANY overlap with the selected week
     const existingAllocations = this.allocations().filter(a => {
       const normalizedAllocStart = normalizeDate(a.weekStartDate);
       const normalizedAllocEnd = normalizeDate(a.weekEndDate);
@@ -386,11 +380,8 @@ export class AllocationsComponent implements OnInit {
         normalizedAllocStart <= normalizedWeekEnd &&
         normalizedAllocEnd >= normalizedWeekStart;
       
-      console.log(`Checking allocation: ${a.userName} - ProjectMatch: ${a.projectId === projectId}, Overlaps: ${overlaps} (Alloc: ${normalizedAllocStart} to ${normalizedAllocEnd}, Week: ${normalizedWeekStart} to ${normalizedWeekEnd})`);
       return overlaps;
     });
-
-    console.log('autoAddProjectMembers - Existing allocations found:', existingAllocations);
 
     // Create a map of existing allocations by userId for quick lookup
     const existingAllocationMap = new Map<string, WeeklyAllocation>();
@@ -427,8 +418,8 @@ export class AllocationsComponent implements OnInit {
       if (currentUser) {
         const currentMember = members.find(m => m.userId === currentUser.userId);
         if (currentMember) {
-          // Check if there's an existing allocation for this user
-          const existingAllocation = existingAllocationMap.get(currentUser.userId);
+          // Check if there's an existing allocation for this user in the selected period
+          const existingAllocation = existingAllocations.find(a => a.userId === currentUser.userId);
 
           const allocation: EmployeeAllocation = {
             userId: currentMember.userId,
@@ -450,14 +441,8 @@ export class AllocationsComponent implements OnInit {
             this.toastr.info('You have been auto-selected for allocation. Please enter your allocation hours.');
           }
         } else {
-          // Employee is not a team member - keep them in the list (they can still allocate themselves)
-          // Check if there's an existing allocation for this user, project, and week
-          const existingAllocation = this.allocations().find(a => 
-            a.userId === currentUser.userId && 
-            a.projectId === projectId &&
-            a.weekStartDate === weekStartDate &&
-            a.weekEndDate === weekEndDate
-          );
+          // Employee is not a team member - check if they have allocations for the selected period
+          const existingAllocation = existingAllocations.find(a => a.userId === currentUser.userId);
 
           this.selectedEmployeeAllocations.set([{
             userId: currentUser.userId,
@@ -474,16 +459,16 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
-    // For approvers and admins, add all project members AND existing allocations
+    // For approvers and admins, load ALL employees who have allocations for this project
     // Clear existing allocations first
     this.selectedEmployeeAllocations.set([]);
     
-    // Create a map to track all unique users (both project members and existing allocations)
+    // Create a map to track all unique users (project members + all employees with allocations)
     const userMap = new Map<string, EmployeeAllocation>();
     
     // First, add all project members
     members.forEach(member => {
-      const existingAllocation = existingAllocationMap.get(member.userId);
+      const existingAllocation = existingAllocations.find(a => a.userId === member.userId);
       
       const allocation: EmployeeAllocation = {
         userId: member.userId,
@@ -499,7 +484,7 @@ export class AllocationsComponent implements OnInit {
       userMap.set(member.userId, allocation);
     });
     
-    // Then, add any existing allocations for users who are NOT project members
+    // Then, add ALL employees who have allocations for this project (not just non-project members)
     existingAllocations.forEach(existingAlloc => {
       if (!userMap.has(existingAlloc.userId)) {
         const allocation: EmployeeAllocation = {
@@ -519,34 +504,49 @@ export class AllocationsComponent implements OnInit {
 
     // Convert map to array
     const allocations = Array.from(userMap.values());
-
+    
     this.selectedEmployeeAllocations.set(allocations);
     this.updateAvailableEmployeesForSelection();
     
-    // Check if any existing allocations were found
-    const existingCount = allocations.filter(a => a.allocatedHours > 0).length;
+    // Calculate counts more accurately for the selected period
     const projectMemberCount = members.length;
-    const additionalMembersCount = allocations.length - projectMemberCount;
+    const totalEmployeesWithAllocations = allocations.length;
+    const employeesWithExistingHours = allocations.filter(a => a.allocatedHours > 0).length;
+    const projectMemberIds = new Set(members.map(m => m.userId));
+    const nonProjectMembersWithAllocations = allocations.filter(a => !projectMemberIds.has(a.userId)).length;
     
-    if (existingCount > 0) {
-      if (additionalMembersCount > 0) {
-        this.toastr.info(`Loaded ${projectMemberCount} project team members and ${additionalMembersCount} additional members with existing allocations. ${existingCount} member(s) have existing hours pre-filled.`);
-      } else {
-        this.toastr.info(`Auto-added ${projectMemberCount} project team members. ${existingCount} member(s) have existing allocations pre-filled.`);
+    // Improved messaging logic for selected period
+    if (employeesWithExistingHours > 0) {
+      let message = '';
+      
+      if (projectMemberCount > 0 && nonProjectMembersWithAllocations > 0) {
+        message = `Loaded ${totalEmployeesWithAllocations} employee(s) for the selected period: ${projectMemberCount} team member(s) and ${nonProjectMembersWithAllocations} additional member(s).`;
+      } else if (projectMemberCount > 0 && nonProjectMembersWithAllocations === 0) {
+        message = `Loaded ${projectMemberCount} project team member(s) for the selected period.`;
+      } else if (nonProjectMembersWithAllocations > 0) {
+        message = `Loaded ${nonProjectMembersWithAllocations} employee(s) with allocations for the selected period.`;
       }
+      
+      if (employeesWithExistingHours > 0) {
+        message += ` ${employeesWithExistingHours} employee(s) have existing hours for this period.`;
+      }
+      
+      this.toastr.info(message);
     } else if (allocations.length > 0) {
-      if (additionalMembersCount > 0) {
-        this.toastr.info(`Loaded ${projectMemberCount} project team members and ${additionalMembersCount} additional members. Please enter allocation hours for each member.`);
+      if (projectMemberCount > 0) {
+        this.toastr.info(`Auto-added ${projectMemberCount} project team member(s) for the selected period. Please enter allocation hours for each member.`);
       } else {
-        this.toastr.info(`Auto-added ${projectMemberCount} project team members. Please enter allocation hours for each member.`);
+        this.toastr.info(`Found ${totalEmployeesWithAllocations} employee(s) for the selected period. Please enter allocation hours.`);
       }
+    } else {
+      this.toastr.info('No allocations found for the selected period. Please manually add team members for allocation.');
     }
   }
 
   resetToProjectDefaults() {
     const projectMembers = this.projectMembers();
     if (projectMembers.length > 0) {
-      this.autoAddProjectMembers(projectMembers);
+      this.loadAllProjectEmployees(projectMembers);
       this.toastr.success('Reset to project team defaults successfully');
     }
   }
@@ -704,7 +704,6 @@ export class AllocationsComponent implements OnInit {
       return;
     }
     
-    console.log('openCreateModal called');
     this.allocationForm.reset();
     const currentWeek = this.currentWeekStart();
     const currentWeekEnd = this.calculateWeekEndDate(currentWeek);
@@ -735,8 +734,6 @@ export class AllocationsComponent implements OnInit {
     this.updateAvailableEmployeesForSelection();
     this.editingAllocation.set(null);
     this.showCreateModal.set(true);
-    console.log('Modal opened - availableEmployees:', this.availableEmployees());
-    console.log('Modal opened - availableEmployeesForSelection:', this.availableEmployeesForSelection());
   }
 
   openEditModal(allocation: WeeklyAllocation) {
@@ -818,18 +815,12 @@ export class AllocationsComponent implements OnInit {
     const allEmployees = this.availableEmployees();
     const selectedIds = this.selectedEmployeeAllocations().map(emp => emp.userId);
     const availableEmployees = allEmployees.filter(emp => !selectedIds.includes(emp.userId));
-    console.log('updateAvailableEmployeesForSelection:');
-    console.log('- allEmployees:', allEmployees);
-    console.log('- selectedIds:', selectedIds);
-    console.log('- availableEmployees:', availableEmployees);
     this.availableEmployeesForSelection.set(availableEmployees);
   }
 
   // Add employee to allocation list
   addEmployeeAllocation(userId: string) {
-    console.log('addEmployeeAllocation called with userId:', userId);
     const employee = this.availableEmployees().find(emp => emp.userId === userId);
-    console.log('Found employee:', employee);
     if (employee) {
       const newEmployeeAllocation: EmployeeAllocation = {
         userId: employee.userId,
@@ -842,10 +833,8 @@ export class AllocationsComponent implements OnInit {
         newEmployeeAllocation.periodHours = new Array(this.monthPeriods().length).fill(0);
       }
 
-      console.log('Adding employee allocation:', newEmployeeAllocation);
       this.selectedEmployeeAllocations.update(current => [...current, newEmployeeAllocation]);
       this.updateAvailableEmployeesForSelection();
-      console.log('Updated selectedEmployeeAllocations:', this.selectedEmployeeAllocations());
       
       // Load weekly capacity for the newly added employee based on selected date range
       const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
@@ -860,7 +849,6 @@ export class AllocationsComponent implements OnInit {
                 newMap.set(capacity.userId, capacity);
                 return newMap;
               });
-              console.log('Loaded capacity for new employee:', capacity);
             }
           },
           error: (error) => {
@@ -873,7 +861,6 @@ export class AllocationsComponent implements OnInit {
 
   // Handle employee selection from dropdown
   onEmployeeAdd(userId: string) {
-    console.log('onEmployeeAdd called with userId:', userId);
     if (userId && userId !== '') {
       this.addEmployeeAllocation(userId);
       // Clear the dropdown selection immediately
