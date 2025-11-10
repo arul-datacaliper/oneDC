@@ -68,8 +68,7 @@ export class ProjectsService {
   private base = `${environment.apiBaseUrl}/projects`;
 
   getAll() { 
-    console.log('ProjectsService: Making API call to', this.base); // Debug log
-    return this.http.get<Project[]>(this.base); 
+    return this.http.get<Project[]>(this.base);
   }
 
   getById(id: string) {

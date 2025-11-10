@@ -9,6 +9,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { TaskFormComponent } from './components/task-form.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { ToastrService } from 'ngx-toastr';
+import { Project } from '../../shared/models';
 
 @Component({
   selector: 'app-tasks',
@@ -136,8 +137,8 @@ export class TasksComponent implements OnInit, AfterViewInit {
     this.projectsSvc.getAll().subscribe(ps => {
       this.projects.set(ps);
       // Filter to only include ACTIVE projects for task assignment
-      const activeProjects = ps.filter(p => p.status === 'ACTIVE');
-      this.projectOptions.set(activeProjects.map(p => ({
+      const activeProjects = ps.filter((p: Project) => p.status === 'ACTIVE');
+      this.projectOptions.set(activeProjects.map((p: Project) => ({
         value: p.projectId,
         label: `${p.name} — ${p.client?.name || p.clientId}`,
         project: p
