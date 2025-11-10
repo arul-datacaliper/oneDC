@@ -610,11 +610,13 @@
               </small>
             </h5>
             <p class="mb-2 opacity-75">{{ currentUser()?.email || 'user@onedc.local' }}</p>
-            <span class="badge bg-white text-primary px-3 py-1" 
+            <span class="badge px-3 py-1" 
                   [class.bg-warning]="currentUser()?.role === 'ADMIN'" 
                   [class.text-dark]="currentUser()?.role === 'ADMIN'"
                   [class.bg-info]="currentUser()?.role === 'APPROVER'"
-                  [class.text-white]="currentUser()?.role === 'APPROVER'">
+                  [class.text-white]="currentUser()?.role === 'APPROVER'"
+                  [class.bg-white]="currentUser()?.role === 'EMPLOYEE'"
+                  [class.text-primary]="currentUser()?.role === 'EMPLOYEE'">
               {{ getCurrentUserRole() }}
             </span>
             
@@ -677,7 +679,7 @@
                   <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalSubmittedHours || 0 }}</span>
                   <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-warning"></div>
                 </div>
-                <div class="card-subtitle text-muted">Total logged time</div>
+                <div class="card-subtitle text-muted">{{ dateRangeMode() === 'week' ? 'This week' : 'This month' }}</div>
               </div>
             </div>
           </div>
@@ -694,7 +696,7 @@
                   <span *ngIf="!isLoadingEmployeeData">{{ employeeMetrics?.totalApprovedHours || 0 }}</span>
                   <div *ngIf="isLoadingEmployeeData" class="spinner-border spinner-border-sm text-success"></div>
                 </div>
-                <div class="card-subtitle text-muted">Ready for billing</div>
+                <div class="card-subtitle text-muted">{{ dateRangeMode() === 'week' ? 'This week' : 'This month' }}</div>
               </div>
             </div>
           </div>
@@ -754,7 +756,6 @@
                   <tr *ngFor="let task of employeeTasks">
                     <td>
                       <div class="fw-medium">{{ task.taskName }}</div>
-                      <small class="text-muted" *ngIf="task.description">{{ task.description }}</small>
                     </td>
                     <td>{{ task.projectName }}</td>
                     <td class="text-center">
@@ -784,7 +785,7 @@
         <div class="card shadow-sm h-100">
           <div class="card-header bg-white">
             <h5 class="card-title mb-0">Project Utilization</h5>
-            <p class="text-muted mb-0 small">Your time allocation and efficiency across projects</p>
+            <p class="text-muted mb-0 small">{{ getFormattedDateRange() }} - Your time allocation and efficiency across projects</p>
           </div>
           <div class="card-body p-0">
             <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
@@ -837,87 +838,123 @@
       </div>
     </div>
 
-    <!-- Full Project Utilization Table -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-white">
-        <h5 class="card-title mb-0">Complete Project Utilization</h5>
-        <p class="text-muted mb-0 small">Detailed view of your time allocation across all projects</p>
-      </div>
-      <div class="card-body p-0">
-        <div *ngIf="isLoadingEmployeeData" class="text-center p-4">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-        </div>
-        
-        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length === 0" class="text-center p-4">
-          <i class="bi bi-inbox text-muted fs-1"></i>
-          <p class="text-muted mt-2 mb-0">No project utilization data available</p>
-        </div>
-
-        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 0" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-          <table class="table table-hover mb-0">
-            <thead class="table-light sticky-top">
-              <tr>
-                <th class="border-0">Project</th>
-                <th class="border-0 text-end">Allocated Hours</th>
-                <th class="border-0 text-end">Worked Hours</th>
-                <th class="border-0 text-center">Utilization</th>
-                <th class="border-0 text-center">Status</th>
-                <th class="border-0">Manager</th>
-                <th class="border-0">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let project of projectUtilization">
-                <td>
-                  <div class="fw-medium">{{ project.projectName }}</div>
-                </td>
-                <td class="text-end">{{ project.totalAllocatedHours | number:'1.0-2' }}</td>
-                <td class="text-end">{{ project.totalWorkedHours | number:'1.0-2' }}</td>
-                <td class="text-center">
-                  <span [class]="getUtilizationBadgeClass(project.utilizationPercentage)">
-                    {{ project.utilizationPercentage | number:'1.0-1' }}%
-                  </span>
-                </td>
-                <td class="text-center">
-                  <span [class]="getProjectStatusBadgeClass(project.status)">
-                    {{ project.status }}
-                  </span>
-                </td>
-                <td>{{ project.managerName }}</td>
-                <td>
-                  <small class="text-muted">
-                    {{ project.startDate | date:'shortDate' }} - {{ project.endDate | date:'shortDate' }}
-                  </small>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Project count indicator for detailed table -->
-        <div *ngIf="!isLoadingEmployeeData && projectUtilization.length > 6" class="px-3 py-2 bg-light border-top">
-          <small class="text-muted">
-            <i class="bi bi-arrow-down-circle me-1"></i>
-            Showing {{ projectUtilization.length }} projects - scroll to view all
-          </small>
-        </div>
-      </div>
-    </div>
-
     <!-- Approver-specific section -->
-    <div *ngIf="canApprove()" class="mt-4">
+    <div *ngIf="canApprove()">
       <!-- Section Divider -->
-      <div class="d-flex align-items-center mb-4">
+      <div class="d-flex align-items-center mb-4 mt-4">
         <hr class="flex-grow-1">
         <span class="mx-3 text-muted fw-medium">
           <i class="bi bi-shield-check me-2"></i>
-          Approver Responsibilities
+          Manager Responsibilities
         </span>
         <hr class="flex-grow-1">
       </div>
       
+      <!-- Manager Dashboard Row -->
+      <div class="row g-4 mb-4">
+        <!-- Project Management Table -->
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-header bg-white border-bottom">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-briefcase me-2"></i>
+                My Projects
+              </h5>
+              <p class="text-muted mb-0 small">Projects under your management</p>
+            </div>
+            <div class="card-body p-0">
+              <div *ngIf="isLoadingApproverProjects" class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">Loading projects...</p>
+              </div>
+              
+              <div *ngIf="!isLoadingApproverProjects && approverProjects().length === 0" class="text-center p-4">
+                <i class="bi bi-inbox text-muted fs-1"></i>
+                <p class="text-muted mt-2 mb-0">No projects assigned</p>
+              </div>
+
+              <div *ngIf="!isLoadingApproverProjects && approverProjects().length > 0" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-hover mb-0">
+                  <thead class="table-light sticky-top">
+                    <tr>
+                      <th class="border-0">Project</th>
+                      <th class="border-0 text-center">Members</th>
+                      <th class="border-0 text-center">Allocated Hours</th>
+                      <th class="border-0 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let project of approverProjects(); trackBy: trackByApproverProjectId">
+                      <td>
+                        <div class="fw-medium">{{ project.projectName }}</div>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-primary">{{ project.totalMembers }}</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="fw-medium">{{ project.totalAllocatedHours }}h</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-success">{{ project.status }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <!-- Project count indicator -->
+              <div *ngIf="!isLoadingApproverProjects && approverProjects().length > 8" class="px-3 py-2 bg-light border-top">
+                <small class="text-muted">
+                  <i class="bi bi-arrow-down-circle me-1"></i>
+                  Showing {{ approverProjects().length }} projects - scroll to view all
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Project Open Tasks Bar Chart -->
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-header bg-white border-bottom">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-bar-chart me-2"></i>
+                Project Task Status Distribution
+              </h5>
+              <p class="text-muted mb-0 small">All tasks categorized by status across all projects</p>
+            </div>
+            <div class="card-body">
+              <div *ngIf="isLoadingApproverProjects" class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">Loading chart data...</p>
+              </div>
+              
+              <div *ngIf="!isLoadingApproverProjects && approverProjects().length === 0" class="text-center p-4">
+                <i class="bi bi-graph-up text-muted fs-1"></i>
+                <p class="text-muted mt-2 mb-0">No data available for chart</p>
+              </div>
+
+              <div *ngIf="!isLoadingApproverProjects && approverProjects().length > 0" 
+                   [style.height.px]="getChartHeight()" 
+                   style="max-height: 800px; overflow-y: auto;">
+                <canvas 
+                  baseChart
+                  [data]="barChartData"
+                  [type]="barChartType"
+                  [options]="barChartOptions"
+                  [plugins]="pieChartPlugins">
+                </canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Pending Approvals Card -->
       <div class="card shadow-sm border-warning">
         <div class="card-header bg-warning bg-opacity-10 border-warning">
           <div class="d-flex justify-content-between align-items-center">

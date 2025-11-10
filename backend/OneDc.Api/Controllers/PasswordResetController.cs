@@ -107,14 +107,7 @@ public class PasswordResetController : ControllerBase
 
         try
         {
-            // Check if there's a valid OTP first
-            var validOtp = await _passwordResetService.GetValidOtpAsync(request.Email, "000000"); // dummy check
-            if (validOtp == null)
-            {
-                return BadRequest(new { message = "No active password reset request found." });
-            }
-
-            // Generate new OTP
+            // Simply generate a new OTP - this will invalidate old ones automatically
             var result = await _passwordResetService.GeneratePasswordResetOtpAsync(request.Email);
             
             if (!string.IsNullOrEmpty(result))
@@ -123,7 +116,8 @@ public class PasswordResetController : ControllerBase
             }
             else
             {
-                return BadRequest(new { message = "Failed to send OTP. Please try again." });
+                // Return success even if email doesn't exist (security best practice)
+                return Ok(new { message = "If the email exists, a new OTP has been sent." });
             }
         }
         catch (Exception ex)

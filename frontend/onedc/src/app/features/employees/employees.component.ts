@@ -623,6 +623,7 @@ export class EmployeesComponent implements OnInit {
             }
             this.loadEmployeeCounts(); // Update employee counts (in case status changed)
             this.toastr.success('Employee updated successfully');
+            this.submitting.set(false); // Reset submitting state
             this.closeModal();
 
             // If the current user's role was changed, refresh the token
@@ -654,10 +655,10 @@ export class EmployeesComponent implements OnInit {
           },
           error: (error) => {
             console.error('Error updating employee:', error);
-            this.toastr.error('Failed to update employee');
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            // Check if the error has a specific message from the backend
+            const errorMessage = error?.error?.message || 'Failed to update employee';
+            this.toastr.error(errorMessage);
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       } else {
@@ -700,14 +701,15 @@ export class EmployeesComponent implements OnInit {
             this.setupFiltering();
             this.loadEmployeeCounts(); // Update employee counts
             this.toastr.success('Employee created successfully');
+            this.submitting.set(false); // Reset submitting state
             this.closeModal();
           },
           error: (error) => {
             console.error('Error creating employee:', error);
-            this.toastr.error('Failed to create employee');
-          },
-          complete: () => {
-            this.submitting.set(false); // Reset submitting state
+            // Check if the error has a specific message from the backend
+            const errorMessage = error?.error?.message || 'Failed to create employee';
+            this.toastr.error(errorMessage);
+            this.submitting.set(false); // Reset submitting state on error
           }
         });
       }

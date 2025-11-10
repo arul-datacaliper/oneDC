@@ -354,7 +354,6 @@ export class TimesheetEditorComponent implements OnInit {
           this.load();
         },
         error: (err) => {
-          console.error('Auto-create entry error:', err);
           // Silently fail - user can still add manually if needed
         }
       });
@@ -374,18 +373,14 @@ export class TimesheetEditorComponent implements OnInit {
   loadProjects() {
     this.projSvc.getAll().subscribe({
       next: (ps: any[]) => {
-        // Filter only active projects
-        const activeProjects = ps.filter((p: any) => p.status === 'ACTIVE' || !p.status);
-        this.projects.set(activeProjects);
+        // Backend now handles role-based filtering, so we don't need to filter by status here
+        // Include all projects returned by the backend (both ACTIVE and ON_HOLD for allocated users)
+        this.projects.set(ps);
       },
       error: (err) => {
         console.error('Failed to load projects:', err);
         this.showNotification('Failed to load projects', 'error');
-        // Set some mock data for development
-        this.projects.set([
-          { projectId: '1', clientId: 'client1', code: 'DEMO', name: 'Demo Project', status: 'ACTIVE', billable: true },
-          { projectId: '2', clientId: 'client1', code: 'INTERNAL', name: 'Internal Work', status: 'ACTIVE', billable: false }
-        ] as Project[]);
+        this.projects.set([]);
       }
     });
   }
@@ -457,7 +452,7 @@ export class TimesheetEditorComponent implements OnInit {
         }
       },
       error: error => {
-        console.error('Error loading tasks:', error);
+        // Silently fail for task loading, tasks are optional
       }
     });
   }
@@ -485,7 +480,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.holidays.set(holidays);
       },
       error: (error) => {
-        console.error('Error loading holidays:', error);
         // Don't show error to user, just fail silently as it's not critical
       }
     });
@@ -519,7 +513,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.approvedLeaves.set(approvedLeaves);
       },
       error: (error) => {
-        console.error('Error loading approved leaves:', error);
         // Don't show error to user, just fail silently as it's not critical
       }
     });
@@ -652,22 +645,17 @@ export class TimesheetEditorComponent implements OnInit {
     }
     
     if (hours < 0 || hours > 24) {
-      console.log('Validation failed: Hours out of range');
       this.showNotification('Hours must be between 0 and 24', 'OK', { duration: 2000 });
       return;
     }
     if (hours > 0 && !val.description?.trim()) {
-      console.log('Validation failed: Description required');
       this.showNotification('Description required when hours > 0', 'OK', { duration: 2000 });
       return;
     }
     if (val.taskType === null || val.taskType === undefined || val.taskType === '') {
-      console.log('Validation failed: Task type required');
       this.showNotification('Please select a task type', 'OK', { duration: 2000 });
       return;
     }
-    
-    console.log('All validations passed, creating entry');
 
     this.submitting.set(true); // Set submitting state
 
@@ -698,8 +686,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.load();
       },
       error: (err) => {
-        console.error('Create entry error:', err); // Keep for debugging
-        
         // Handle specific error messages
         let errorMessage = 'Failed to create entry';
         
@@ -785,8 +771,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.exitEditMode(); // Exit edit mode after successful save
       },
       error: (err) => {
-        console.error('Update entry error:', err); // Keep for debugging
-        
         // Extract error message using the same logic as other operations
         let errorMessage = 'Save failed';
         
@@ -836,8 +820,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.showNotification('Submitted for approval', 'OK', { duration: 1500 });
       },
       error: (err) => {
-        console.error('Submit error:', err); // Keep for debugging
-        
         // Extract error message from various possible error structures
         let errorMessage = 'Submit failed';
         
@@ -896,8 +878,6 @@ export class TimesheetEditorComponent implements OnInit {
         this.showNotification('Deleted', 'OK', { duration: 1200 });
       },
       error: (err) => {
-        console.error('Delete entry error:', err); // Keep for debugging
-        
         // Extract error message using the same logic as other operations
         let errorMessage = 'Delete failed';
         

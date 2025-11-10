@@ -7,7 +7,9 @@ import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseI
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
 import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
-import { Subscription, filter } from 'rxjs';
+import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
+import { Subscription, filter, forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData, ChartEvent, ChartType } from 'chart.js';
@@ -18,6 +20,24 @@ export interface TimesheetEntry {
   project: string;
   hours: number;
   status: string;
+}
+
+export interface ApproverProjectSummary {
+  projectId: string;
+  projectName: string;
+  totalMembers: number;
+  totalAllocatedHours: number;
+  utilizationPercentage: number;
+  openTasksCount: number;
+  totalTasksCount: number;
+  status: string;
+  // Detailed task status counts for stacked bar chart
+  newTasksCount: number;
+  inProgressTasksCount: number;
+  blockedTasksCount: number;
+  onHoldTasksCount: number;
+  completedTasksCount: number;
+  cancelledTasksCount: number;
 }
 
 @Component({
@@ -33,6 +53,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private employeeService = inject(EmployeeService);
   private onboardingService = inject(OnboardingService);
   private allocationService = inject(AllocationService);
+  private tasksService = inject(TasksService);
   private router = inject(Router);
   private routerSubscription?: Subscription;
 
@@ -52,6 +73,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentTimesheets: TimesheetEntry[] = [];
   weeklyHours = 0;
   pendingApprovals = 0;
+  
+  // Approver dashboard data
+  approverProjects = signal<ApproverProjectSummary[]>([]);
+  isLoadingApproverProjects = false;
   
   // Employee allocation data
   employeeAllocations = signal<EmployeeAllocationSummary[]>([]);
@@ -180,6 +205,106 @@ export class DashboardComponent implements OnInit, OnDestroy {
   public pieChartPlugins = [ChartDataLabels];
 
   public pieChartType = 'doughnut' as const;
+  
+  // Bar chart configuration for approver's project open tasks
+  public barChartOptions: ChartConfiguration<'bar'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y', // Horizontal bars for better label visibility
+    scales: {
+      x: {
+        beginAtZero: true,
+        stacked: true, // Enable stacking on x-axis
+        ticks: {
+          stepSize: 1,
+          font: {
+            size: 11
+          }
+        },
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      y: {
+        stacked: true, // Enable stacking on y-axis
+        grid: {
+          display: false
+        },
+        ticks: {
+          font: {
+            size: 10
+          }
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        display: true, // Show legend for stacked chart
+        position: 'top',
+        labels: {
+          font: {
+            size: 11
+          },
+          padding: 15,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        cornerRadius: 8,
+        displayColors: true,
+        boxWidth: 12,
+        boxHeight: 12,
+        callbacks: {
+          label: (context) => {
+            const label = context.dataset.label || '';
+            const value = context.parsed.x;
+            return `${label}: ${value}`;
+          },
+          footer: (tooltipItems) => {
+            // Calculate total tasks for the project
+            let total = 0;
+            tooltipItems.forEach(item => {
+              if (item.parsed.x !== null) {
+                total += item.parsed.x;
+              }
+            });
+            return `Total: ${total}`;
+          }
+        }
+      },
+      datalabels: {
+        display: false
+      }
+    }
+  };
+
+  public barChartData: ChartData<'bar', number[], string> = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Open Tasks',
+        data: [],
+        backgroundColor: 'rgba(220, 53, 69, 0.7)',
+        borderColor: 'rgba(220, 53, 69, 1)',
+        borderWidth: 2,
+        borderRadius: 4,
+        hoverBackgroundColor: 'rgba(220, 53, 69, 0.85)'
+      }
+    ]
+  };
+
+  public barChartType = 'bar' as const;
   
   filteredEmployeeAllocations = computed(() => {
     const searchTerm = this.allocationSearchTerm().toLowerCase();
@@ -457,8 +582,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const currentUser = this.authService.getCurrentUser();
     
     if (currentUser?.userId) {
-      // Load employee metrics
-      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId).subscribe({
+      // Get date range for filtering
+      const { startDate, endDate } = this.getDateRange();
+      
+      // Load employee metrics with date range
+      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId, startDate, endDate).subscribe({
         next: (metrics) => {
           this.employeeMetrics = metrics;
         },
@@ -487,8 +615,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       });
 
-      // Load project utilization
-      this.employeeService.getProjectUtilization(currentUser.userId).subscribe({
+      // Load project utilization with date range (using same startDate/endDate from above)
+      this.employeeService.getProjectUtilization(currentUser.userId, startDate, endDate).subscribe({
         next: (utilization) => {
           this.projectUtilization = utilization;
           this.isLoadingEmployeeData = false;
@@ -498,6 +626,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.isLoadingEmployeeData = false;
         }
       });
+      
+      // Load approver projects if user is an approver
+      if (this.canApprove()) {
+        this.loadApproverProjects();
+      }
     } else {
       // Fallback mock data for testing
       setTimeout(() => {
@@ -514,6 +647,208 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isLoadingEmployeeData = false;
       }, 1000);
     }
+  }
+  
+  // Method to calculate dynamic chart height based on number of projects
+  getChartHeight(): number {
+    const projectsWithTasks = this.approverProjects().filter(p => p.totalTasksCount > 0).length;
+    // Add 80px for legend space, then 40px per project bar
+    return Math.max(450, 80 + (projectsWithTasks * 40));
+  }
+  
+  private loadApproverProjects() {
+    this.isLoadingApproverProjects = true;
+    const currentUser = this.authService.getCurrentUser();
+    
+    if (!currentUser?.userId) {
+      this.isLoadingApproverProjects = false;
+      return;
+    }
+    
+    // Get allocation data for the current week
+    const weekStart = this.selectedWeekStart() || this.getCurrentWeekStart();
+    
+    // Use the allocation service which approvers have access to
+    this.allocationService.getProjectAllocationSummary(weekStart).subscribe({
+      next: (allocations: AllocationSummary[]) => {
+        // Create base project summaries
+        const approverProjects: ApproverProjectSummary[] = allocations.map(project => {
+          return {
+            projectId: project.projectId,
+            projectName: project.projectName,
+            totalMembers: project.totalEmployees || 0,
+            totalAllocatedHours: project.totalAllocatedHours || 0,
+            utilizationPercentage: project.utilizationPercentage || 0,
+            openTasksCount: 0,
+            totalTasksCount: 0,
+            status: 'Active',
+            // Initialize detailed task status counts
+            newTasksCount: 0,
+            inProgressTasksCount: 0,
+            blockedTasksCount: 0,
+            onHoldTasksCount: 0,
+            completedTasksCount: 0,
+            cancelledTasksCount: 0
+          };
+        });
+        
+        // Fetch tasks for each project
+        this.loadTasksForProjects(approverProjects);
+      },
+      error: (error) => {
+        console.error('Error loading allocation data for approver projects:', error);
+        this.isLoadingApproverProjects = false;
+      }
+    });
+  }
+  
+  private loadTasksForProjects(projects: ApproverProjectSummary[]) {
+    if (projects.length === 0) {
+      this.approverProjects.set([]);
+      this.isLoadingApproverProjects = false;
+      return;
+    }
+    
+    // Fetch tasks for all projects in parallel
+    const taskRequests = projects.map(project => 
+      this.tasksService.list(project.projectId, { pageSize: 1000 }).pipe(
+        map(response => ({
+          projectId: project.projectId,
+          tasks: response.tasks
+        })),
+        catchError(error => {
+          console.warn(`Error fetching tasks for project ${project.projectName}:`, error);
+          return of({ projectId: project.projectId, tasks: [] });
+        })
+      )
+    );
+    
+    forkJoin(taskRequests).subscribe({
+      next: (taskResults) => {
+        // Create a map of project tasks
+        const tasksMap = new Map<string, ProjectTask[]>();
+        taskResults.forEach(result => {
+          tasksMap.set(result.projectId, result.tasks);
+        });
+        
+        // Update projects with task counts
+        const updatedProjects = projects.map(project => {
+          const tasks = tasksMap.get(project.projectId) || [];
+          
+          // Count total tasks
+          const totalTasks = tasks.length;
+          
+          // Count open tasks (all except COMPLETED and CANCELLED)
+          const openTasks = tasks.filter(task => 
+            task.status !== 'COMPLETED' && task.status !== 'CANCELLED'
+          ).length;
+          
+          // Count tasks by specific status for stacked bar chart
+          const newTasks = tasks.filter(task => task.status === 'NEW').length;
+          const inProgressTasks = tasks.filter(task => task.status === 'IN_PROGRESS').length;
+          const blockedTasks = tasks.filter(task => task.status === 'BLOCKED').length;
+          const completedTasks = tasks.filter(task => task.status === 'COMPLETED').length;
+          const cancelledTasks = tasks.filter(task => task.status === 'CANCELLED').length;
+          
+          return {
+            ...project,
+            openTasksCount: openTasks,
+            totalTasksCount: totalTasks,
+            newTasksCount: newTasks,
+            inProgressTasksCount: inProgressTasks,
+            blockedTasksCount: blockedTasks,
+            onHoldTasksCount: 0, // Not used in current TaskStatus type
+            completedTasksCount: completedTasks,
+            cancelledTasksCount: cancelledTasks
+          };
+        });
+        
+        this.approverProjects.set(updatedProjects);
+        this.updateBarChartData();
+        this.isLoadingApproverProjects = false;
+      },
+      error: (error) => {
+        console.error('Error loading tasks for projects:', error);
+        // Set projects without task data
+        this.approverProjects.set(projects);
+        this.updateBarChartData();
+        this.isLoadingApproverProjects = false;
+      }
+    });
+  }
+  
+  private updateBarChartData() {
+    const projects = this.approverProjects();
+    
+    // Filter projects with tasks and sort by total tasks count (descending)
+    const projectsWithTasks = projects.filter(p => p.totalTasksCount > 0)
+      .sort((a, b) => b.totalTasksCount - a.totalTasksCount);
+    
+    if (projectsWithTasks.length === 0) {
+      // If no tasks data, show all projects by allocated hours instead
+      const allProjects = [...projects]
+        .sort((a, b) => b.totalAllocatedHours - a.totalAllocatedHours);
+      
+      this.barChartData.labels = allProjects.map(p => p.projectName);
+      this.barChartData.datasets = [{
+        data: allProjects.map(p => p.totalAllocatedHours),
+        label: 'Allocated Hours',
+        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+        borderColor: 'rgba(13, 110, 253, 1)',
+        borderWidth: 1
+      }];
+    } else {
+      // Create stacked bar chart with multiple datasets for each task status
+      this.barChartData.labels = projectsWithTasks.map(p => p.projectName);
+      this.barChartData.datasets = [
+        {
+          data: projectsWithTasks.map(p => p.newTasksCount),
+          label: 'New',
+          backgroundColor: 'rgba(13, 110, 253, 0.8)',  // Blue
+          borderColor: 'rgba(13, 110, 253, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.inProgressTasksCount),
+          label: 'In Progress',
+          backgroundColor: 'rgba(255, 193, 7, 0.8)',  // Yellow/Orange
+          borderColor: 'rgba(255, 193, 7, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.blockedTasksCount),
+          label: 'Blocked',
+          backgroundColor: 'rgba(220, 53, 69, 0.8)',  // Red
+          borderColor: 'rgba(220, 53, 69, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.completedTasksCount),
+          label: 'Completed',
+          backgroundColor: 'rgba(25, 135, 84, 0.8)',  // Green
+          borderColor: 'rgba(25, 135, 84, 1)',
+          borderWidth: 1
+        },
+        {
+          data: projectsWithTasks.map(p => p.cancelledTasksCount),
+          label: 'Cancelled',
+          backgroundColor: 'rgba(108, 117, 125, 0.8)',  // Gray
+          borderColor: 'rgba(108, 117, 125, 1)',
+          borderWidth: 1
+        }
+      ];
+    }
+    
+    // Update chart if it exists
+    if (this.chart) {
+      this.chart.update();
+    }
+  }
+  
+  private getCurrentWeekStart(): string {
+    const today = new Date();
+    const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    return currentWeekStart.toISOString().split('T')[0];
   }
 
   getStatusBadgeClass(status: string): string {
@@ -642,11 +977,74 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.dateRange;
   }
 
+  // Get date range based on selected mode (week or month)
+  getDateRange(): { startDate: string; endDate: string } {
+    const today = new Date();
+    let startDate: Date;
+    let endDate: Date;
+
+    if (this.dateRange === 'week') {
+      // Get current week (Sunday to Saturday)
+      const dayOfWeek = today.getDay(); // 0 (Sunday) to 6 (Saturday)
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - dayOfWeek); // Go back to Sunday
+      
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6); // Saturday
+    } else {
+      // Get current month (1st to last day)
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of month
+    }
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    return {
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate)
+    };
+  }
+
   // Toggle date range
   toggleDateRange(): void {
     this.dateRange = this.dateRange === 'week' ? 'month' : 'week';
     if (!this.isAdmin()) {
       this.loadEmployeeDashboard();
+    }
+  }
+
+  // Get formatted date range string for display
+  getFormattedDateRange(): string {
+    const { startDate, endDate } = this.getDateRange();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (this.dateRange === 'week') {
+      // Format: "Week of Jan 14 - Jan 20, 2025"
+      const startMonth = monthNames[start.getMonth()];
+      const endMonth = monthNames[end.getMonth()];
+      const startDay = start.getDate();
+      const endDay = end.getDate();
+      const year = end.getFullYear();
+      
+      if (start.getMonth() === end.getMonth()) {
+        return `Week of ${startMonth} ${startDay} - ${endDay}, ${year}`;
+      } else {
+        return `Week of ${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+      }
+    } else {
+      // Format: "January 2025"
+      const month = monthNames[start.getMonth()];
+      const year = start.getFullYear();
+      return `${month} ${year}`;
     }
   }
 
@@ -890,6 +1288,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
   
   trackByProjectId(index: number, project: AllocationSummary): string {
+    return project.projectId;
+  }
+  
+  trackByApproverProjectId(index: number, project: ApproverProjectSummary): string {
     return project.projectId;
   }
 

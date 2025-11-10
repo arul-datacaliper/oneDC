@@ -232,7 +232,11 @@ export class OnboardingComponent implements OnInit {
       
       this.loading.set(true);
       
-      const operation = this.userProfile() 
+      // Use onboarding status to determine if profile truly exists in DB
+      // Don't rely on userProfile() as it may contain a virtual profile from AppUser data
+      const hasActualProfile = this.onboardingStatus()?.hasProfile ?? false;
+      
+      const operation = hasActualProfile
         ? this.onboardingService.updateUserProfile(userId, formData)
         : this.onboardingService.createUserProfile(userId, formData);
 
@@ -240,8 +244,21 @@ export class OnboardingComponent implements OnInit {
         next: (profile) => {
           this.userProfile.set(profile);
           this.toastr.success('Profile saved successfully!');
-          this.loadUserData(); // Refresh status
-          this.nextStep();
+          
+          // Reload onboarding status first, then move to next step
+          this.onboardingService.getOnboardingStatus(userId).subscribe({
+            next: (status) => {
+              this.onboardingStatus.set(status);
+              this.loading.set(false);
+              this.nextStep();
+            },
+            error: (error) => {
+              console.error('Error loading onboarding status:', error);
+              this.loading.set(false);
+              // Still move to next step even if status update fails
+              this.nextStep();
+            }
+          });
         },
         error: (error) => {
           console.error('Error saving profile:', error);

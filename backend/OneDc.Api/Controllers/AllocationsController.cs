@@ -46,7 +46,9 @@ public class AllocationsController : BaseController
         }
         else if (currentUserRole == "APPROVER")
         {
-            // Approvers can see allocations for projects they manage (DefaultApprover) or are members of
+            // Approvers can see allocations for:
+            // 1. Projects they manage (DefaultApprover) or are members of
+            // 2. Their own allocations (regardless of project membership)
             var approverProjectIds = await _context.Projects
                 .Include(p => p.ProjectMembers)
                 .Where(p => p.DefaultApprover == currentUserId || 
@@ -54,7 +56,7 @@ public class AllocationsController : BaseController
                 .Select(p => p.ProjectId)
                 .ToListAsync();
             
-            query = query.Where(wa => approverProjectIds.Contains(wa.ProjectId));
+            query = query.Where(wa => approverProjectIds.Contains(wa.ProjectId) || wa.UserId == currentUserId);
         }
         // Admin can see all allocations (no additional filter)
 
@@ -308,12 +310,27 @@ public class AllocationsController : BaseController
         }
         else if (currentUserRole == "APPROVER")
         {
-            // Approvers can see projects where they are DefaultApprover or ProjectMember
-            projectQuery = projectQuery
+            // Approvers can see projects where:
+            // 1. They are DefaultApprover or ProjectMember
+            // 2. They have allocations (for projects they're allocated to but don't manage)
+            var approverProjectIdsFromRole = await _context.Projects
                 .Include(p => p.ProjectMembers)
-                .Where(p => 
-                    p.DefaultApprover == currentUserId || 
-                    p.ProjectMembers.Any(pm => pm.UserId == currentUserId));
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           p.ProjectMembers.Any(pm => pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            var approverProjectIdsFromAllocations = await _context.WeeklyAllocations
+                .Where(wa => wa.UserId == currentUserId && 
+                            wa.WeekStartDate <= endDate && 
+                            wa.WeekEndDate >= startDate)
+                .Select(wa => wa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            var allApproverProjectIds = approverProjectIdsFromRole.Union(approverProjectIdsFromAllocations).ToList();
+            
+            projectQuery = projectQuery.Where(p => allApproverProjectIds.Contains(p.ProjectId));
         }
         // Admin can see all projects (no filter)
 
@@ -383,7 +400,9 @@ public class AllocationsController : BaseController
         }
         else if (currentUserRole == "APPROVER")
         {
-            // Approvers can see employees from projects they manage (DefaultApprover) or are members of
+            // Approvers can see employees from:
+            // 1. Projects they manage (DefaultApprover) or are members of
+            // 2. Themselves (for their own allocations)
             var approverProjectIds = await _context.Projects
                 .Include(p => p.ProjectMembers)
                 .Where(p => p.DefaultApprover == currentUserId || 
@@ -402,7 +421,7 @@ public class AllocationsController : BaseController
                 .Select(pm => pm.UserId)
                 .ToListAsync();
             
-            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Distinct().ToList();
+            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Union(new[] { currentUserId }).Distinct().ToList();
             
             employeeQuery = employeeQuery.Where(u => allEmployeeIds.Contains(u.UserId));
         }
@@ -565,10 +584,25 @@ public class AllocationsController : BaseController
         }
         else if (currentUserRole == "APPROVER")
         {
-            // Approvers can see projects where they are DefaultApprover or ProjectMember
-            projectQuery = projectQuery.Where(p => 
-                p.DefaultApprover == currentUserId || 
-                p.ProjectMembers.Any(pm => pm.UserId == currentUserId));
+            // Approvers can see projects where:
+            // 1. They are DefaultApprover or ProjectMember
+            // 2. They have allocations
+            var approverProjectIdsFromRole = await _context.Projects
+                .Include(p => p.ProjectMembers)
+                .Where(p => p.DefaultApprover == currentUserId || 
+                           p.ProjectMembers.Any(pm => pm.UserId == currentUserId))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            var approverProjectIdsFromAllocations = await _context.WeeklyAllocations
+                .Where(wa => wa.UserId == currentUserId)
+                .Select(wa => wa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            var allApproverProjectIds = approverProjectIdsFromRole.Union(approverProjectIdsFromAllocations).ToList();
+            
+            projectQuery = projectQuery.Where(p => allApproverProjectIds.Contains(p.ProjectId));
         }
         // Admin can see all active projects (no additional filter)
 
@@ -603,7 +637,9 @@ public class AllocationsController : BaseController
         }
         else if (currentUserRole == "APPROVER")
         {
-            // Approvers can see employees from projects they manage (DefaultApprover) or are members of
+            // Approvers can see employees from:
+            // 1. Projects they manage (DefaultApprover) or are members of
+            // 2. Themselves
             var approverProjectIds = await _context.Projects
                 .Include(p => p.ProjectMembers)
                 .Where(p => p.DefaultApprover == currentUserId || 
@@ -622,7 +658,7 @@ public class AllocationsController : BaseController
                 .Select(pm => pm.UserId)
                 .ToListAsync();
             
-            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Distinct().ToList();
+            var allEmployeeIds = employeeIdsInAllocations.Union(employeeIdsInMembers).Union(new[] { currentUserId }).Distinct().ToList();
             
             employeeQuery = employeeQuery.Where(u => allEmployeeIds.Contains(u.UserId));
         }
@@ -706,7 +742,7 @@ public class AllocationsController : BaseController
                 AllocatedHours = wa.AllocatedHours,
                 UtilizationPercentage = wa.UtilizationPercentage,
                 Status = wa.Status,
-                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                CreatedAt = wa.CreatedAt.ToString("yyyy-MM-dd")
             })
             .ToListAsync();
 

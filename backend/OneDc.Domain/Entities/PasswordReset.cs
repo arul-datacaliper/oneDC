@@ -11,7 +11,7 @@ public class PasswordReset
     public Guid UserId { get; set; }
     
     [Required]
-    [StringLength(6)]
+    [StringLength(100)] // Changed from 6 to accommodate SHA256 hash (base64 = 44 chars)
     public string Otp { get; set; } = string.Empty;
     
     [Required]

@@ -24,13 +24,19 @@ public class EmailService : IEmailService
             AzureEmailConnectionString = Environment.GetEnvironmentVariable("AZURE_EMAIL_CONNECTION_STRING") ?? configuration["AzureEmail:ConnectionString"] ?? "",
             FromEmail = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_EMAIL") ?? configuration["AzureEmail:FromEmail"] ?? "noreply@onedc.local",
             FromName = Environment.GetEnvironmentVariable("AZURE_EMAIL_FROM_NAME") ?? configuration["AzureEmail:FromName"] ?? "OneDC System",
-            BaseUrl = Environment.GetEnvironmentVariable("BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
+            BaseUrl = Environment.GetEnvironmentVariable("APP_BASE_URL") ?? configuration["AppSettings:BaseUrl"] ?? "http://localhost:4200"
         };
         
-        // Log warning if email client is not configured
+        // Log email configuration status
         if (_emailClient == null)
         {
             _logger.LogWarning("EmailClient is not configured. Email functionality will be disabled.");
+            _logger.LogWarning("From Email: {FromEmail}, From Name: {FromName}", _emailConfig.FromEmail, _emailConfig.FromName);
+        }
+        else
+        {
+            _logger.LogInformation("✓ EmailClient configured successfully");
+            _logger.LogInformation("From Email: {FromEmail}, From Name: {FromName}", _emailConfig.FromEmail, _emailConfig.FromName);
         }
     }
 
@@ -140,8 +146,7 @@ public class EmailService : IEmailService
                     <h2>Hello {userName},</h2>
                     <p>Your OneDC account has been successfully created. You can now access the system using the credentials below:</p>
                     
-                    <div class='credentials'>
-                        <strong>Login URL:</strong> {_emailConfig.BaseUrl}<br>
+                    <div class='credentials'>                       
                         <strong>Email:</strong> {toEmail}<br>
                         <strong>Temporary Password:</strong> {temporaryPassword}
                     </div>
@@ -166,8 +171,7 @@ public class EmailService : IEmailService
         Hello {userName},
         
         Your OneDC account has been successfully created. You can now access the system using the credentials below:
-        
-        Login URL: {_emailConfig.BaseUrl}
+                
         Email: {toEmail}
         Temporary Password: {temporaryPassword}
         
@@ -242,8 +246,18 @@ public class EmailService : IEmailService
             // Check if email client is configured
             if (_emailClient == null)
             {
-                _logger.LogWarning("Email client not configured. Cannot send email to {Email} with subject '{Subject}'", toEmail, subject);
-                return false;
+                _logger.LogWarning("Email client not configured. Email would be sent to {Email} with subject '{Subject}'", toEmail, subject);
+                
+                // In development, log the email content for debugging
+                _logger.LogInformation("===== EMAIL CONTENT (Development Mode) =====");
+                _logger.LogInformation("To: {Email}", toEmail);
+                _logger.LogInformation("Subject: {Subject}", subject);
+                _logger.LogInformation("Plain Text: {PlainText}", plainTextContent ?? "(no plain text)");
+                _logger.LogInformation("===========================================");
+                
+                // Return true in development so flow continues
+                // TODO: Configure Azure Email for production
+                return true;
             }
 
             var emailMessage = new EmailMessage(

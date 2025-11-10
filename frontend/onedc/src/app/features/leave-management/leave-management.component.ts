@@ -517,6 +517,12 @@ export class LeaveManagementComponent implements OnInit {
     return new Date().toISOString().split('T')[0];
   }
 
+  getMinDate(): string {
+    const date = new Date();
+    date.setDate(date.getDate() - 15); // Allow 15 days in the past
+    return date.toISOString().split('T')[0];
+  }
+
   getCurrentYear(): number {
     return new Date().getFullYear();
   }

@@ -102,7 +102,7 @@ namespace OneDc.Repository.Implementation
         {
             var query = _context.LeaveRequests
                 .Where(lr => lr.EmployeeId == employeeId &&
-                           lr.Status == "Approved" &&
+                           (lr.Status == "Approved" || lr.Status == "Pending") && // Check both Approved and Pending
                            ((lr.StartDate <= endDate && lr.EndDate >= startDate)));
 
             if (excludeRequestId.HasValue)

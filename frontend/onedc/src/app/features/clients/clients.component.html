@@ -232,7 +232,7 @@
                    pattern="[\d\s\-\(\)\+]*"
                    title="Only numbers, spaces, hyphens, parentheses, and + are allowed">
             <div class="form-text">
-              <small class="text-muted">Format: 10-15 digits (e.g., +1 234-567-8900)</small>
+              <small class="text-muted">Must contain 10-15 digits (e.g., +1 234-567-8900). Spaces, hyphens, and parentheses allowed.</small>
             </div>
             <div class="invalid-feedback" *ngIf="isFieldInvalid('contactNumber')">
               {{ getFieldError('contactNumber') }}

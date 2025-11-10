@@ -36,28 +36,79 @@ public class ProjectsController : BaseController
             return Ok(allItems);
         }
         
-        // For Approver users, return only projects they manage
+        // For Approver users, return projects they manage OR where they are team members OR have allocations
         if (IsApprover())
         {
             var currentUserId = GetCurrentUserId();
-            var managedProjects = await _db.Projects
+            
+            _logger.LogInformation("ProjectsController.GetAll - Approver filtering for user: {UserId}", currentUserId);
+            
+            // Get ACTIVE projects where approver is DefaultApprover or ProjectMember
+            var activeApproverProjectIds = await _db.Projects
+                .Where(p => p.Status == "ACTIVE" && 
+                           (p.DefaultApprover == currentUserId || 
+                            _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId)))
+                .Select(p => p.ProjectId)
+                .ToListAsync();
+            
+            // Get projects where approver has active allocations (regardless of project status)
+            var allocationProjectIds = await _db.WeeklyAllocations
+                .Where(wa => wa.UserId == currentUserId)
+                .Select(wa => wa.ProjectId)
+                .Distinct()
+                .ToListAsync();
+            
+            _logger.LogInformation("ProjectsController.GetAll - Found {ActiveCount} active managed projects and {AllocationCount} allocated projects", 
+                activeApproverProjectIds.Count, allocationProjectIds.Count);
+            
+            // Combine both lists
+            var allProjectIds = activeApproverProjectIds.Union(allocationProjectIds).ToList();
+            
+            var approverProjects = await _db.Projects
                 .Include(p => p.Client)
-                .Where(p => p.DefaultApprover == currentUserId)
+                .Where(p => allProjectIds.Contains(p.ProjectId))
+                .Distinct()
                 .AsNoTracking()
                 .ToListAsync();
-            return Ok(managedProjects);
+            
+            _logger.LogInformation("ProjectsController.GetAll - Returning {Count} projects for approver", approverProjects.Count);
+            return Ok(approverProjects);
         }
         
-        // For Employee users, return projects they have tasks assigned to
+        // For Employee users, return ACTIVE projects they have tasks assigned to OR projects they have allocations for
         var userId = GetCurrentUserId();
-        var projectsWithAssignedTasks = await _db.Projects
+        
+        _logger.LogInformation("ProjectsController.GetAll - Employee filtering for user: {UserId}", userId);
+        
+        // Get ACTIVE projects with assigned tasks
+        var activeTaskProjectIds = await _db.Projects
+            .Where(p => p.Status == "ACTIVE" && 
+                       _db.ProjectTasks.Any(t => t.ProjectId == p.ProjectId && t.AssignedUserId == userId))
+            .Select(p => p.ProjectId)
+            .ToListAsync();
+        
+        // Get projects where employee has allocations (regardless of project status)
+        var employeeAllocationProjectIds = await _db.WeeklyAllocations
+            .Where(wa => wa.UserId == userId)
+            .Select(wa => wa.ProjectId)
+            .Distinct()
+            .ToListAsync();
+        
+        _logger.LogInformation("ProjectsController.GetAll - Found {ActiveTaskCount} active task projects and {AllocationCount} allocated projects", 
+            activeTaskProjectIds.Count, employeeAllocationProjectIds.Count);
+        
+        // Combine both lists
+        var employeeProjectIds = activeTaskProjectIds.Union(employeeAllocationProjectIds).ToList();
+        
+        var employeeProjects = await _db.Projects
             .Include(p => p.Client)
-            .Where(p => _db.ProjectTasks.Any(t => t.ProjectId == p.ProjectId && t.AssignedUserId == userId))
+            .Where(p => employeeProjectIds.Contains(p.ProjectId))
             .Distinct()
             .AsNoTracking()
             .ToListAsync();
         
-        return Ok(projectsWithAssignedTasks);
+        _logger.LogInformation("ProjectsController.GetAll - Returning {Count} projects for employee", employeeProjects.Count);
+        return Ok(employeeProjects);
     }
 
     [HttpGet("{id:guid}")]
@@ -166,15 +217,34 @@ public class ProjectsController : BaseController
                 return Ok(allItems);
             }
             
-            // For Approver users, return only projects they manage with members
+            // For Approver users, return projects they manage OR where they are team members OR have allocations with members
             if (IsApprover())
             {
                 var currentUserId = GetCurrentUserId();
+                
+                // Get projects where approver is DefaultApprover or ProjectMember
+                var approverProjectIds = await _db.Projects
+                    .Where(p => p.DefaultApprover == currentUserId || 
+                               _db.Set<ProjectMember>().Any(pm => pm.ProjectId == p.ProjectId && pm.UserId == currentUserId))
+                    .Select(p => p.ProjectId)
+                    .ToListAsync();
+                
+                // Get projects where approver has allocations
+                var allocationProjectIds = await _db.WeeklyAllocations
+                    .Where(wa => wa.UserId == currentUserId)
+                    .Select(wa => wa.ProjectId)
+                    .Distinct()
+                    .ToListAsync();
+                
+                // Combine both lists
+                var allProjectIds = approverProjectIds.Union(allocationProjectIds).ToList();
+                
                 var managedProjects = await _db.Projects
                     .Include(p => p.Client)
                     .Include(p => p.ProjectMembers)
                         .ThenInclude(pm => pm.User)
-                    .Where(p => p.DefaultApprover == currentUserId)
+                    .Where(p => allProjectIds.Contains(p.ProjectId))
+                    .Distinct()
                     .AsNoTracking()
                     .Select(project => new ProjectResponseDto
                     {
