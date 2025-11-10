@@ -10,6 +10,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { UsersService, AppUser } from '../../../core/services/users.service';
 import { HolidayService, Holiday } from '../../../core/services/holiday.service';
 import { LeaveService, LeaveRequest } from '../../../core/services/leave.service';
+import { ConfirmationDialogService } from '../../../core/services/confirmation-dialog.service';
 import { Project, TimesheetEntry, TaskType, getTaskTypes, getTaskTypeDisplayName } from '../../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../../shared/components/searchable-dropdown.component';
 
@@ -46,6 +47,7 @@ export class TimesheetEditorComponent implements OnInit {
   private usersSvc = inject(UsersService);
   private holidaySvc = inject(HolidayService);
   private leaveSvc = inject(LeaveService);
+  private confirmationDialogService = inject(ConfirmationDialogService);
   
   tasks = signal<ProjectTask[]>([]);
   private tasksByProject: Record<string, ProjectTask[]> = {};
@@ -689,32 +691,50 @@ export class TimesheetEditorComponent implements OnInit {
         // Handle specific error messages
         let errorMessage = 'Failed to create entry';
         
-        // Check for specific daily cap error first
-        if (err?.error?.includes && err.error.includes('Daily cap exceeded')) {
+        // Extract the actual error message first
+        let actualErrorText = '';
+        if (err?.error) {
+          if (typeof err.error === 'string') {
+            actualErrorText = err.error;
+          } else if (typeof err.error === 'object' && err.error?.details) {
+            // Check for 'details' property first (your server response has this)
+            actualErrorText = err.error.details;
+          } else if (typeof err.error === 'object' && err.error?.error) {
+            actualErrorText = err.error.error;
+          } else if (typeof err.error === 'object' && err.error?.message) {
+            actualErrorText = err.error.message;
+          } else if (typeof err.error === 'object' && err.error?.detail) {
+            actualErrorText = err.error.detail;
+          } else if (typeof err.error === 'object') {
+            const errorObj = err.error;
+            if (errorObj.details || errorObj.error || errorObj.message) {
+              actualErrorText = errorObj.details || errorObj.error || errorObj.message;
+            } else {
+              actualErrorText = Object.values(errorObj)[0] as string || '';
+            }
+          }
+        } else if (err?.message) {
+          actualErrorText = err.message;
+        }
+        
+        // Check for daily hour limit errors (case-insensitive and multiple variations)
+        const lowerCaseError = actualErrorText.toLowerCase();
+        const isDailyLimitError = lowerCaseError.includes('daily cap') || 
+                                 lowerCaseError.includes('daily limit') || 
+                                 lowerCaseError.includes('daily hour') || 
+                                 lowerCaseError.includes('12 hours') || 
+                                 lowerCaseError.includes('more than 12') ||
+                                 lowerCaseError.includes('exceed') && lowerCaseError.includes('hour') ||
+                                 lowerCaseError.includes('maximum') && lowerCaseError.includes('hour');
+        
+        if (isDailyLimitError) {
           errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
         } else {
-          // Use the same error extraction logic as submit
-          if (err?.error) {
-            if (typeof err.error === 'string') {
-              errorMessage = err.error;
-            } else if (typeof err.error === 'object' && err.error?.error) {
-              errorMessage = err.error.error;
-            } else if (typeof err.error === 'object' && err.error?.message) {
-              errorMessage = err.error.message;
-            } else if (typeof err.error === 'object') {
-              const errorObj = err.error;
-              if (errorObj.error || errorObj.message || errorObj.details) {
-                errorMessage = errorObj.error || errorObj.message || errorObj.details;
-              } else {
-                errorMessage = Object.values(errorObj)[0] as string || 'Failed to create entry';
-              }
-            }
-          } else if (err?.message) {
-            errorMessage = err.message;
-          }
+          errorMessage = actualErrorText || 'Failed to create entry';
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 4000 });
+        this.submitting.set(false); // Reset submitting state on error
       },
       complete: () => {
         this.submitting.set(false); // Reset submitting state
@@ -774,23 +794,46 @@ export class TimesheetEditorComponent implements OnInit {
         // Extract error message using the same logic as other operations
         let errorMessage = 'Save failed';
         
+        // Extract the actual error message first
+        let actualErrorText = '';
         if (err?.error) {
           if (typeof err.error === 'string') {
-            errorMessage = err.error;
+            actualErrorText = err.error;
+          } else if (typeof err.error === 'object' && err.error?.details) {
+            // Check for 'details' property first (your server response has this)
+            actualErrorText = err.error.details;
           } else if (typeof err.error === 'object' && err.error?.error) {
-            errorMessage = err.error.error;
+            actualErrorText = err.error.error;
           } else if (typeof err.error === 'object' && err.error?.message) {
-            errorMessage = err.error.message;
+            actualErrorText = err.error.message;
+          } else if (typeof err.error === 'object' && err.error?.detail) {
+            actualErrorText = err.error.detail;
           } else if (typeof err.error === 'object') {
             const errorObj = err.error;
-            if (errorObj.error || errorObj.message || errorObj.details) {
-              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            if (errorObj.details || errorObj.error || errorObj.message) {
+              actualErrorText = errorObj.details || errorObj.error || errorObj.message;
             } else {
-              errorMessage = Object.values(errorObj)[0] as string || 'Save failed';
+              actualErrorText = Object.values(errorObj)[0] as string || '';
             }
           }
         } else if (err?.message) {
-          errorMessage = err.message;
+          actualErrorText = err.message;
+        }
+        
+        // Check for daily hour limit errors (case-insensitive and multiple variations)
+        const lowerCaseError = actualErrorText.toLowerCase();
+        const isDailyLimitError = lowerCaseError.includes('daily cap') || 
+                                 lowerCaseError.includes('daily limit') || 
+                                 lowerCaseError.includes('daily hour') || 
+                                 lowerCaseError.includes('12 hours') || 
+                                 lowerCaseError.includes('more than 12') ||
+                                 lowerCaseError.includes('exceed') && lowerCaseError.includes('hour') ||
+                                 lowerCaseError.includes('maximum') && lowerCaseError.includes('hour');
+        
+        if (isDailyLimitError) {
+          errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
+        } else {
+          errorMessage = actualErrorText || 'Save failed';
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 2500 });
@@ -823,34 +866,60 @@ export class TimesheetEditorComponent implements OnInit {
         // Extract error message from various possible error structures
         let errorMessage = 'Submit failed';
         
+        // Extract the actual error message first
+        let actualErrorText = '';
         if (err?.error) {
           // Handle string error response
           if (typeof err.error === 'string') {
-            errorMessage = err.error;
+            actualErrorText = err.error;
+          }
+          // Handle object error response with 'details' property first (your server response has this)
+          else if (typeof err.error === 'object' && err.error?.details) {
+            actualErrorText = err.error.details;
           }
           // Handle object error response with 'error' property (like {"error":"Cannot submit another user's timesheet."})
           else if (typeof err.error === 'object' && err.error?.error) {
-            errorMessage = err.error.error;
+            actualErrorText = err.error.error;
           }
           // Handle object error response with 'message' property  
           else if (typeof err.error === 'object' && err.error?.message) {
-            errorMessage = err.error.message;
+            actualErrorText = err.error.message;
+          }
+          // Handle object error response with 'detail' property
+          else if (typeof err.error === 'object' && err.error?.detail) {
+            actualErrorText = err.error.detail;
           }
           // Handle plain object that might be a JSON response
           else if (typeof err.error === 'object') {
             // If it's a JSON object, try to extract meaningful message
             const errorObj = err.error;
-            if (errorObj.error || errorObj.message || errorObj.details) {
-              errorMessage = errorObj.error || errorObj.message || errorObj.details;
+            if (errorObj.details || errorObj.error || errorObj.message) {
+              actualErrorText = errorObj.details || errorObj.error || errorObj.message;
             } else {
               // Fallback: stringify the object but make it user-friendly
-              errorMessage = Object.values(errorObj)[0] as string || 'Submit failed';
+              actualErrorText = Object.values(errorObj)[0] as string || '';
             }
           }
         } 
         // Handle error with direct message property
         else if (err?.message) {
-          errorMessage = err.message;
+          actualErrorText = err.message;
+        }
+        
+        // Check for daily hour limit errors (case-insensitive and multiple variations)
+        const lowerCaseError = actualErrorText.toLowerCase();
+        const isDailyLimitError = lowerCaseError.includes('daily cap') || 
+                                 lowerCaseError.includes('daily limit') || 
+                                 lowerCaseError.includes('daily hour') || 
+                                 lowerCaseError.includes('12 hours') || 
+                                 lowerCaseError.includes('more than 12') ||
+                                 lowerCaseError.includes('exceed') && lowerCaseError.includes('hour') ||
+                                 lowerCaseError.includes('maximum') && lowerCaseError.includes('hour');
+        
+        if (isDailyLimitError) {
+          errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
+        } else {
+          errorMessage = actualErrorText || 'Submit failed';
         }
         
         this.showNotification(errorMessage, 'OK', { duration: 3000 });
@@ -859,15 +928,44 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   // (optional) delete a DRAFT or REJECTED row
-  deleteRow(ix: number) {
+  async deleteRow(ix: number) {
     const g = this.items.at(ix);
     if (!g) return;
     if (!this.isEditable(g.get('status')!.value)) {
       this.showNotification('Only DRAFT and REJECTED entries can be deleted', 'OK', { duration: 2000 });
       return;
     }
+    
     const id = g.get('entryId')!.value as string;
-    if (!confirm('Delete this draft entry?')) return;
+    const workDate = g.get('workDate')!.value;
+    const projectId = g.get('projectId')!.value;
+    const description = g.get('description')!.value;
+    const hours = g.get('hours')!.value;
+    
+    // Get project name for better context
+    const project = this.projects().find(p => p.projectId === projectId);
+    const projectName = project?.name || 'Unknown Project';
+    
+    // Create a meaningful message with entry details
+    const entryDetails = `${projectName} - ${hours}h`;
+    const entryDescription = description ? ` (${description})` : '';
+    
+    const confirmed = await this.confirmationDialogService.open({
+      title: 'Delete Timesheet Entry',
+      message: `Are you sure you want to delete this timesheet entry?`,
+      details: [
+        `Date: ${workDate}`,
+        `Project: ${projectName}`,
+        `Hours: ${hours}`,
+        ...(description ? [`Description: ${description}`] : [])
+      ],
+      confirmText: 'Delete Entry',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
+
     this.tsSvc.delete(id).subscribe({
       next: () => {
         this.items.removeAt(ix);
