@@ -72,7 +72,7 @@
 
 <div class="card table-card">
   <div class="card-body p-0" style="overflow: visible;">
-    <div *ngIf="!canViewAllTasks()" class="alert alert-info m-3 mb-0">
+    <div *ngIf="!canViewAllTasks() && !isNavigatedFromDashboard()" class="alert alert-info m-3 mb-0">
       <i class="bi bi-info-circle me-1"></i>
       <strong>Note:</strong> By default, you see only tasks assigned to you. Use the "Assignee" filter above to view all tasks or tasks assigned to specific team members.
     </div>

@@ -17,6 +17,8 @@ export interface EmployeeAllocation {
   userName: string;
   allocatedHours: number;
   periodHours?: number[]; // Hours for each month period when splitting by months
+  existingAllocationStartDate?: string; // Start date of existing allocation
+  existingAllocationEndDate?: string; // End date of existing allocation
 }
 
 // Interface for month period allocation
@@ -424,7 +426,9 @@ export class AllocationsComponent implements OnInit {
           const allocation: EmployeeAllocation = {
             userId: currentMember.userId,
             userName: currentMember.userName,
-            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0,
+            existingAllocationStartDate: existingAllocation?.weekStartDate,
+            existingAllocationEndDate: existingAllocation?.weekEndDate
           };
 
           // Initialize periodHours if multi-month week is detected
@@ -447,7 +451,9 @@ export class AllocationsComponent implements OnInit {
           this.selectedEmployeeAllocations.set([{
             userId: currentUser.userId,
             userName: currentUser.name,
-            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+            allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0,
+            existingAllocationStartDate: existingAllocation?.weekStartDate,
+            existingAllocationEndDate: existingAllocation?.weekEndDate
           }]);
           this.updateAvailableEmployeesForSelection();
           
@@ -466,14 +472,17 @@ export class AllocationsComponent implements OnInit {
     // Create a map to track all unique users (project members + all employees with allocations)
     const userMap = new Map<string, EmployeeAllocation>();
     
-    // First, add all project members
+    // First, add all project members with their existing allocation hours for the selected period
     members.forEach(member => {
+      // Find the most relevant existing allocation for this member in the selected period
       const existingAllocation = existingAllocations.find(a => a.userId === member.userId);
       
       const allocation: EmployeeAllocation = {
         userId: member.userId,
         userName: member.userName,
-        allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0
+        allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0,
+        existingAllocationStartDate: existingAllocation?.weekStartDate,
+        existingAllocationEndDate: existingAllocation?.weekEndDate
       };
 
       // Initialize periodHours if multi-month week is detected
@@ -484,13 +493,15 @@ export class AllocationsComponent implements OnInit {
       userMap.set(member.userId, allocation);
     });
     
-    // Then, add ALL employees who have allocations for this project (not just non-project members)
+    // Then, add employees who have allocations but are NOT project members
     existingAllocations.forEach(existingAlloc => {
       if (!userMap.has(existingAlloc.userId)) {
         const allocation: EmployeeAllocation = {
           userId: existingAlloc.userId,
           userName: existingAlloc.userName,
-          allocatedHours: existingAlloc.allocatedHours
+          allocatedHours: existingAlloc.allocatedHours,
+          existingAllocationStartDate: existingAlloc.weekStartDate,
+          existingAllocationEndDate: existingAlloc.weekEndDate
         };
 
         // Initialize periodHours if multi-month week is detected
@@ -528,7 +539,7 @@ export class AllocationsComponent implements OnInit {
       }
       
       if (employeesWithExistingHours > 0) {
-        message += ` ${employeesWithExistingHours} employee(s) have existing hours for this period.`;
+        message += ` ${employeesWithExistingHours} employee(s) have existing allocations that overlap with this period - updating will modify their existing allocation.`;
       }
       
       this.toastr.info(message);
@@ -762,7 +773,9 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set([{
       userId: allocation.userId,
       userName: allocation.userName,
-      allocatedHours: allocation.allocatedHours
+      allocatedHours: allocation.allocatedHours,
+      existingAllocationStartDate: allocation.weekStartDate,
+      existingAllocationEndDate: allocation.weekEndDate
     }]);
     
     this.updateAvailableEmployeesForSelection();
@@ -986,22 +999,39 @@ export class AllocationsComponent implements OnInit {
             }
           });
         } else {
-          // Standard week allocation
+          // Standard week allocation - check for overlapping allocations, not exact matches
           this.selectedEmployeeAllocations().forEach(emp => {
-            const existing = existingAllocations.find(a => 
-              a.projectId === formValue.projectId && 
-              a.userId === emp.userId && 
-              a.weekStartDate === formValue.weekStartDate &&
-              a.weekEndDate === formValue.weekEndDate
-            );
+            // Find any existing allocation that overlaps with the selected period
+            const overlappingAllocation = existingAllocations.find(a => {
+              const normalizeDate = (dateStr: string): string => {
+                const date = new Date(dateStr);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+              };
 
-            if (existing) {
+              const allocStart = normalizeDate(a.weekStartDate);
+              const allocEnd = normalizeDate(a.weekEndDate);
+              const formStart = normalizeDate(formValue.weekStartDate);
+              const formEnd = normalizeDate(formValue.weekEndDate);
+
+              // Check if this allocation overlaps with the form period
+              return a.projectId === formValue.projectId && 
+                     a.userId === emp.userId && 
+                     allocStart <= formEnd && 
+                     allocEnd >= formStart;
+            });
+
+            if (overlappingAllocation) {
+              // Update the existing overlapping allocation
               updateRequests.push({
-                allocationId: existing.allocationId,
+                allocationId: overlappingAllocation.allocationId,
                 request: { allocatedHours: emp.allocatedHours },
                 userName: emp.userName
               });
             } else {
+              // Create new allocation
               createRequests.push({
                 projectId: formValue.projectId,
                 userId: emp.userId,
@@ -1022,11 +1052,11 @@ export class AllocationsComponent implements OnInit {
           
           this.updateConfirmDialogData.set({
             title: 'Update Existing Allocations?',
-            message: `Allocation(s) already exist for the selected employee(s). Do you want to update them with the new hours?`,
+            message: `Some employees already have allocations that overlap with the selected period. Do you want to update their existing allocations with the new hours?`,
             type: 'warning',
             confirmText: 'Yes, Update',
             cancelText: 'Cancel',
-            details: updateRequests.map(u => `${u.userName}: ${u.request.allocatedHours} hours`),
+            details: updateRequests.map(u => `${u.userName}: Update to ${u.request.allocatedHours} hours (will replace existing allocation)`),
             showDetailsAsAlert: false
           });
           this.showUpdateConfirmModal.set(true);
@@ -1039,12 +1069,12 @@ export class AllocationsComponent implements OnInit {
           
           this.updateConfirmDialogData.set({
             title: 'Update & Create Allocations?',
-            message: `Some allocations already exist. Do you want to update existing ones and create new ones?`,
+            message: `Some employees have overlapping allocations while others don't. Do you want to update existing ones and create new ones?`,
             type: 'warning',
             confirmText: 'Yes, Proceed',
             cancelText: 'Cancel',
             details: [
-              ...updateRequests.map(u => `UPDATE: ${u.userName} - ${u.request.allocatedHours} hours`),
+              ...updateRequests.map(u => `UPDATE: ${u.userName} - ${u.request.allocatedHours} hours (will replace existing)`),
               `CREATE: ${createRequests.length} new allocation(s)`
             ],
             showDetailsAsAlert: false
@@ -1393,6 +1423,23 @@ export class AllocationsComponent implements OnInit {
     ));
     
     return months.size > 1;
+  }
+
+  // Helper method to get existing allocation period for an employee
+  getExistingAllocationPeriod(employee: EmployeeAllocation): string {
+    if (!employee.existingAllocationStartDate || !employee.existingAllocationEndDate) {
+      return '';
+    }
+    
+    const startDate = new Date(employee.existingAllocationStartDate);
+    const endDate = new Date(employee.existingAllocationEndDate);
+    
+    return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  }
+
+  // Helper method to check if employee has existing allocation
+  hasExistingAllocation(employee: EmployeeAllocation): boolean {
+    return !!(employee.existingAllocationStartDate && employee.existingAllocationEndDate);
   }
 
   // TrackBy function for employee list

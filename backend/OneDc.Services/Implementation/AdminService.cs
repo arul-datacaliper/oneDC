@@ -45,7 +45,7 @@ public class AdminService : IAdminService
 
     public async Task<IEnumerable<TopProjectMetrics>> GetTopProjectsWithHighTasksAsync(int limit = 10)
     {
-        // Get projects with their task counts (using timesheet entries as "tasks")
+        // Get projects with their actual task counts (using ProjectTask table)
         var projectMetrics = await _context.Projects
             .Where(p => p.Status.ToLower() == "active")
             .Include(p => p.Client)
@@ -57,28 +57,27 @@ public class AdminService : IAdminService
                 ClientName = p.Client != null ? p.Client.Name : "Unknown",
                 IsBillable = p.Billable,
                 Status = p.Status,
-                TotalTasksCount = _context.TimesheetEntries
-                    .Count(te => te.ProjectId == p.ProjectId),
-                OpenTasksCount = _context.TimesheetEntries
-                    .Count(te => te.ProjectId == p.ProjectId && 
-                               te.Status != TimesheetStatus.APPROVED && 
-                               te.Status != TimesheetStatus.REJECTED),
-                UtilizationPercentage = (double)_context.TimesheetEntries
-                    .Where(te => te.ProjectId == p.ProjectId && te.Status == TimesheetStatus.APPROVED)
-                    .Sum(te => te.Hours)
+                TotalTasksCount = _context.ProjectTasks
+                    .Count(pt => pt.ProjectId == p.ProjectId),
+                OpenTasksCount = _context.ProjectTasks
+                    .Count(pt => pt.ProjectId == p.ProjectId && 
+                               pt.Status != Domain.Entities.TaskStatus.COMPLETED && 
+                               pt.Status != Domain.Entities.TaskStatus.CANCELLED),
+                UtilizationPercentage = 0 // Will be calculated below
             })
             .OrderByDescending(pm => pm.OpenTasksCount)
             .ThenByDescending(pm => pm.TotalTasksCount)
             .Take(limit)
             .ToListAsync();
 
-        // Calculate utilization percentage (simplified calculation)
+        // Calculate completion percentage (tasks completed vs total tasks)
         foreach (var metric in projectMetrics)
         {
             if (metric.TotalTasksCount > 0)
             {
+                var completedTasks = metric.TotalTasksCount - metric.OpenTasksCount;
                 metric.UtilizationPercentage = Math.Round(
-                    (metric.TotalTasksCount - metric.OpenTasksCount) * 100.0 / metric.TotalTasksCount, 2);
+                    completedTasks * 100.0 / metric.TotalTasksCount, 2);
             }
         }
 

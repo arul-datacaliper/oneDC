@@ -588,8 +588,11 @@
                       <ul class="mb-0 mt-2">
                         <li *ngFor="let member of selectedEmployeeAllocations()">
                           <strong>{{ member.userName }}</strong>
-                          <span *ngIf="member.allocatedHours > 0" class="text-primary"> - {{ member.allocatedHours }} hours (existing)</span>
+                          <span *ngIf="member.allocatedHours > 0" class="text-primary"> - {{ member.allocatedHours }} hours</span>
                           <span *ngIf="member.allocatedHours === 0" class="text-muted"> - Not allocated</span>
+                          <div *ngIf="hasExistingAllocation(member)" class="small text-muted ms-2">
+                            <i class="bi bi-calendar-range me-1"></i>{{ getExistingAllocationPeriod(member) }}
+                          </div>
                         </li>
                       </ul>
                     </details>
@@ -622,6 +625,9 @@
                 <ul class="mb-0">
                   <li *ngFor="let member of selectedEmployeeAllocations()">
                     <strong>{{ member.userName }}</strong> - {{ member.allocatedHours }} hours
+                    <div *ngIf="hasExistingAllocation(member)" class="small text-muted ms-2">
+                      <i class="bi bi-calendar-range me-1"></i>{{ getExistingAllocationPeriod(member) }}
+                    </div>
                   </li>
                 </ul>
                 <small class="text-muted mt-2 d-block">
@@ -684,6 +690,14 @@
                     <tr *ngFor="let employee of selectedEmployeeAllocations(); trackBy: trackByUserId">
                       <td>
                         <div class="fw-medium">{{ employee.userName }}</div>
+                        <div *ngIf="hasExistingAllocation(employee)" class="small text-muted mt-1">
+                          <i class="bi bi-calendar-range text-primary me-1"></i>
+                          Existing: {{ getExistingAllocationPeriod(employee) }}
+                        </div>
+                        <div *ngIf="!hasExistingAllocation(employee)" class="small text-muted mt-1">
+                          <i class="bi bi-plus-circle text-success me-1"></i>
+                          New allocation
+                        </div>
                       </td>
                       <td>
                         <div class="d-flex align-items-center">
@@ -727,6 +741,14 @@
                         <td>
                           <div *ngIf="periodIndex === 0">
                             <div class="fw-medium">{{ employee.userName }}</div>
+                            <div *ngIf="hasExistingAllocation(employee)" class="small text-muted mt-1">
+                              <i class="bi bi-calendar-range text-primary me-1"></i>
+                              Existing: {{ getExistingAllocationPeriod(employee) }}
+                            </div>
+                            <div *ngIf="!hasExistingAllocation(employee)" class="small text-muted mt-1">
+                              <i class="bi bi-plus-circle text-success me-1"></i>
+                              New allocation
+                            </div>
                             <small class="text-muted d-block mt-1">
                               <i class="bi bi-calendar-week text-primary me-1"></i>{{ getFormattedCapacity(employee.userId) }}
                             </small>
@@ -781,6 +803,10 @@
                     <div class="d-flex justify-content-between align-items-center">
                       <div>
                         <div class="fw-medium">{{ selectedEmployeeAllocations()[0].userName }}</div>
+                        <div *ngIf="hasExistingAllocation(selectedEmployeeAllocations()[0])" class="small text-muted mt-1">
+                          <i class="bi bi-calendar-range text-primary me-1"></i>
+                          Current: {{ getExistingAllocationPeriod(selectedEmployeeAllocations()[0]) }}
+                        </div>
                         <small class="text-muted">Employee</small>
                       </div>
                       <div class="text-end">

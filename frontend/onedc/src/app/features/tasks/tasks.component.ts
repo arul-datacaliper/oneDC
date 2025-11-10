@@ -168,9 +168,14 @@ export class TasksComponent implements OnInit, AfterViewInit {
         user: u
       })));
       
-      // Set current user as default assignee filter (so users see their own tasks by default)
+      // Set current user as default assignee filter only for employees and only when not navigated from dashboard
       const currentUser = this.authSvc.getCurrentUser();
-      if (currentUser && !this.assigneeFilter()) {
+      
+      // Only set user filter if:
+      // 1. User is an employee (not admin/approver)
+      // 2. Not navigated from dashboard
+      // 3. Assignee filter is not already set
+      if (currentUser && !this.assigneeFilter() && !this.canViewAllTasks() && !this.isNavigatedFromDashboard()) {
         this.assigneeFilter.set(currentUser.userId);
       }
     });
