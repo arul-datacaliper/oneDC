@@ -38,6 +38,10 @@ export class EmployeesService {
     return this.http.delete(`${this.base}/${id}`);
   }
 
+  checkEmployeeIdExists(employeeId: string) {
+    return this.http.get<{ exists: boolean }>(`${this.base}/check-employee-id/${encodeURIComponent(employeeId)}`);
+  }
+
   getDashboardMetrics(userId: string) {
     return this.http.get(`${environment.apiBaseUrl}/employees/${userId}/dashboard-metrics`);
   }

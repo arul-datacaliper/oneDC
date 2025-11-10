@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors, ValidatorFn, AsyncValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ToastrService } from 'ngx-toastr';
 import { EmployeesService } from '../../core/services/employees.service';
@@ -9,8 +9,9 @@ import { OnboardingService, UserProfile, UserSkill } from '../../core/services/o
 import { Employee, UserRole, Gender, EmployeeType, Address } from '../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { AuthService } from '../../core/services/auth.service';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
+import { forkJoin, of, Observable, timer } from 'rxjs';
+import { catchError, map, switchMap, take } from 'rxjs/operators';
 
 // Custom validators for date validation
 function notFutureDateValidator(): ValidatorFn {
@@ -74,6 +75,35 @@ function joiningDateValidator(): ValidatorFn {
     }
     
     return null;
+  };
+}
+
+// Custom async validator to check for duplicate employee IDs
+function employeeIdAsyncValidator(employeesService: EmployeesService, currentEmployeeId?: string): AsyncValidatorFn {
+  return (control: AbstractControl): Observable<ValidationErrors | null> => {
+    if (!control.value || !control.value.trim()) {
+      return of(null);
+    }
+
+    const employeeId = control.value.trim();
+    
+    // Don't validate if it's the same as the current employee ID (for edit mode)
+    if (currentEmployeeId && employeeId === currentEmployeeId) {
+      return of(null);
+    }
+
+    // Add a small delay to avoid excessive API calls while typing
+    return timer(500).pipe(
+      switchMap(() => employeesService.checkEmployeeIdExists(employeeId)),
+      map(response => {
+        const result = response.exists ? { employeeIdExists: true } : null;
+        return result;
+      }),
+      catchError((error) => {
+        console.error('Error checking employee ID:', error);
+        return of(null); // If API call fails, don't block the form
+      })
+    );
   };
 }
 
@@ -158,6 +188,7 @@ export class EmployeesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private toastr = inject(ToastrService);
+  private confirmationDialogService = inject(ConfirmationDialogService);
 
   // Make Math available in template
   Math = Math;
@@ -252,6 +283,10 @@ export class EmployeesComponent implements OnInit {
 
   constructor() {
     this.employeeForm = this.fb.group({
+      employeeId: ['', 
+        [Validators.required, Validators.maxLength(20)],
+        [employeeIdAsyncValidator(this.employeesService)] // Add async validator for duplicate check
+      ],
       firstName: ['', [Validators.required, Validators.minLength(2)]],
       lastName: ['', [Validators.required, Validators.minLength(2)]],
       workEmail: ['', [Validators.required, Validators.email]],
@@ -322,8 +357,21 @@ export class EmployeesComponent implements OnInit {
   }
 
   // Method to reactivate an employee
-  reactivateEmployee(employee: Employee) {
-    if (confirm(`Are you sure you want to reactivate ${employee.firstName} ${employee.lastName}?`)) {
+  async reactivateEmployee(employee: Employee) {
+    const confirmed = await this.confirmationDialogService.open({
+      title: 'Confirm Employee Reactivation',
+      message: `Are you sure you want to reactivate ${employee.firstName} ${employee.lastName}?`,
+      details: [
+        `Employee ID: ${employee.employeeId || 'N/A'}`,
+        `Email: ${employee.workEmail}`,
+        `This will restore their access to the system`
+      ],
+      confirmText: 'Reactivate',
+      cancelText: 'Cancel',
+      type: 'warning'
+    });
+
+    if (confirmed) {
       this.employeesService.reactivate(employee.userId).subscribe({
         next: () => {
           this.toastr.success('Employee reactivated successfully');
@@ -482,12 +530,29 @@ export class EmployeesComponent implements OnInit {
       employeeType: EmployeeType.FULL_TIME
     });
     this.sameAsPresentAddress.set(false);
+    
+    // Reset the employeeId field validator for create mode (no current employee ID)
+    const employeeIdControl = this.employeeForm.get('employeeId');
+    if (employeeIdControl) {
+      employeeIdControl.setAsyncValidators([employeeIdAsyncValidator(this.employeesService)]);
+      employeeIdControl.updateValueAndValidity();
+    }
+    
     this.showModal.set(true);
   }
 
   openEditModal(employee: Employee) {
     this.editingEmployee.set(employee);
+    
+    // Update the employeeId field validator to include the current employee ID for edit mode
+    const employeeIdControl = this.employeeForm.get('employeeId');
+    if (employeeIdControl) {
+      employeeIdControl.setAsyncValidators([employeeIdAsyncValidator(this.employeesService, employee.employeeId)]);
+      employeeIdControl.updateValueAndValidity();
+    }
+    
     this.employeeForm.patchValue({
+      employeeId: employee.employeeId,
       firstName: employee.firstName,
       lastName: employee.lastName,
       workEmail: employee.workEmail,
@@ -748,8 +813,21 @@ export class EmployeesComponent implements OnInit {
     }
   }
 
-  deleteEmployee(employee: Employee) {
-    if (confirm(`Are you sure you want to delete ${employee.firstName} ${employee.lastName}?`)) {
+  async deleteEmployee(employee: Employee) {
+    const confirmed = await this.confirmationDialogService.open({
+      title: 'Confirm Employee Deletion',
+      message: `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`,
+      details: [
+        `Employee ID: ${employee.employeeId || 'N/A'}`,
+        `Email: ${employee.workEmail}`,
+        `Department: ${employee.department || 'N/A'}`
+      ],
+      confirmText: 'Delete Employee',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+
+    if (confirmed) {
       this.employeesService.delete(employee.userId).subscribe({
         next: () => {
           const employees = this.employees().filter(e => e.userId !== employee.userId);
@@ -891,7 +969,12 @@ export class EmployeesComponent implements OnInit {
   // Form validation helpers
   isFieldInvalid(fieldName: string): boolean {
     const field = this.employeeForm.get(fieldName);
-    return !!(field && field.invalid && (field.dirty || field.touched));
+    return !!(field && field.invalid && (field.dirty || field.touched || field.value?.trim()));
+  }
+
+  isFieldPending(fieldName: string): boolean {
+    const field = this.employeeForm.get(fieldName);
+    return !!(field && field.pending);
   }
 
   getFieldError(fieldName: string): string {
@@ -909,6 +992,7 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['phoneNumberTooLong']) return 'Phone number cannot exceed 15 digits';
       if (field.errors['invalidZipCode']) return 'Zip code can only contain letters, numbers, spaces, and hyphens';
       if (field.errors['zipCodeTooLong']) return 'Zip code cannot exceed 10 characters';
+      if (field.errors['employeeIdExists']) return 'This Employee ID is already in use';
     }
     return '';
   }

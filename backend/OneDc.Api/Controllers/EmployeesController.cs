@@ -26,6 +26,9 @@ public class CreateEmployeeRequest
     [Required]
     public UserRole Role { get; set; } = UserRole.EMPLOYEE;
     
+    [Required]
+    public string EmployeeId { get; set; } = null!;
+    
     public Gender? Gender { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public DateOnly? DateOfJoining { get; set; }
@@ -71,10 +74,12 @@ public class UpdateEmployeeRequest
     [Required]
     public UserRole Role { get; set; }
     
+    [Required]
+    public string EmployeeId { get; set; } = null!;
+    
     public Gender? Gender { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public DateOnly? DateOfJoining { get; set; }
-    public string? EmployeeId { get; set; }
     public string? JobTitle { get; set; }
     public string? Department { get; set; }
     public EmployeeType EmployeeType { get; set; }
@@ -231,6 +236,23 @@ public class EmployeesController : ControllerBase
         }
     }
 
+    // GET api/employees/check-employee-id/{employeeId}
+    [HttpGet("check-employee-id/{employeeId}")]
+    public async Task<IActionResult> CheckEmployeeIdExists(string employeeId)
+    {
+        try
+        {
+            var exists = await _context.AppUsers
+                .AnyAsync(u => u.EmployeeId == employeeId);
+
+            return Ok(new { exists });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Error checking employee ID", error = ex.Message });
+        }
+    }
+
     // GET api/employees/{id}
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetEmployeeById(Guid id)
@@ -273,8 +295,14 @@ public class EmployeesController : ControllerBase
                 return BadRequest(new { message = "An employee with this work email already exists" });
             }
 
-            // Generate the next employee ID
-            var employeeId = await GenerateNextEmployeeIdAsync();
+            // Check if Employee ID already exists
+            var existingEmployeeId = await _context.AppUsers
+                .FirstOrDefaultAsync(u => u.EmployeeId == request.EmployeeId);
+            
+            if (existingEmployeeId != null)
+            {
+                return BadRequest(new { message = "An employee with this Employee ID already exists" });
+            }
             
             // Generate temporary password for new employee
             var temporaryPassword = GenerateTemporaryPassword();
@@ -283,7 +311,7 @@ public class EmployeesController : ControllerBase
             var newEmployee = new AppUser
             {
                 UserId = Guid.NewGuid(),
-                EmployeeId = employeeId,
+                EmployeeId = request.EmployeeId, // Use the Employee ID from request instead of auto-generating
                 Email = request.WorkEmail,
                 WorkEmail = request.WorkEmail,
                 FirstName = request.FirstName,

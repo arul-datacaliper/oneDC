@@ -7,7 +7,7 @@ public enum EmployeeType { FULL_TIME, PART_TIME, CONTRACT, INTERN, CONSULTANT }
 public class AppUser
 {
     public Guid UserId { get; set; }
-    public string? EmployeeId { get; set; }
+    public string EmployeeId { get; set; } = null!; // Required field for manual Employee ID input
     public string Email { get; set; } = null!;
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;

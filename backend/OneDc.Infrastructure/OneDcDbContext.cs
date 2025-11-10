@@ -34,7 +34,8 @@ public class OneDcDbContext : DbContext
         {
             e.ToTable("app_user");
             e.HasKey(x => x.UserId);
-            e.Property(x => x.EmployeeId).HasMaxLength(20);
+            e.Property(x => x.EmployeeId).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => x.EmployeeId).IsUnique(); // Add unique index for Employee ID
             e.Property(x => x.Email).HasMaxLength(150).IsRequired();
             e.Property(x => x.FirstName).HasMaxLength(80).IsRequired();
             e.Property(x => x.LastName).HasMaxLength(80).IsRequired();
