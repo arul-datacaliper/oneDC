@@ -2,10 +2,14 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidatorFn } from '@angular/forms';
 import { NgSelectModule } from '@ng-select/ng-select';
+import { forkJoin, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 
 import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
 import { UsersService } from '../../core/services/users.service';
+import { AllocationService } from '../../core/services/allocation.service';
+import { TimesheetsService } from '../../core/services/timesheets.service';
 import { Project, Client } from '../../shared/models';
 import { AppUser } from '../../core/services/users.service';
 import { ToastrService } from 'ngx-toastr';
@@ -27,6 +31,8 @@ export class ProjectsComponent implements OnInit {
   private projectsService = inject(ProjectsService);
   private clientsService = inject(ClientsService);
   private usersService = inject(UsersService);
+  private allocationService = inject(AllocationService);
+  private timesheetsService = inject(TimesheetsService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
   private confirmationDialogService = inject(ConfirmationDialogService);
@@ -45,6 +51,7 @@ export class ProjectsComponent implements OnInit {
   editingProject = signal<ProjectResponseDto | null>(null);
   showViewModal = signal<boolean>(false);
   viewingProject = signal<ProjectResponseDto | null>(null);
+  canChangeClient = signal<boolean>(true);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
   clientFilter = signal<string>('');
@@ -273,10 +280,13 @@ export class ProjectsComponent implements OnInit {
 
   openCreateModal() {
     this.editingProject.set(null);
+    this.canChangeClient.set(true); // Always allow client change for new projects
     this.projectForm.reset({
       status: 'ACTIVE',
       billable: true
     });
+    // Ensure clientId control is enabled for new projects
+    this.projectForm.get('clientId')?.enable();
     this.selectedProjectMembers.set([]);
     this.selectedMemberToAdd.set(null);
     this.showModal.set(true);
@@ -284,6 +294,10 @@ export class ProjectsComponent implements OnInit {
 
   openEditModal(project: ProjectResponseDto) {
     this.editingProject.set(project);
+    
+    // Check if project has allocations or timesheets to determine if client can be changed
+    this.checkProjectUsage(project.projectId);
+    
     this.projectForm.patchValue({
       code: project.code,
       name: project.name,
@@ -318,12 +332,72 @@ export class ProjectsComponent implements OnInit {
     this.showModal.set(true);
   }
 
+  private checkProjectUsage(projectId: string) {
+    // Set default to true (can change client) and check for usage
+    this.canChangeClient.set(true);
+    
+    // Get current date range for checking - let's check the last year and future allocations/timesheets
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    
+    const fromDate = oneYearAgo.toISOString().split('T')[0];
+    const toDate = oneYearFromNow.toISOString().split('T')[0];
+    
+    // Get the current week start date for allocation check (Monday of current week)
+    const currentWeekStart = this.getCurrentWeekStart();
+    
+    // Check for allocations and timesheets in parallel
+    forkJoin({
+      allocations: this.allocationService.getAllocationsByProject(projectId, currentWeekStart).pipe(
+        catchError(() => of([]))
+      ),
+      timesheets: this.timesheetsService.listForProject(projectId, fromDate, toDate).pipe(
+        catchError(() => of([]))
+      )
+    }).subscribe({
+      next: (result) => {
+        const hasAllocations = result.allocations.length > 0;
+        const hasTimesheets = result.timesheets.length > 0;
+        
+        // If project has any allocations or timesheets, disable client change
+        const canChange = !hasAllocations && !hasTimesheets;
+        this.canChangeClient.set(canChange);
+        
+        if (!canChange) {
+          // Optionally disable the form control as well
+          this.projectForm.get('clientId')?.disable();
+        } else {
+          this.projectForm.get('clientId')?.enable();
+        }
+      },
+      error: (error) => {
+        console.error('Error checking project usage:', error);
+        // On error, allow client change but log the issue
+        this.canChangeClient.set(true);
+        this.projectForm.get('clientId')?.enable();
+      }
+    });
+  }
+
+  private getCurrentWeekStart(): string {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(now.setDate(diff));
+    return monday.toISOString().split('T')[0];
+  }
+
   closeModal() {
     this.showModal.set(false);
     this.editingProject.set(null);
+    this.canChangeClient.set(true); // Reset client change permission
     this.selectedProjectMembers.set([]);
     this.selectedMemberToAdd.set(null);
     this.projectForm.reset();
+    // Re-enable the clientId control in case it was disabled
+    this.projectForm.get('clientId')?.enable();
   }
 
   // View Modal Methods

@@ -238,7 +238,9 @@
             <div class="col-md-6">
               <label class="form-label">Client <span class="text-danger">*</span></label>
               <select class="form-select" formControlName="clientId" 
-                      [class.is-invalid]="isFieldInvalid('clientId')">
+                      [class.is-invalid]="isFieldInvalid('clientId')"
+                      [disabled]="!!editingProject() && !canChangeClient()"
+                      [title]="!!editingProject() && !canChangeClient() ? 'Client cannot be changed because this project has existing allocations or timesheet entries' : ''">
                 <option value="">Select a client</option>
                 <option *ngFor="let client of activeClients()" [value]="client.clientId">
                   {{ client.name }}
