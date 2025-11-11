@@ -80,25 +80,31 @@
 
         <div class="col-md-2">
           <label class="form-label">Hours</label>
-          <input type="number" class="form-control" min="0" max="24" step="0.25" 
-                 [formControl]="newRow.controls.hours" />
-          <div *ngIf="dailyTotal() + (newRow.get('hours')?.value || 0) > 12" class="text-danger small mt-1">
-            Daily limit exceeded! ({{ dailyTotal() + (newRow.get('hours')?.value || 0) | number:'1.1-2' }}h > 12h)
+          <div class="position-relative">
+            <input type="number" class="form-control" min="0" max="24" step="0.25" 
+                   [formControl]="newRow.controls.hours" />
+            <div *ngIf="dailyTotal() + (newRow.get('hours')?.value || 0) > 12" 
+                 class="invalid-feedback d-block position-absolute w-auto" style="top: 100%; left: 0; z-index: 1000;">
+              Daily limit exceeded! ({{ dailyTotal() + (newRow.get('hours')?.value || 0) | number:'1.1-2' }}h > 12h)
+            </div>
           </div>
         </div>
 
         <div class="col-md-2">
           <label class="form-label">Task Type *</label>
-          <select class="form-select" [formControl]="newRow.controls.taskType"
-                  [class.is-invalid]="newRow.controls.taskType.invalid && newRow.controls.taskType.touched">
-            <option value="" disabled>Select task type</option>
-            <option *ngFor="let type of taskTypes" [value]="type.value">
-              {{ type.label }}
-            </option>
-          </select>
-          <div class="invalid-feedback" *ngIf="newRow.controls.taskType.invalid && newRow.controls.taskType.touched">
-            <div *ngIf="newRow.controls.taskType.errors?.['required']">
-              Task type is required
+          <div class="position-relative">
+            <select class="form-select" [formControl]="newRow.controls.taskType"
+                    [class.is-invalid]="newRow.controls.taskType.invalid && newRow.controls.taskType.touched">
+              <option value="" disabled>Select task type</option>
+              <option *ngFor="let type of taskTypes" [value]="type.value">
+                {{ type.label }}
+              </option>
+            </select>
+            <div *ngIf="newRow.controls.taskType.invalid && newRow.controls.taskType.touched"
+                 class="invalid-feedback d-block position-absolute w-auto" style="top: 100%; left: 0; z-index: 1000;">
+              <div *ngIf="newRow.controls.taskType.errors?.['required']">
+                Task type is required
+              </div>
             </div>
           </div>
         </div>
