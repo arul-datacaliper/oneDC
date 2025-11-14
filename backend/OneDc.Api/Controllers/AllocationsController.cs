@@ -926,6 +926,30 @@ public class AllocationsController : BaseController
             return StatusCode(500, new { message = "Error calculating weekly capacity", error = ex.Message });
         }
     }
+
+    // GET: api/allocations/project/{projectId}/has-allocations
+    [HttpGet("project/{projectId}/has-allocations")]
+    public async Task<ActionResult<bool>> CheckProjectHasAllocations(string projectId)
+    {
+        if (!Guid.TryParse(projectId, out var projectGuid))
+        {
+            return BadRequest("Invalid project ID format.");
+        }
+
+        try
+        {
+            // Check if there are any allocations for this project
+            var hasAllocations = await _context.WeeklyAllocations
+                .AnyAsync(wa => wa.ProjectId == projectGuid);
+            
+            return Ok(hasAllocations);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking allocations for project {projectId}: {ex.Message}");
+            return StatusCode(500, "An error occurred while checking project allocations.");
+        }
+    }
 }
 
 // DTOs

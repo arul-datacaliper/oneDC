@@ -1,13 +1,24 @@
 using OneDc.Domain.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace OneDc.Services.DTOs;
 
 public class ProjectCreateDto
 {
+    [Required(ErrorMessage = "Client is required")]
     public Guid ClientId { get; set; }
+    
+    [Required(ErrorMessage = "Project code is required")]
+    [StringLength(50, ErrorMessage = "Project code cannot exceed 50 characters")]
     public string Code { get; set; } = null!;
+    
+    [Required(ErrorMessage = "Project name is required")]
+    [StringLength(200, ErrorMessage = "Project name cannot exceed 200 characters")]
     public string Name { get; set; } = null!;
+    
+    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
     public string? Description { get; set; } // Add description field
+    
     public string Status { get; set; } = "ACTIVE";
     public bool Billable { get; set; } = true;
     public Guid? DefaultApprover { get; set; }
@@ -26,7 +37,10 @@ public class ProjectUpdateDto : ProjectCreateDto
 
 public class ProjectMemberDto
 {
+    [Required(ErrorMessage = "User is required")]
     public Guid UserId { get; set; }
+    
+    [Required(ErrorMessage = "Project role is required")]
     public ProjectRole ProjectRole { get; set; } = ProjectRole.MEMBER;
 }
 

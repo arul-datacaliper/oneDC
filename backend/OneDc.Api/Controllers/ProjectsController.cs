@@ -385,14 +385,68 @@ public class ProjectsController : BaseController
     {
         try
         {
+            // Add validation logging
+            _logger.LogInformation("UpdateWithMembers - ID: {ProjectId}, ClientId: {ClientId}, Code: {Code}", 
+                id, projectDto.ClientId, projectDto.Code);
+            
+            // Validate required fields
+            if (projectDto.ClientId == Guid.Empty)
+            {
+                _logger.LogWarning("ClientId is missing or empty for project update: {ProjectId}", id);
+                return BadRequest(new { message = "ClientId is required." });
+            }
+            
+            if (string.IsNullOrWhiteSpace(projectDto.Code))
+            {
+                _logger.LogWarning("Project code is missing for project update: {ProjectId}", id);
+                return BadRequest(new { message = "Project code is required." });
+            }
+            
+            if (string.IsNullOrWhiteSpace(projectDto.Name))
+            {
+                _logger.LogWarning("Project name is missing for project update: {ProjectId}", id);
+                return BadRequest(new { message = "Project name is required." });
+            }
+
             projectDto.ProjectId = id; // Ensure the ID matches the route
             var updated = await _svc.UpdateWithMembersAsync(projectDto);
             return updated is null ? NotFound() : Ok(updated);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating project with members: {ProjectId}", id);
-            return StatusCode(500, new { message = "An error occurred while updating the project with members." });
+            _logger.LogError(ex, "Error updating project with members: {ProjectId}. DTO: {@ProjectDto}", id, projectDto);
+            return StatusCode(500, new { message = "An error occurred while updating the project with members.", detail = ex.Message });
+        }
+    }
+
+    // GET: api/projects/{id}/has-usage
+    [HttpGet("{id:guid}/has-usage")]
+    public async Task<IActionResult> CheckProjectHasUsage(Guid id)
+    {
+        try
+        {
+            // Check if project has any timesheets
+            var hasTimesheets = await _db.TimesheetEntries
+                .AnyAsync(t => t.ProjectId == id);
+            
+            // Check if project has any allocations
+            var hasAllocations = await _db.WeeklyAllocations
+                .AnyAsync(wa => wa.ProjectId == id);
+
+            var result = new
+            {
+                hasTimesheets,
+                hasAllocations,
+                hasUsage = hasTimesheets || hasAllocations,
+                canChangeClient = !hasTimesheets && !hasAllocations
+            };
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking project usage: {ProjectId}", id);
+            return StatusCode(500, new { message = "An error occurred while checking project usage." });
         }
     }
 }

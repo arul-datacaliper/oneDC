@@ -5,7 +5,7 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { forkJoin, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
-import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto } from '../../core/services/projects.service';
+import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto, ProjectUsageResponse } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
 import { UsersService } from '../../core/services/users.service';
 import { AllocationService } from '../../core/services/allocation.service';
@@ -336,38 +336,33 @@ export class ProjectsComponent implements OnInit {
     // Set default to true (can change client) and check for usage
     this.canChangeClient.set(true);
     
-    // Get current date range for checking - let's check the last year and future allocations/timesheets
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const oneYearFromNow = new Date();
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-    
-    const fromDate = oneYearAgo.toISOString().split('T')[0];
-    const toDate = oneYearFromNow.toISOString().split('T')[0];
-    
-    // Get the current week start date for allocation check (Monday of current week)
-    const currentWeekStart = this.getCurrentWeekStart();
-    
-    // Check for allocations and timesheets in parallel
-    forkJoin({
-      allocations: this.allocationService.getAllocationsByProject(projectId, currentWeekStart).pipe(
-        catchError(() => of([]))
-      ),
-      timesheets: this.timesheetsService.listForProject(projectId, fromDate, toDate).pipe(
-        catchError(() => of([]))
-      )
-    }).subscribe({
+    // Use the new efficient single API call to check both allocations and timesheets
+    this.projectsService.checkProjectUsage(projectId).subscribe({
       next: (result) => {
-        const hasAllocations = result.allocations.length > 0;
-        const hasTimesheets = result.timesheets.length > 0;
+        const hasAllocations = result.hasAllocations;
+        const hasTimesheets = result.hasTimesheets;
         
-        // If project has any allocations or timesheets, disable client change
-        const canChange = !hasAllocations && !hasTimesheets;
-        this.canChangeClient.set(canChange);
+        console.log(`Project ${projectId} usage check:`, {
+          hasAllocations,
+          hasTimesheets,
+          canChangeClient: result.canChangeClient
+        });
         
-        if (!canChange) {
-          // Optionally disable the form control as well
+        // Use the server-side calculation
+        this.canChangeClient.set(result.canChangeClient);
+        
+        if (!result.canChangeClient) {
+          // Disable the form control as well
           this.projectForm.get('clientId')?.disable();
+          
+          // Show user why client cannot be changed
+          if (hasAllocations && hasTimesheets) {
+            this.toastr.info('Client cannot be changed because this project has existing allocations and timesheets.');
+          } else if (hasAllocations) {
+            this.toastr.info('Client cannot be changed because this project has existing allocations.');
+          } else if (hasTimesheets) {
+            this.toastr.info('Client cannot be changed because this project has existing timesheets.');
+          }
         } else {
           this.projectForm.get('clientId')?.enable();
         }
@@ -377,16 +372,9 @@ export class ProjectsComponent implements OnInit {
         // On error, allow client change but log the issue
         this.canChangeClient.set(true);
         this.projectForm.get('clientId')?.enable();
+        this.toastr.warning('Could not verify project usage. Client change is allowed but proceed with caution.');
       }
     });
-  }
-
-  private getCurrentWeekStart(): string {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
-    const monday = new Date(now.setDate(diff));
-    return monday.toISOString().split('T')[0];
   }
 
   closeModal() {
@@ -456,7 +444,9 @@ export class ProjectsComponent implements OnInit {
   onSubmit() {
     if (this.projectForm.valid && !this.submitting()) {
       this.submitting.set(true); // Prevent multiple submissions
-      const formData = this.projectForm.value;
+      
+      // Get form data including disabled fields
+      const formData = this.projectForm.getRawValue(); // getRawValue() includes disabled fields
       
       // Prepare project members data
       const projectMembers: ProjectMemberDto[] = this.selectedProjectMembers().map(member => ({
@@ -471,7 +461,7 @@ export class ProjectsComponent implements OnInit {
           code: formData.code,
           name: formData.name,
           description: formData.description || undefined, // Add description
-          clientId: formData.clientId,
+          clientId: formData.clientId, // This should now include disabled field value
           status: formData.status,
           billable: formData.billable || false,
           defaultApprover: formData.defaultApprover || undefined,
@@ -483,7 +473,16 @@ export class ProjectsComponent implements OnInit {
           projectMembers: projectMembers
         };
         
+        // Validation check for required fields
+        if (!projectUpdateDto.clientId) {
+          console.error('ClientId is missing from form data:', formData);
+          this.toastr.error('Client selection is required but missing. Please select a client and try again.');
+          this.submitting.set(false);
+          return;
+        }
+        
         console.log('Updating project with members:', projectUpdateDto);
+        console.log('Form raw value:', formData);
         
         this.projectsService.updateWithMembers(this.editingProject()!.projectId, projectUpdateDto).subscribe({
           next: () => {

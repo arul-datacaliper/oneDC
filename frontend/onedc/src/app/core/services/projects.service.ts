@@ -9,6 +9,14 @@ export interface ProjectMemberDto {
   projectRole: 'MEMBER' | 'LEAD' | 'CONTRIBUTOR' | 'REVIEWER';
 }
 
+// Interface for project usage check response
+export interface ProjectUsageResponse {
+  hasTimesheets: boolean;
+  hasAllocations: boolean;
+  hasUsage: boolean;
+  canChangeClient: boolean;
+}
+
 export interface ProjectCreateDto {
   clientId: string;
   code: string;
@@ -103,5 +111,10 @@ export class ProjectsService {
 
   updateWithMembers(id: string, project: ProjectUpdateDto) {
     return this.http.put<ProjectResponseDto>(`${this.base}/${id}/with-members`, project);
+  }
+
+  // Check if project has any timesheets or allocations (single efficient API call)
+  checkProjectUsage(id: string) {
+    return this.http.get<ProjectUsageResponse>(`${this.base}/${id}/has-usage`);
   }
 }
