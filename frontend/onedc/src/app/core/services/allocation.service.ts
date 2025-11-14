@@ -57,7 +57,7 @@ export interface WeeklyCapacity {
   totalDays: number;
   workingDays: number;
   holidayDays: number;
-  leaveDays: number;
+  leaveDays: number; // Can be fractional (e.g., 0.5 for half-day leave)
   capacityHours: number;
   leaveHours: number;
   availableHours: number;

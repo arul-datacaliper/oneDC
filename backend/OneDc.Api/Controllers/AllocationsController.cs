@@ -840,68 +840,82 @@ public class AllocationsController : BaseController
 
                 // Calculate working days and capacity
                 int totalDays = endDate.DayNumber - startDate.DayNumber + 1;
-                int totalWorkingDays = 0; // Total Mon-Fri days (excluding weekends only)
-                int holidayDays = 0; // Count of holidays that fall on working days
-                decimal leaveDays = 0; // Count of leave days (can be fractional for half-days)
-                int availableWorkingDays = 0; // Actual days available to work
+                int weekdays = 0; // Total Monday-Friday days (excluding weekends)
+                int holidaysOnWeekdays = 0; // Holidays that fall on weekdays
+                decimal leaveDays = 0; // Leave days (can be fractional for half-days)
 
+                // First, count all weekdays and holidays on weekdays
                 for (int i = 0; i < totalDays; i++)
                 {
                     var currentDate = startDate.AddDays(i);
-                    var currentDateTime = DateTime.SpecifyKind(currentDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
                     var dayOfWeek = currentDate.DayOfWeek;
 
-                    // Skip weekends (Saturday and Sunday)
-                    if (dayOfWeek == DayOfWeek.Saturday || dayOfWeek == DayOfWeek.Sunday)
+                    // Count weekdays (Monday-Friday)
+                    if (dayOfWeek != DayOfWeek.Saturday && dayOfWeek != DayOfWeek.Sunday)
                     {
-                        continue;
-                    }
-
-                    // This is a working day (Mon-Fri)
-                    totalWorkingDays++;
-
-                    // Check if it's a holiday
-                    if (holidays.Contains(currentDate))
-                    {
-                        holidayDays++;
-                        continue; // Holiday - not available for work
-                    }
-
-                    // Check if user has approved leave on this day
-                    var leaveOnThisDay = approvedLeaves.FirstOrDefault(lr =>
-                        lr.StartDate.Date <= currentDateTime.Date &&
-                        lr.EndDate.Date >= currentDateTime.Date);
-
-                    if (leaveOnThisDay != null)
-                    {
-                        // User has leave on this day
-                        if (leaveOnThisDay.IsHalfDay)
+                        weekdays++;
+                        
+                        // Check if this weekday is a holiday
+                        if (holidays.Contains(currentDate))
                         {
-                            // Half-day leave: 0.5 day on leave, 0.5 day available for work
-                            leaveDays += 0.5m;
-                            availableWorkingDays++; // Still count as a working day (partial)
+                            holidaysOnWeekdays++;
                         }
-                        else
-                        {
-                            // Full-day leave: not available for work
-                            leaveDays += 1;
-                        }
-                    }
-                    else
-                    {
-                        // Regular working day - fully available
-                        availableWorkingDays++;
                     }
                 }
 
-                // Calculate capacity and available hours
-                // Capacity = Total potential hours if all working days were available (before leaves)
-                // Leave Hours = Hours lost to approved leaves (including half-days)
-                // Available = Total working day hours minus leave hours
-                decimal leaveHours = leaveDays * 9; // 0.5 day leave = 4.5 hours
-                int potentialCapacityHours = totalWorkingDays * 9; // Total possible hours (before holidays/leaves)
-                int actualCapacityHours = (totalWorkingDays - holidayDays) * 9; // After removing holiday hours
-                decimal actualAvailableHours = actualCapacityHours - leaveHours; // After removing leave hours
+                // Calculate leave days for this user
+                foreach (var leave in approvedLeaves)
+                {
+                    var leaveStartDate = DateOnly.FromDateTime(leave.StartDate);
+                    var leaveEndDate = DateOnly.FromDateTime(leave.EndDate);
+                    
+                    // Calculate overlap between leave period and our date range
+                    var overlapStart = leaveStartDate > startDate ? leaveStartDate : startDate;
+                    var overlapEnd = leaveEndDate < endDate ? leaveEndDate : endDate;
+                    
+                    if (overlapStart <= overlapEnd)
+                    {
+                        // Count leave days within the overlap period, excluding weekends and holidays
+                        for (var date = overlapStart; date <= overlapEnd; date = date.AddDays(1))
+                        {
+                            var dayOfWeek = date.DayOfWeek;
+                            
+                            // Only count leave on weekdays that are not holidays
+                            if (dayOfWeek != DayOfWeek.Saturday && 
+                                dayOfWeek != DayOfWeek.Sunday && 
+                                !holidays.Contains(date))
+                            {
+                                if (leave.IsHalfDay)
+                                {
+                                    leaveDays += 0.5m; // Half-day leave
+                                }
+                                else
+                                {
+                                    leaveDays += 1m; // Full-day leave
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Calculate final numbers
+                decimal actualWorkingDays = weekdays - holidaysOnWeekdays - leaveDays;
+                decimal capacityHours = actualWorkingDays * 9; // Actual hours employee will work
+                
+                // Get existing allocations for this user in this period to calculate available hours
+                var existingAllocations = await _context.WeeklyAllocations
+                    .Where(wa => wa.UserId == user.UserId &&
+                                wa.WeekStartDate <= endDate && 
+                                wa.WeekEndDate >= startDate)
+                    .SumAsync(wa => wa.AllocatedHours);
+                
+                decimal availableHours = capacityHours - (decimal)existingAllocations;
+
+                // Debug logging to trace the calculation
+                Console.WriteLine($"Debug - User: {user.UserName}");
+                Console.WriteLine($"  capacityHours: {capacityHours}");
+                Console.WriteLine($"  existingAllocations: {existingAllocations}");
+                Console.WriteLine($"  availableHours: {availableHours}");
 
                 capacityList.Add(new WeeklyCapacityDto
                 {
@@ -910,12 +924,12 @@ public class AllocationsController : BaseController
                     WeekStartDate = weekStartDate,
                     WeekEndDate = weekEndDate,
                     TotalDays = totalDays,
-                    WorkingDays = totalWorkingDays, // Total Mon-Fri days (before removing holidays/leaves)
-                    HolidayDays = holidayDays, // Holidays that fell on working days
+                    WorkingDays = weekdays, // Total Mon-Fri days
+                    HolidayDays = holidaysOnWeekdays, // Holidays that fell on weekdays
                     LeaveDays = leaveDays, // Total leave days (can be fractional for half-days)
-                    CapacityHours = actualCapacityHours, // Hours available after removing holidays
-                    LeaveHours = (int)leaveHours, // Hours lost to approved leaves (including half-days)
-                    AvailableHours = (int)actualAvailableHours // Final available hours for allocation
+                    ActualWorkingDays = actualWorkingDays, // Working days after holidays/leaves
+                    CapacityHours = capacityHours, // Actual hours employee will work
+                    AvailableHours = Math.Max(0, availableHours) // Available for new allocations (keep decimal precision)
                 });
             }
 
@@ -1037,10 +1051,10 @@ public class WeeklyCapacityDto
     public string WeekStartDate { get; set; } = string.Empty;
     public string WeekEndDate { get; set; } = string.Empty;
     public int TotalDays { get; set; }
-    public int WorkingDays { get; set; }
+    public int WorkingDays { get; set; } // Total weekdays (Mon-Fri) in the period
     public int HolidayDays { get; set; }
     public decimal LeaveDays { get; set; }
-    public int CapacityHours { get; set; }
-    public int LeaveHours { get; set; }
-    public int AvailableHours { get; set; }
+    public decimal ActualWorkingDays { get; set; } // Working days after holidays/leaves
+    public decimal CapacityHours { get; set; } // Actual hours employee will work (after holidays/leaves)
+    public decimal AvailableHours { get; set; } // Hours available for new allocations (decimal for precision)
 }
