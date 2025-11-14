@@ -719,7 +719,7 @@
                           min="0"
                           max="67.5"
                           step="0.5" 
-                          placeholder="Hours">
+                          placeholder="Hours (e.g., 2.5)">
                       </td>
                       <td *ngIf="!isEmployee()" class="text-center">
                         <button 
@@ -766,7 +766,7 @@
                             [value]="getEmployeePeriodHours(employee.userId, periodIndex)"
                             (input)="updateEmployeePeriodHours(employee.userId, periodIndex, +$any($event.target).value)"
                             min="0" 
-                            placeholder="Hours">
+                            placeholder="Hours (e.g., 2.5)">
                           <div class="form-text small">Suggested: {{ Math.round((period.days / 7) * 63) }} hours</div>
                         </td>
                         <td *ngIf="!isEmployee()" class="text-center">
@@ -830,7 +830,7 @@
                       min="0"
                       max="67.5"
                       step="0.5" 
-                      placeholder="Hours">
+                      placeholder="Hours (e.g., 2.5)">
                     <div class="form-text">Enter allocation hours for this employee (max 67.5 hours)</div>
                   </div>
                 </div>

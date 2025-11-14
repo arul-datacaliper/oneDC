@@ -891,6 +891,11 @@ export class AllocationsComponent implements OnInit {
 
   // Update employee's allocated hours
   updateEmployeeHours(userId: string, hours: number) {
+    // Handle NaN or invalid input
+    if (isNaN(hours)) {
+      return;
+    }
+    
     // Validation for reasonable hours
     if (hours < 0) {
       this.toastr.warning('Allocated hours cannot be negative');
@@ -904,9 +909,12 @@ export class AllocationsComponent implements OnInit {
       return;
     }
 
+    // Round to nearest 0.5 for clean display
+    const roundedHours = Math.round(hours * 2) / 2;
+
     this.selectedEmployeeAllocations.update(current =>
       current.map(emp => 
-        emp.userId === userId ? { ...emp, allocatedHours: hours } : emp
+        emp.userId === userId ? { ...emp, allocatedHours: roundedHours } : emp
       )
     );
   }

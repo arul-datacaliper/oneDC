@@ -107,16 +107,31 @@ function employeeIdAsyncValidator(employeesService: EmployeesService, currentEmp
       return of(null);
     }
 
+    console.log('🔍 Async validator: Checking employee ID:', employeeId);
+
     // Add a small delay to avoid excessive API calls while typing
     return timer(500).pipe(
-      switchMap(() => employeesService.checkEmployeeIdExists(employeeId)),
+      switchMap(() => {
+        console.log('🌐 Making API call to check employee ID:', employeeId);
+        return employeesService.checkEmployeeIdExists(employeeId);
+      }),
       map(response => {
+        console.log('✅ API response for employee ID check:', response);
         const result = response.exists ? { employeeIdExists: true } : null;
+        console.log('📝 Validation result:', result);
         return result;
       }),
       catchError((error) => {
-        console.error('Error checking employee ID:', error);
-        return of(null); // If API call fails, don't block the form
+        console.error('❌ Error checking employee ID:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        // If it's an auth error, we still want to block submission with duplicate IDs
+        // So we return an error to indicate the check failed
+        if (error.status === 401) {
+          console.warn('⚠️ Authentication required for duplicate check - returning validation error');
+          return of({ employeeIdCheckFailed: true });
+        }
+        return of(null); // For other errors, don't block the form
       })
     );
   };
@@ -649,6 +664,24 @@ export class EmployeesComponent implements OnInit {
 
   // Form submission
   onSubmit() {
+    console.log('🚀 Form submission started');
+    console.log('Form valid:', this.employeeForm.valid);
+    console.log('Form pending:', this.employeeForm.pending);
+    console.log('Form errors:', this.getFormErrors());
+    console.log('Employee ID field status:', {
+      value: this.employeeForm.get('employeeId')?.value,
+      valid: this.employeeForm.get('employeeId')?.valid,
+      pending: this.employeeForm.get('employeeId')?.pending,
+      errors: this.employeeForm.get('employeeId')?.errors
+    });
+    
+    // Check if form is still pending validation (especially async validators)
+    if (this.employeeForm.pending) {
+      console.log('⏳ Form validation is still pending - waiting for completion');
+      this.toastr.warning('Please wait for validation to complete', 'Validation in Progress');
+      return;
+    }
+    
     if (this.employeeForm.valid && !this.submitting()) {
       this.submitting.set(true); // Prevent multiple submissions
       const formValue = this.employeeForm.value;
@@ -997,11 +1030,11 @@ export class EmployeesComponent implements OnInit {
   getFieldError(fieldName: string): string {
     const field = this.employeeForm.get(fieldName);
     if (field && field.errors) {
-      if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
+      if (field.errors['required']) return `${this.getFieldLabel(fieldName)} is required`;
       if (field.errors['email']) return 'Please enter a valid email';
-      if (field.errors['minlength']) return `${this.capitalizeFirstLetter(fieldName)} must be at least ${field.errors['minlength'].requiredLength} characters`;
-      if (field.errors['maxlength']) return `${this.capitalizeFirstLetter(fieldName)} cannot exceed ${field.errors['maxlength'].requiredLength} characters`;
-      if (field.errors['alphanumeric']) return `${this.capitalizeFirstLetter(fieldName)} can only contain letters and numbers (no special characters or spaces)`;
+      if (field.errors['minlength']) return `${this.getFieldLabel(fieldName)} must be at least ${field.errors['minlength'].requiredLength} characters`;
+      if (field.errors['maxlength']) return `${this.getFieldLabel(fieldName)} cannot exceed ${field.errors['maxlength'].requiredLength} characters`;
+      if (field.errors['alphanumeric']) return `${this.getFieldLabel(fieldName)} can only contain letters and numbers (no special characters or spaces)`;
       if (field.errors['futureDate']) return 'Date cannot be in the future';
       if (field.errors['minimumAge']) return `Employee must be at least ${field.errors['minimumAge'].requiredAge} years old`;
       if (field.errors['tooFarInFuture']) return 'Joining date cannot be more than 1 year in the future';
@@ -1012,6 +1045,7 @@ export class EmployeesComponent implements OnInit {
       if (field.errors['invalidZipCode']) return 'Zip code can only contain letters, numbers, spaces, and hyphens';
       if (field.errors['zipCodeTooLong']) return 'Zip code cannot exceed 10 characters';
       if (field.errors['employeeIdExists']) return 'This Employee ID is already in use';
+      if (field.errors['employeeIdCheckFailed']) return 'Unable to verify Employee ID uniqueness - please ensure you are logged in';
     }
     return '';
   }
@@ -1104,5 +1138,40 @@ export class EmployeesComponent implements OnInit {
   private capitalizeFirstLetter(str: string): string {
     if (!str) return str;
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  private getFieldLabel(fieldName: string): string {
+    // Map of field names to proper labels
+    const fieldLabels: { [key: string]: string } = {
+      'firstName': 'First Name',
+      'lastName': 'Last Name',
+      'workEmail': 'Work Email',
+      'personalEmail': 'Personal Email',
+      'contactNumber': 'Contact Number',
+      'emergencyContactNumber': 'Emergency Contact Number',
+      'employeeId': 'Employee ID',
+      'dateOfJoining': 'Date of Joining',
+      'dateOfBirth': 'Date of Birth',
+      'jobTitle': 'Job Title',
+      'department': 'Department',
+      'employeeType': 'Employee Type',
+      'role': 'Role',
+      'managerId': 'Reporting Manager',
+      'gender': 'Gender',
+      'isActive': 'Active Status'
+    };
+
+    // Return mapped label or convert camelCase to Title Case as fallback
+    return fieldLabels[fieldName] || this.camelCaseToTitleCase(fieldName);
+  }
+
+  private camelCaseToTitleCase(str: string): string {
+    if (!str) return str;
+    
+    // Insert space before uppercase letters and capitalize first letter
+    return str
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+      .replace(/^./, char => char.toUpperCase()) // Capitalize first letter
+      .trim(); // Remove leading/trailing spaces
   }
 }

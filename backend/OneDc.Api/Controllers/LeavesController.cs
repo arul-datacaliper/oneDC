@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OneDc.Domain.Entities;
 using OneDc.Services.Interfaces;
 using OneDc.Infrastructure.Repositories.Interfaces;
+using OneDc.Infrastructure;
 using System.Security.Claims;
 
 namespace OneDc.Api.Controllers
@@ -14,12 +16,14 @@ namespace OneDc.Api.Controllers
     {
         private readonly ILeaveService _leaveService;
         private readonly IUserRepository _userRepository;
+        private readonly OneDcDbContext _context;
         private readonly ILogger<LeavesController> _logger;
 
-        public LeavesController(ILeaveService leaveService, IUserRepository userRepository, ILogger<LeavesController> logger)
+        public LeavesController(ILeaveService leaveService, IUserRepository userRepository, OneDcDbContext context, ILogger<LeavesController> logger)
         {
             _leaveService = leaveService;
             _userRepository = userRepository;
+            _context = context;
             _logger = logger;
         }
 
@@ -135,6 +139,24 @@ namespace OneDc.Api.Controllers
                 var currentUserId = GetCurrentUserId();
                 dto.EmployeeId = currentUserId; // Ensure employee can only create for themselves
 
+                // Check if any of the requested leave days fall on holidays
+                var startDate = DateOnly.FromDateTime(dto.StartDate);
+                var endDate = DateOnly.FromDateTime(dto.EndDate);
+                
+                var holidays = await _context.Holidays
+                    .Where(h => h.HolidayDate >= startDate && h.HolidayDate <= endDate)
+                    .Select(h => h.HolidayDate)
+                    .ToListAsync();
+
+                if (holidays.Any())
+                {
+                    var holidayDates = string.Join(", ", holidays.Select(h => h.ToString("yyyy-MM-dd")));
+                    return BadRequest(new { 
+                        success = false, 
+                        message = $"Leave cannot be applied for the following holiday dates: {holidayDates}. Please select different dates that do not include holidays." 
+                    });
+                }
+
                 var leaveRequest = await _leaveService.CreateLeaveRequestAsync(dto);
                 
                 return Ok(new
@@ -212,6 +234,24 @@ namespace OneDc.Api.Controllers
             {
                 var currentUserId = GetCurrentUserId();
                 dto.Id = id;
+
+                // Check if any of the updated leave days fall on holidays
+                var startDate = DateOnly.FromDateTime(dto.StartDate);
+                var endDate = DateOnly.FromDateTime(dto.EndDate);
+                
+                var holidays = await _context.Holidays
+                    .Where(h => h.HolidayDate >= startDate && h.HolidayDate <= endDate)
+                    .Select(h => h.HolidayDate)
+                    .ToListAsync();
+
+                if (holidays.Any())
+                {
+                    var holidayDates = string.Join(", ", holidays.Select(h => h.ToString("yyyy-MM-dd")));
+                    return BadRequest(new { 
+                        success = false, 
+                        message = $"Leave cannot be updated to include the following holiday dates: {holidayDates}. Please select different dates that do not include holidays." 
+                    });
+                }
 
                 var leaveRequest = await _leaveService.UpdateLeaveRequestAsync(dto, currentUserId);
                 

@@ -170,7 +170,7 @@ public class AllocationsController : BaseController
                 AllocatedHours = request.AllocatedHours,
                 WeekStartDate = weekStartDate,
                 WeekEndDate = weekEndDate,
-                UtilizationPercentage = Math.Round((decimal)request.AllocatedHours / 45 * 100, 2),
+                UtilizationPercentage = Math.Round(request.AllocatedHours / 45m * 100, 2),
                 Status = "ACTIVE"
             };
 
@@ -200,7 +200,7 @@ public class AllocationsController : BaseController
         }
 
         // Additional business rule validation
-        if (request.AllocatedHours > 67.5)
+        if (request.AllocatedHours > 67.5m)
         {
             return BadRequest("Allocated hours cannot exceed 67.5 hours per week for employee wellbeing and legal compliance.");
         }
@@ -217,7 +217,7 @@ public class AllocationsController : BaseController
 
         // Update fields
         allocation.AllocatedHours = request.AllocatedHours;
-        allocation.UtilizationPercentage = Math.Round((decimal)request.AllocatedHours / 45 * 100, 2);
+        allocation.UtilizationPercentage = Math.Round(request.AllocatedHours / 45m * 100, 2);
         allocation.UpdatedAt = DateTime.UtcNow;
 
         if (!string.IsNullOrEmpty(request.Status))
@@ -875,12 +875,11 @@ public class AllocationsController : BaseController
                     if (leaveOnThisDay != null)
                     {
                         // User has leave on this day
-                        if (leaveOnThisDay.IsHalfDay && 
-                            leaveOnThisDay.StartDate.Date == currentDateTime.Date)
+                        if (leaveOnThisDay.IsHalfDay)
                         {
-                            // Half-day leave: 0.5 day available, 0.5 day on leave
+                            // Half-day leave: 0.5 day on leave, 0.5 day available for work
                             leaveDays += 0.5m;
-                            availableWorkingDays++; // Count as available (half day)
+                            availableWorkingDays++; // Still count as a working day (partial)
                         }
                         else
                         {
@@ -896,12 +895,13 @@ public class AllocationsController : BaseController
                 }
 
                 // Calculate capacity and available hours
-                // Capacity = Total potential hours if all working days were available
-                // Leave Hours = Hours lost to approved leaves
-                // Available = Actual hours available for allocation
-                int leaveHours = (int)(leaveDays * 9);
-                int capacityHours = availableWorkingDays * 9; // Hours for days actually available
-                int availableHours = capacityHours; // Same as capacity since leaves already deducted from working days
+                // Capacity = Total potential hours if all working days were available (before leaves)
+                // Leave Hours = Hours lost to approved leaves (including half-days)
+                // Available = Total working day hours minus leave hours
+                decimal leaveHours = leaveDays * 9; // 0.5 day leave = 4.5 hours
+                int potentialCapacityHours = totalWorkingDays * 9; // Total possible hours (before holidays/leaves)
+                int actualCapacityHours = (totalWorkingDays - holidayDays) * 9; // After removing holiday hours
+                decimal actualAvailableHours = actualCapacityHours - leaveHours; // After removing leave hours
 
                 capacityList.Add(new WeeklyCapacityDto
                 {
@@ -912,10 +912,10 @@ public class AllocationsController : BaseController
                     TotalDays = totalDays,
                     WorkingDays = totalWorkingDays, // Total Mon-Fri days (before removing holidays/leaves)
                     HolidayDays = holidayDays, // Holidays that fell on working days
-                    LeaveDays = leaveDays, // Total leave days (can be fractional)
-                    CapacityHours = capacityHours, // Hours available after holidays and leaves
-                    LeaveHours = leaveHours, // Hours lost to approved leaves
-                    AvailableHours = availableHours // Same as capacity (leaves already accounted for)
+                    LeaveDays = leaveDays, // Total leave days (can be fractional for half-days)
+                    CapacityHours = actualCapacityHours, // Hours available after removing holidays
+                    LeaveHours = (int)leaveHours, // Hours lost to approved leaves (including half-days)
+                    AvailableHours = (int)actualAvailableHours // Final available hours for allocation
                 });
             }
 
@@ -938,7 +938,7 @@ public class WeeklyAllocationDto
     public string UserName { get; set; } = string.Empty;
     public string WeekStartDate { get; set; } = string.Empty;
     public string WeekEndDate { get; set; } = string.Empty;
-    public int AllocatedHours { get; set; }
+    public decimal AllocatedHours { get; set; }
     public decimal UtilizationPercentage { get; set; }
     public string Status { get; set; } = string.Empty;
     public string CreatedAt { get; set; } = string.Empty;
@@ -960,15 +960,15 @@ public class CreateAllocationRequest
     public string WeekEndDate { get; set; } = string.Empty;
     
     [Required]
-    [Range(1, 67.5, ErrorMessage = "Allocated hours must be between 1 and 67.5 hours per week (9 hrs/day × 5 days + overtime)")]
-    public int AllocatedHours { get; set; }
+    [Range(0.5, 67.5, ErrorMessage = "Allocated hours must be between 0.5 and 67.5 hours per week")]
+    public decimal AllocatedHours { get; set; }
 }
 
 public class UpdateAllocationRequest
 {
     [Required]
-    [Range(1, 67.5, ErrorMessage = "Allocated hours must be between 1 and 67.5 hours per week (9 hrs/day × 5 days + overtime)")]
-    public int AllocatedHours { get; set; }
+    [Range(0.5, 67.5, ErrorMessage = "Allocated hours must be between 0.5 and 67.5 hours per week")]
+    public decimal AllocatedHours { get; set; }
     public string? Status { get; set; }
 }
 
@@ -976,7 +976,7 @@ public class AllocationSummaryDto
 {
     public string ProjectId { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
-    public int TotalAllocatedHours { get; set; }
+    public decimal TotalAllocatedHours { get; set; }
     public int TotalEmployees { get; set; }
     public decimal UtilizationPercentage { get; set; }
 }
@@ -985,7 +985,7 @@ public class EmployeeAllocationSummaryDto
 {
     public string UserId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
-    public int TotalAllocatedHours { get; set; }
+    public decimal TotalAllocatedHours { get; set; }
     public int TotalProjects { get; set; }
     public int WeeklyCapacity { get; set; }
     public decimal UtilizationPercentage { get; set; }

@@ -7,7 +7,7 @@ public class WeeklyAllocation
     public Guid UserId { get; set; }
     public DateOnly WeekStartDate { get; set; }
     public DateOnly WeekEndDate { get; set; }
-    public int AllocatedHours { get; set; }
+    public decimal AllocatedHours { get; set; }
     public decimal UtilizationPercentage { get; set; }
     public string Status { get; set; } = "ACTIVE";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
