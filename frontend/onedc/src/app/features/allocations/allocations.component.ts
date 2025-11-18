@@ -400,20 +400,20 @@ export class AllocationsComponent implements OnInit {
     // Fetch weekly capacity for all users
     if (weekStartDate && weekEndDate && allUserIds.size > 0) {
       const userIdsArray = Array.from(allUserIds);
-      console.log('🔄 Loading weekly capacity for project members');
-      console.log('  - userIds:', userIdsArray);
-      console.log('  - dateRange:', weekStartDate, 'to', weekEndDate);
+      // console.log('🔄 Loading weekly capacity for project members');
+      // console.log('  - userIds:', userIdsArray);
+      // console.log('  - dateRange:', weekStartDate, 'to', weekEndDate);
       
       this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIdsArray).subscribe({
         next: (capacities) => {
-          console.log('✅ Received weekly capacity data for project members:', capacities);
+         // console.log('✅ Received weekly capacity data for project members:', capacities);
           const capacityMap = new Map();
           capacities.forEach(cap => {
-            console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
+            //console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
             capacityMap.set(cap.userId, cap);
           });
           this.weeklyCapacities.set(capacityMap);
-          console.log('💾 Updated weeklyCapacities signal with project members data');
+         // console.log('💾 Updated weeklyCapacities signal with project members data');
         },
         error: (error) => {
           console.error('❌ Error fetching weekly capacity for project members:', error);
@@ -1323,10 +1323,10 @@ export class AllocationsComponent implements OnInit {
     const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
     const selectedEmployees = this.selectedEmployeeAllocations();
     
-    console.log('🔄 loadCapacityForSelectedEmployees called');
-    console.log('  - weekStartDate:', weekStartDate);
-    console.log('  - weekEndDate:', weekEndDate);
-    console.log('  - selectedEmployees:', selectedEmployees.map(e => ({userId: e.userId, userName: e.userName})));
+    // console.log('🔄 loadCapacityForSelectedEmployees called');
+    // console.log('  - weekStartDate:', weekStartDate);
+    // console.log('  - weekEndDate:', weekEndDate);
+    // console.log('  - selectedEmployees:', selectedEmployees.map(e => ({userId: e.userId, userName: e.userName})));
     
     if (!weekStartDate || !weekEndDate || selectedEmployees.length === 0) {
       console.log('❌ Missing required data for capacity loading');
@@ -1334,18 +1334,18 @@ export class AllocationsComponent implements OnInit {
     }
 
     const userIds = selectedEmployees.map(emp => emp.userId);
-    console.log('📞 Making API call for userIds:', userIds);
+   // console.log('📞 Making API call for userIds:', userIds);
     
     this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
       next: (capacities) => {
-        console.log('✅ Received capacity data from API:', capacities);
+      //  console.log('✅ Received capacity data from API:', capacities);
         const capacityMap = new Map();
         capacities.forEach(cap => {
-          console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
+       //   console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
           capacityMap.set(cap.userId, cap);
         });
         this.weeklyCapacities.set(capacityMap);
-        console.log('💾 Updated weeklyCapacities signal with:', capacityMap);
+       // console.log('💾 Updated weeklyCapacities signal with:', capacityMap);
       },
       error: (error) => {
         console.error('❌ Error loading capacity for selected employees:', error);
@@ -1390,19 +1390,19 @@ export class AllocationsComponent implements OnInit {
     const capacity = this.getUserWeeklyCapacity(userId);
     
     // Console log the data for debugging
-    console.log(`=== Capacity Data for User ID: ${userId} ===`);
-    console.log('Raw capacity object:', capacity);
+    // console.log(`=== Capacity Data for User ID: ${userId} ===`);
+    // console.log('Raw capacity object:', capacity);
     
     if (!capacity) {
-      console.log('❌ No capacity data found - showing default');
+      // console.log('❌ No capacity data found - showing default');
       return 'Available: 45h (Standard Week)';
     }
 
-    console.log('✅ Capacity data found:');
-    console.log(`  - availableHours: ${capacity.availableHours}`);
-    console.log(`  - leaveDays: ${capacity.leaveDays}`);
-    console.log(`  - holidayDays: ${capacity.holidayDays}`);
-    console.log(`  - capacityHours: ${capacity.capacityHours}`);
+    // console.log('✅ Capacity data found:');
+    // console.log(`  - availableHours: ${capacity.availableHours}`);
+    // console.log(`  - leaveDays: ${capacity.leaveDays}`);
+    // console.log(`  - holidayDays: ${capacity.holidayDays}`);
+    // console.log(`  - capacityHours: ${capacity.capacityHours}`);
 
     // Simple calculation: Available hours with leave breakdown
     let display = `Available: ${capacity.availableHours}h`;
@@ -1411,17 +1411,17 @@ export class AllocationsComponent implements OnInit {
     if (capacity.leaveDays > 0) {
       const leaveStr = capacity.leaveDays === 0.5 ? '0.5 day' : `${capacity.leaveDays} day${capacity.leaveDays > 1 ? 's' : ''}`;
       display += ` | ${leaveStr} leave`;
-      console.log(`  - Adding leave info: ${leaveStr} leave`);
+    //  console.log(`  - Adding leave info: ${leaveStr} leave`);
     }
     
     // Add holiday info if present  
     if (capacity.holidayDays > 0) {
       display += ` | ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`;
-      console.log(`  - Adding holiday info: ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
+      //console.log(`  - Adding holiday info: ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
     }
 
-    console.log(`  - Final display string: "${display}"`);
-    console.log('=====================================');
+    // console.log(`  - Final display string: "${display}"`);
+    // console.log('=====================================');
     
     return display;
   }
