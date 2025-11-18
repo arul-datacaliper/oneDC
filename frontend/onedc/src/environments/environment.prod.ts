@@ -1,6 +1,6 @@
 export const environment = {
-  production: false,
-  apiUrl: '/api',
-  appName: 'OneDC - Time Tracking (Development)',
-  version: '1.0.0-dev'
+  production: true,
+  apiBaseUrl: 'http://135.233.176.35:5000/api', // Direct production server URL
+  appName: 'OneDC - Time Tracking',
+  version: '1.0.0'
 };

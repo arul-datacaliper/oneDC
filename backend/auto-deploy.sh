@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 ENVIRONMENT=${1:-production}
-PROJECT_ROOT="/Users/arul/oneDC/MVP-ver1/oneDC"
+PROJECT_ROOT="/Users/arul/Documents/DC Projects/oneDcMvp/oneDC"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 BUILD_DIR="$BACKEND_DIR/publish/linux-x64-final"
 DEPLOY_DIR="$HOME/onedc-deploys"
