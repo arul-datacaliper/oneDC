@@ -901,6 +901,16 @@ public class AllocationsController : BaseController
                 // Calculate final numbers
                 decimal actualWorkingDays = weekdays - holidaysOnWeekdays - leaveDays;
                 decimal capacityHours = actualWorkingDays * 9; // Actual hours employee will work
+                decimal leaveHours = leaveDays * 9; // Hours lost due to leaves
+                
+                // Debug logging
+                Console.WriteLine($"=== BACKEND CAPACITY CALCULATION DEBUG for {user.UserName} ===");
+                Console.WriteLine($"weekdays: {weekdays}");
+                Console.WriteLine($"holidaysOnWeekdays: {holidaysOnWeekdays}");
+                Console.WriteLine($"leaveDays: {leaveDays}");
+                Console.WriteLine($"actualWorkingDays: {actualWorkingDays}");
+                Console.WriteLine($"capacityHours: {capacityHours}");
+                Console.WriteLine($"leaveHours: {leaveHours}");
                 
                 // Get existing allocations for this user in this period to calculate available hours
                 var existingAllocations = await _context.WeeklyAllocations
@@ -909,7 +919,12 @@ public class AllocationsController : BaseController
                                 wa.WeekEndDate >= startDate)
                     .SumAsync(wa => wa.AllocatedHours);
                 
+                Console.WriteLine($"existingAllocations: {existingAllocations}");
+                
                 decimal availableHours = capacityHours - (decimal)existingAllocations;
+                
+                Console.WriteLine($"availableHours: {availableHours}");
+                Console.WriteLine("=== END BACKEND DEBUG ===");
 
                 capacityList.Add(new WeeklyCapacityDto
                 {
@@ -923,7 +938,7 @@ public class AllocationsController : BaseController
                     LeaveDays = leaveDays, // Total leave days (can be fractional for half-days)
                     ActualWorkingDays = actualWorkingDays, // Working days after holidays/leaves
                     CapacityHours = capacityHours, // Actual hours employee will work
-                    LeaveHours = leaveDays * 9, // Hours lost due to leaves (leave days × 9 hours/day)
+                    LeaveHours = leaveHours, // Use calculated variable instead of recalculating
                     AvailableHours = Math.Max(0, availableHours) // Available for new allocations (keep decimal precision)
                 });
             }

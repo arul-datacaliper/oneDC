@@ -1323,10 +1323,14 @@ export class AllocationsComponent implements OnInit {
     const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
     const selectedEmployees = this.selectedEmployeeAllocations();
     
-    // console.log('🔄 loadCapacityForSelectedEmployees called');
-    // console.log('  - weekStartDate:', weekStartDate);
-    // console.log('  - weekEndDate:', weekEndDate);
-    // console.log('  - selectedEmployees:', selectedEmployees.map(e => ({userId: e.userId, userName: e.userName})));
+    console.log('🔄 loadCapacityForSelectedEmployees called');
+    console.log('  - weekStartDate:', weekStartDate);
+    console.log('  - weekEndDate:', weekEndDate);
+    console.log('  - selectedEmployees:', selectedEmployees.map(e => ({userId: e.userId, userName: e.userName})));
+    
+    // 🧹 FORCE CLEAR ALL CACHES TO PREVENT STALE DATA
+    this.weeklyCapacities.set(new Map());
+    console.log('🧹 Cleared weeklyCapacities cache before loading fresh data');
     
     if (!weekStartDate || !weekEndDate || selectedEmployees.length === 0) {
       console.log('❌ Missing required data for capacity loading');
@@ -1334,18 +1338,68 @@ export class AllocationsComponent implements OnInit {
     }
 
     const userIds = selectedEmployees.map(emp => emp.userId);
-   // console.log('📞 Making API call for userIds:', userIds);
+    console.log('📞 Making API call for userIds:', userIds);
     
     this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
       next: (capacities) => {
-      //  console.log('✅ Received capacity data from API:', capacities);
+        console.log('✅ Received capacity data from API:', capacities);
+        console.log('📡 RAW API RESPONSE (JSON):', JSON.stringify(capacities, null, 2));
+        
+        capacities.forEach(cap => {
+          console.log(`\n🔍 DETAILED CAPACITY BREAKDOWN for ${cap.userName}:`);
+          console.log(`  - userId: ${cap.userId}`);
+          console.log(`  - weekStartDate: ${cap.weekStartDate}`);
+          console.log(`  - weekEndDate: ${cap.weekEndDate}`);
+          console.log(`  - totalDays: ${cap.totalDays}`);
+          console.log(`  - workingDays: ${cap.workingDays} (total Mon-Fri days)`);
+          console.log(`  - holidayDays: ${cap.holidayDays}`);
+          console.log(`  - leaveDays: ${cap.leaveDays} (approved leave)`);
+          console.log(`  - actualWorkingDays: ${cap.actualWorkingDays} (workingDays - holidayDays - leaveDays)`);
+          console.log(`  - capacityHours: ${cap.capacityHours} (actualWorkingDays × 9)`);
+          console.log(`  - leaveHours: ${cap.leaveHours} (leaveDays × 9)`);
+          console.log(`  - availableHours: ${cap.availableHours} (capacityHours - existing allocations)`);
+          
+          console.log(`\n🔍 TYPE CHECK:`);
+          console.log(`  - typeof actualWorkingDays: ${typeof cap.actualWorkingDays}`);
+          console.log(`  - typeof capacityHours: ${typeof cap.capacityHours}`);
+          console.log(`  - typeof leaveHours: ${typeof cap.leaveHours}`);
+          console.log(`  - typeof availableHours: ${typeof cap.availableHours}`);
+          
+          // Verify calculation
+          const expectedActualWorkingDays = cap.workingDays - cap.holidayDays - cap.leaveDays;
+          const expectedCapacityHours = expectedActualWorkingDays * 9;
+          const expectedLeaveHours = cap.leaveDays * 9;
+          
+          console.log(`\n🧮 CALCULATION VERIFICATION:`);
+          console.log(`  - Expected actualWorkingDays: ${cap.workingDays} - ${cap.holidayDays} - ${cap.leaveDays} = ${expectedActualWorkingDays}`);
+          console.log(`  - Actual actualWorkingDays: ${cap.actualWorkingDays}`);
+          console.log(`  - Expected capacityHours: ${expectedActualWorkingDays} × 9 = ${expectedCapacityHours}`);
+          console.log(`  - Actual capacityHours: ${cap.capacityHours}`);
+          console.log(`  - Expected leaveHours: ${cap.leaveDays} × 9 = ${expectedLeaveHours}`);
+          console.log(`  - Actual leaveHours: ${cap.leaveHours}`);
+          
+          if (Math.abs(cap.capacityHours - expectedCapacityHours) > 0.01) {
+            console.log(`❌ FRONTEND DATA CORRUPTION: capacityHours should be ${expectedCapacityHours} but got ${cap.capacityHours}`);
+            console.log(`   Backend sent correct data, but frontend received corrupted values!`);
+          } else {
+            console.log(`✅ Frontend received correct data!`);
+          }
+          
+          if (Math.abs(cap.leaveHours - expectedLeaveHours) > 0.01) {
+            console.log(`❌ LEAVE HOURS ERROR: leaveHours should be ${expectedLeaveHours} but got ${cap.leaveHours}`);
+          }
+          
+          if (Math.abs(cap.actualWorkingDays - expectedActualWorkingDays) > 0.01) {
+            console.log(`❌ ACTUAL WORKING DAYS ERROR: actualWorkingDays should be ${expectedActualWorkingDays} but got ${cap.actualWorkingDays}`);
+          }
+        });
+        
         const capacityMap = new Map();
         capacities.forEach(cap => {
-       //   console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
           capacityMap.set(cap.userId, cap);
         });
         this.weeklyCapacities.set(capacityMap);
-       // console.log('💾 Updated weeklyCapacities signal with:', capacityMap);
+        console.log('💾 Updated weeklyCapacities signal');
       },
       error: (error) => {
         console.error('❌ Error loading capacity for selected employees:', error);
@@ -1389,39 +1443,29 @@ export class AllocationsComponent implements OnInit {
   getFormattedCapacity(userId: string): string {
     const capacity = this.getUserWeeklyCapacity(userId);
     
-    // Console log the data for debugging
-    // console.log(`=== Capacity Data for User ID: ${userId} ===`);
-    // console.log('Raw capacity object:', capacity);
-    
     if (!capacity) {
-      // console.log('❌ No capacity data found - showing default');
       return 'Available: 45h (Standard Week)';
     }
 
-    // console.log('✅ Capacity data found:');
-    // console.log(`  - availableHours: ${capacity.availableHours}`);
-    // console.log(`  - leaveDays: ${capacity.leaveDays}`);
-    // console.log(`  - holidayDays: ${capacity.holidayDays}`);
-    // console.log(`  - capacityHours: ${capacity.capacityHours}`);
-
-    // Simple calculation: Available hours with leave breakdown
-    let display = `Available: ${capacity.availableHours}h`;
+    // Show capacity hours (actual hours they can work this week after leave/holiday deductions)
+    // not availableHours (which is after existing allocations are subtracted)
+    let display = `Capacity: ${capacity.capacityHours}h`;
     
     // Add leave info if present
     if (capacity.leaveDays > 0) {
       const leaveStr = capacity.leaveDays === 0.5 ? '0.5 day' : `${capacity.leaveDays} day${capacity.leaveDays > 1 ? 's' : ''}`;
       display += ` | ${leaveStr} leave`;
-    //  console.log(`  - Adding leave info: ${leaveStr} leave`);
     }
     
     // Add holiday info if present  
     if (capacity.holidayDays > 0) {
       display += ` | ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`;
-      //console.log(`  - Adding holiday info: ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
     }
 
-    // console.log(`  - Final display string: "${display}"`);
-    // console.log('=====================================');
+    // Show available hours (after existing allocations) if different from capacity
+    if (capacity.availableHours !== capacity.capacityHours) {
+      display += ` | ${capacity.availableHours}h available`;
+    }
     
     return display;
   }
@@ -1448,11 +1492,12 @@ export class AllocationsComponent implements OnInit {
       details.push(`Approved Leaves: ${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''}`);
     }
     
-    details.push(`Capacity: ${capacity.capacityHours}h`);
+    details.push(`Actual Working Days: ${capacity.actualWorkingDays}`);
+    details.push(`Weekly Capacity: ${capacity.capacityHours}h`);
     if (capacity.leaveHours > 0) {
-      details.push(`Leave Hours: ${capacity.leaveHours}h`);
+      details.push(`Leave Hours Deducted: ${capacity.leaveHours}h`);
     }
-    details.push(`Available: ${capacity.availableHours}h`);
+    details.push(`Available for New Allocations: ${capacity.availableHours}h`);
 
     return details.join(' | ');
   }

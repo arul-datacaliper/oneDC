@@ -55,12 +55,13 @@ export interface WeeklyCapacity {
   weekStartDate: string;
   weekEndDate: string;
   totalDays: number;
-  workingDays: number;
+  workingDays: number; // Total Mon-Fri days in the period
   holidayDays: number;
   leaveDays: number; // Can be fractional (e.g., 0.5 for half-day leave)
-  capacityHours: number;
-  leaveHours: number;
-  availableHours: number;
+  actualWorkingDays: number; // Working days after holidays/leaves
+  capacityHours: number; // Actual hours employee will work (after holidays/leaves)
+  leaveHours: number; // Hours lost due to leaves
+  availableHours: number; // Available for new allocations (after existing allocations)
 }
 
 @Injectable({
@@ -124,13 +125,24 @@ export class AllocationService {
   getWeeklyCapacity(weekStartDate: string, weekEndDate: string, userIds?: string[]): Observable<WeeklyCapacity[]> {
     let params = new HttpParams()
       .set('weekStartDate', weekStartDate)
-      .set('weekEndDate', weekEndDate);
+      .set('weekEndDate', weekEndDate)
+      .set('_t', Date.now().toString()); // Cache busting parameter
     
     if (userIds && userIds.length > 0) {
       params = params.set('userIds', userIds.join(','));
     }
     
-    return this.http.get<WeeklyCapacity[]>(`${this.apiUrl}/weekly-capacity`, { params });
+    // Add cache-busting headers
+    const headers = {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+    
+    return this.http.get<WeeklyCapacity[]>(`${this.apiUrl}/weekly-capacity`, { 
+      params,
+      headers 
+    });
   }
 
   // Export allocations to CSV
