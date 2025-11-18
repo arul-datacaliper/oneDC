@@ -911,12 +911,6 @@ public class AllocationsController : BaseController
                 
                 decimal availableHours = capacityHours - (decimal)existingAllocations;
 
-                // Debug logging to trace the calculation
-                Console.WriteLine($"Debug - User: {user.UserName}");
-                Console.WriteLine($"  capacityHours: {capacityHours}");
-                Console.WriteLine($"  existingAllocations: {existingAllocations}");
-                Console.WriteLine($"  availableHours: {availableHours}");
-
                 capacityList.Add(new WeeklyCapacityDto
                 {
                     UserId = user.UserId.ToString(),
@@ -929,6 +923,7 @@ public class AllocationsController : BaseController
                     LeaveDays = leaveDays, // Total leave days (can be fractional for half-days)
                     ActualWorkingDays = actualWorkingDays, // Working days after holidays/leaves
                     CapacityHours = capacityHours, // Actual hours employee will work
+                    LeaveHours = leaveDays * 9, // Hours lost due to leaves (leave days × 9 hours/day)
                     AvailableHours = Math.Max(0, availableHours) // Available for new allocations (keep decimal precision)
                 });
             }
@@ -1056,5 +1051,6 @@ public class WeeklyCapacityDto
     public decimal LeaveDays { get; set; }
     public decimal ActualWorkingDays { get; set; } // Working days after holidays/leaves
     public decimal CapacityHours { get; set; } // Actual hours employee will work (after holidays/leaves)
+    public decimal LeaveHours { get; set; } // Hours lost due to leaves
     public decimal AvailableHours { get; set; } // Hours available for new allocations (decimal for precision)
 }

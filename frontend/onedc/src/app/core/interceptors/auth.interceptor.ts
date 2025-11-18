@@ -9,7 +9,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
   
-  console.log('Adding auth token to request:', req.url, 'Token starts with:', token.substring(0, 20) + '...');
+  //console.log('Adding auth token to request:', req.url, 'Token starts with:', token.substring(0, 20) + '...');
   
   const modifiedReq = req.clone({
     setHeaders: {

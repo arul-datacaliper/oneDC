@@ -400,16 +400,23 @@ export class AllocationsComponent implements OnInit {
     // Fetch weekly capacity for all users
     if (weekStartDate && weekEndDate && allUserIds.size > 0) {
       const userIdsArray = Array.from(allUserIds);
+      console.log('🔄 Loading weekly capacity for project members');
+      console.log('  - userIds:', userIdsArray);
+      console.log('  - dateRange:', weekStartDate, 'to', weekEndDate);
+      
       this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIdsArray).subscribe({
         next: (capacities) => {
+          console.log('✅ Received weekly capacity data for project members:', capacities);
           const capacityMap = new Map();
           capacities.forEach(cap => {
+            console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
             capacityMap.set(cap.userId, cap);
           });
           this.weeklyCapacities.set(capacityMap);
+          console.log('💾 Updated weeklyCapacities signal with project members data');
         },
         error: (error) => {
-          console.error('Error fetching weekly capacity:', error);
+          console.error('❌ Error fetching weekly capacity for project members:', error);
         }
       });
     }
@@ -726,6 +733,7 @@ export class AllocationsComponent implements OnInit {
     this.selectedEmployeeAllocations.set([]);
     this.projectMembers.set([]); // Clear project members
     this.selectedEmployeeForDropdown.set(null);
+    this.weeklyCapacities.set(new Map()); // Clear capacity data
     
     // For employees, automatically select themselves
     if (this.isEmployee()) {
@@ -738,6 +746,8 @@ export class AllocationsComponent implements OnInit {
             userName: currentEmployee.userName,
             allocatedHours: 0
           }]);
+          // Load capacity for the employee
+          this.loadCapacityForSelectedEmployees();
         }
       }
     }
@@ -849,26 +859,8 @@ export class AllocationsComponent implements OnInit {
       this.selectedEmployeeAllocations.update(current => [...current, newEmployeeAllocation]);
       this.updateAvailableEmployeesForSelection();
       
-      // Load weekly capacity for the newly added employee based on selected date range
-      const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
-      const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
-      if (weekStartDate && weekEndDate) {
-        this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, [userId]).subscribe({
-          next: (capacities) => {
-            if (capacities && capacities.length > 0) {
-              const capacity = capacities[0];
-              this.weeklyCapacities.update(current => {
-                const newMap = new Map(current);
-                newMap.set(capacity.userId, capacity);
-                return newMap;
-              });
-            }
-          },
-          error: (error) => {
-            console.error('Error fetching weekly capacity for new employee:', error);
-          }
-        });
-      }
+      // Load capacity for all selected employees (including the newly added one)
+      this.loadCapacityForSelectedEmployees();
     }
   }
 
@@ -1103,13 +1095,13 @@ export class AllocationsComponent implements OnInit {
   onWeekStartDateChange(weekStartDate: string) {
     this.formWeekStartDate.set(weekStartDate);
     this.checkMultiMonthWeek();
-    this.refreshWeeklyCapacity();
+    this.loadCapacityForSelectedEmployees(); // Load capacity when dates change
   }
 
   // Handle week end date change to detect multi-month weeks
   onWeekEndDateChange(weekEndDate: string) {
     this.checkMultiMonthWeek();
-    this.refreshWeeklyCapacity();
+    this.loadCapacityForSelectedEmployees(); // Load capacity when dates change
   }
 
   // Refresh weekly capacity for all selected employees
@@ -1325,6 +1317,68 @@ export class AllocationsComponent implements OnInit {
     return diffDays;
   }
 
+  // Load capacity for all selected employees
+  private loadCapacityForSelectedEmployees() {
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+    const selectedEmployees = this.selectedEmployeeAllocations();
+    
+    console.log('🔄 loadCapacityForSelectedEmployees called');
+    console.log('  - weekStartDate:', weekStartDate);
+    console.log('  - weekEndDate:', weekEndDate);
+    console.log('  - selectedEmployees:', selectedEmployees.map(e => ({userId: e.userId, userName: e.userName})));
+    
+    if (!weekStartDate || !weekEndDate || selectedEmployees.length === 0) {
+      console.log('❌ Missing required data for capacity loading');
+      return;
+    }
+
+    const userIds = selectedEmployees.map(emp => emp.userId);
+    console.log('📞 Making API call for userIds:', userIds);
+    
+    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, userIds).subscribe({
+      next: (capacities) => {
+        console.log('✅ Received capacity data from API:', capacities);
+        const capacityMap = new Map();
+        capacities.forEach(cap => {
+          console.log(`  - Setting capacity for ${cap.userName} (${cap.userId}):`, cap);
+          capacityMap.set(cap.userId, cap);
+        });
+        this.weeklyCapacities.set(capacityMap);
+        console.log('💾 Updated weeklyCapacities signal with:', capacityMap);
+      },
+      error: (error) => {
+        console.error('❌ Error loading capacity for selected employees:', error);
+      }
+    });
+  }
+
+  // Load capacity for a single user on-demand
+  private loadCapacityForUser(userId: string) {
+    const weekStartDate = this.allocationForm.get('weekStartDate')?.value;
+    const weekEndDate = this.allocationForm.get('weekEndDate')?.value;
+    
+    if (!weekStartDate || !weekEndDate) {
+      return;
+    }
+
+    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate, [userId]).subscribe({
+      next: (capacities) => {
+        if (capacities && capacities.length > 0) {
+          const capacity = capacities[0];
+          this.weeklyCapacities.update(current => {
+            const newMap = new Map(current);
+            newMap.set(capacity.userId, capacity);
+            return newMap;
+          });
+        }
+      },
+      error: (error) => {
+        console.error('Error fetching capacity for user:', error);
+      }
+    });
+  }
+
   // Get weekly capacity for a specific user
   getUserWeeklyCapacity(userId: string): any | null {
     const capacityMap = this.weeklyCapacities();
@@ -1334,31 +1388,42 @@ export class AllocationsComponent implements OnInit {
   // Get formatted capacity string for display
   getFormattedCapacity(userId: string): string {
     const capacity = this.getUserWeeklyCapacity(userId);
+    
+    // Console log the data for debugging
+    console.log(`=== Capacity Data for User ID: ${userId} ===`);
+    console.log('Raw capacity object:', capacity);
+    
     if (!capacity) {
+      console.log('❌ No capacity data found - showing default');
       return 'Available: 45h (Standard Week)';
     }
 
-    const parts: string[] = [];
-    parts.push(`Available: ${capacity.availableHours}h`);
+    console.log('✅ Capacity data found:');
+    console.log(`  - availableHours: ${capacity.availableHours}`);
+    console.log(`  - leaveDays: ${capacity.leaveDays}`);
+    console.log(`  - holidayDays: ${capacity.holidayDays}`);
+    console.log(`  - capacityHours: ${capacity.capacityHours}`);
+
+    // Simple calculation: Available hours with leave breakdown
+    let display = `Available: ${capacity.availableHours}h`;
     
-    // Show breakdown of what reduced the capacity
-    const reductions: string[] = [];
-    if (capacity.holidayDays > 0) {
-      reductions.push(`${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
-    }
-    
+    // Add leave info if present
     if (capacity.leaveDays > 0) {
-      const leaveDaysStr = capacity.leaveDays % 1 === 0 
-        ? capacity.leaveDays.toString() 
-        : capacity.leaveDays.toFixed(1);
-      reductions.push(`${leaveDaysStr} day${capacity.leaveDays > 1 ? 's' : ''} leave`);
+      const leaveStr = capacity.leaveDays === 0.5 ? '0.5 day' : `${capacity.leaveDays} day${capacity.leaveDays > 1 ? 's' : ''}`;
+      display += ` | ${leaveStr} leave`;
+      console.log(`  - Adding leave info: ${leaveStr} leave`);
+    }
+    
+    // Add holiday info if present  
+    if (capacity.holidayDays > 0) {
+      display += ` | ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`;
+      console.log(`  - Adding holiday info: ${capacity.holidayDays} holiday${capacity.holidayDays > 1 ? 's' : ''}`);
     }
 
-    if (reductions.length > 0) {
-      parts.push(reductions.join(', '));
-    }
-
-    return parts.join(' | ');
+    console.log(`  - Final display string: "${display}"`);
+    console.log('=====================================');
+    
+    return display;
   }
 
   // Get capacity details for tooltip
