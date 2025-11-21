@@ -19,6 +19,7 @@ export interface EmployeeAllocation {
   periodHours?: number[]; // Hours for each month period when splitting by months
   existingAllocationStartDate?: string; // Start date of existing allocation
   existingAllocationEndDate?: string; // End date of existing allocation
+  existingAllocationId?: string; // ID of existing allocation for tracking deletions
 }
 
 // Interface for month period allocation
@@ -98,6 +99,10 @@ export class AllocationsComponent implements OnInit {
   updateConfirmDialogData = signal<ConfirmationDialogData | null>(null);
   pendingUpdateRequests = signal<{ allocationId: string; request: UpdateAllocationRequest; userName: string }[]>([]);
   pendingCreateRequests = signal<CreateAllocationRequest[]>([]);
+  pendingDeleteRequests = signal<{ allocationId: string; userName: string }[]>([]);
+  
+  // Track initial employees with existing allocations when form is loaded
+  initialEmployeesWithAllocations = signal<EmployeeAllocation[]>([]);
   editingAllocation = signal<WeeklyAllocation | null>(null);
   selectedEmployeeAllocations = signal<EmployeeAllocation[]>([]);
   availableEmployeesForSelection = signal<{userId: string, userName: string, role: string}[]>([]);
@@ -435,7 +440,8 @@ export class AllocationsComponent implements OnInit {
             userName: currentMember.userName,
             allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0,
             existingAllocationStartDate: existingAllocation?.weekStartDate,
-            existingAllocationEndDate: existingAllocation?.weekEndDate
+            existingAllocationEndDate: existingAllocation?.weekEndDate,
+            existingAllocationId: existingAllocation?.allocationId
           };
 
           // Initialize periodHours if multi-month week is detected
@@ -489,7 +495,8 @@ export class AllocationsComponent implements OnInit {
         userName: member.userName,
         allocatedHours: existingAllocation ? existingAllocation.allocatedHours : 0,
         existingAllocationStartDate: existingAllocation?.weekStartDate,
-        existingAllocationEndDate: existingAllocation?.weekEndDate
+        existingAllocationEndDate: existingAllocation?.weekEndDate,
+        existingAllocationId: existingAllocation?.allocationId
       };
 
       // Initialize periodHours if multi-month week is detected
@@ -508,7 +515,8 @@ export class AllocationsComponent implements OnInit {
           userName: existingAlloc.userName,
           allocatedHours: existingAlloc.allocatedHours,
           existingAllocationStartDate: existingAlloc.weekStartDate,
-          existingAllocationEndDate: existingAlloc.weekEndDate
+          existingAllocationEndDate: existingAlloc.weekEndDate,
+          existingAllocationId: existingAlloc.allocationId
         };
 
         // Initialize periodHours if multi-month week is detected
@@ -524,6 +532,10 @@ export class AllocationsComponent implements OnInit {
     const allocations = Array.from(userMap.values());
     
     this.selectedEmployeeAllocations.set(allocations);
+    
+    // Store initial employees for tracking deletions
+    this.initialEmployeesWithAllocations.set([...allocations]);
+    
     this.updateAvailableEmployeesForSelection();
     
     // Calculate counts more accurately for the selected period
@@ -812,6 +824,8 @@ export class AllocationsComponent implements OnInit {
     this.showCreateModal.set(false);
     this.editingAllocation.set(null);
     this.selectedEmployeeAllocations.set([]);
+    this.initialEmployeesWithAllocations.set([]);
+    this.pendingDeleteRequests.set([]);
     this.projectMembers.set([]); // Clear project members
     this.formWeekStartDate.set(''); // Clear the signal
     this.allocationForm.reset();
@@ -875,6 +889,26 @@ export class AllocationsComponent implements OnInit {
 
   // Remove employee from allocation list
   removeEmployeeAllocation(userId: string) {
+    // Find the employee being removed
+    const employeeToRemove = this.selectedEmployeeAllocations().find(emp => emp.userId === userId);
+    
+    if (employeeToRemove) {
+      // Check if this employee had an existing allocation when the form was loaded
+      const initialEmployee = this.initialEmployeesWithAllocations().find(emp => emp.userId === userId);
+      
+      if (initialEmployee && initialEmployee.existingAllocationId) {
+        // This employee had an existing allocation, so we need to track it for deletion
+        this.pendingDeleteRequests.update(current => [
+          ...current,
+          {
+            allocationId: initialEmployee.existingAllocationId!,
+            userName: employeeToRemove.userName
+          }
+        ]);
+      }
+    }
+    
+    // Remove the employee from the form
     this.selectedEmployeeAllocations.update(current => 
       current.filter(emp => emp.userId !== userId)
     );
@@ -1043,40 +1077,51 @@ export class AllocationsComponent implements OnInit {
           });
         }
 
-        // Show confirmation if there are updates
-        if (updateRequests.length > 0 && createRequests.length === 0) {
-          // All are updates - show confirmation dialog
-          const employeeNames = updateRequests.map(u => u.userName).join(', ');
+        // Get pending deletions
+        const deleteRequests = this.pendingDeleteRequests();
+
+        // Show confirmation if there are updates, creates, or deletes
+        if (updateRequests.length > 0 || deleteRequests.length > 0) {
+          // Store pending requests
           this.pendingUpdateRequests.set(updateRequests);
           this.pendingCreateRequests.set(createRequests);
+          // Note: pendingDeleteRequests is already set when employees are removed
+          
+          // Build confirmation details
+          const details = [];
+          if (deleteRequests.length > 0) {
+            details.push(...deleteRequests.map(d => `DELETE: ${d.userName} - Remove existing allocation`));
+          }
+          if (updateRequests.length > 0) {
+            details.push(...updateRequests.map(u => `UPDATE: ${u.userName} - ${u.request.allocatedHours} hours (will replace existing)`));
+          }
+          if (createRequests.length > 0) {
+            details.push(`CREATE: ${createRequests.length} new allocation(s)`);
+          }
+          
+          // Determine appropriate title and message based on operations
+          let title = 'Confirm Changes?';
+          let message = 'The following changes will be made:';
+          
+          if (deleteRequests.length > 0 && updateRequests.length === 0 && createRequests.length === 0) {
+            title = 'Remove Allocations?';
+            message = 'The following employees will have their allocations removed:';
+          } else if (updateRequests.length > 0 && deleteRequests.length === 0 && createRequests.length === 0) {
+            title = 'Update Existing Allocations?';
+            message = 'Some employees already have allocations that overlap with the selected period. Do you want to update their existing allocations with the new hours?';
+          } else if (createRequests.length > 0 && deleteRequests.length === 0 && updateRequests.length === 0) {
+            // No confirmation needed for just creates - proceed directly
+            this.executeAllocations(updateRequests, createRequests);
+            return;
+          }
           
           this.updateConfirmDialogData.set({
-            title: 'Update Existing Allocations?',
-            message: `Some employees already have allocations that overlap with the selected period. Do you want to update their existing allocations with the new hours?`,
-            type: 'warning',
-            confirmText: 'Yes, Update',
-            cancelText: 'Cancel',
-            details: updateRequests.map(u => `${u.userName}: Update to ${u.request.allocatedHours} hours (will replace existing allocation)`),
-            showDetailsAsAlert: false
-          });
-          this.showUpdateConfirmModal.set(true);
-          return;
-        } else if (updateRequests.length > 0 && createRequests.length > 0) {
-          // Mix of updates and creates - show confirmation dialog
-          const updateNames = updateRequests.map(u => u.userName).join(', ');
-          this.pendingUpdateRequests.set(updateRequests);
-          this.pendingCreateRequests.set(createRequests);
-          
-          this.updateConfirmDialogData.set({
-            title: 'Update & Create Allocations?',
-            message: `Some employees have overlapping allocations while others don't. Do you want to update existing ones and create new ones?`,
+            title,
+            message,
             type: 'warning',
             confirmText: 'Yes, Proceed',
             cancelText: 'Cancel',
-            details: [
-              ...updateRequests.map(u => `UPDATE: ${u.userName} - ${u.request.allocatedHours} hours (will replace existing)`),
-              `CREATE: ${createRequests.length} new allocation(s)`
-            ],
+            details,
             showDetailsAsAlert: false
           });
           this.showUpdateConfirmModal.set(true);
@@ -1222,24 +1267,33 @@ export class AllocationsComponent implements OnInit {
     updateRequests: { allocationId: string; request: UpdateAllocationRequest; userName: string }[],
     createRequests: CreateAllocationRequest[]
   ) {
-    // Execute updates and creates
+    // Get delete requests
+    const deleteRequests = this.pendingDeleteRequests();
+    
+    // Execute updates, creates, and deletes
     const updatePromises = updateRequests.map(u => 
       this.allocationService.updateAllocation(u.allocationId, u.request).toPromise()
     );
     const createPromises = createRequests.map(request => 
       this.allocationService.createAllocation(request).toPromise()
     );
+    const deletePromises = deleteRequests.map(d =>
+      this.allocationService.deleteAllocation(d.allocationId).toPromise()
+    );
 
-    Promise.all([...updatePromises, ...createPromises]).then((results) => {
+    Promise.all([...updatePromises, ...createPromises, ...deletePromises]).then((results) => {
       const updatedCount = updateRequests.length;
       const createdCount = createRequests.length;
+      const deletedCount = deleteRequests.length;
       
-      if (updatedCount > 0 && createdCount > 0) {
-        this.toastr.success(`${updatedCount} allocation(s) updated and ${createdCount} allocation(s) created successfully`);
-      } else if (updatedCount > 0) {
-        this.toastr.success(`${updatedCount} allocation(s) updated successfully`);
-      } else {
-        this.toastr.success(`${createdCount} allocation(s) created successfully`);
+      // Build success message
+      const messages = [];
+      if (deletedCount > 0) messages.push(`${deletedCount} allocation(s) removed`);
+      if (updatedCount > 0) messages.push(`${updatedCount} allocation(s) updated`);
+      if (createdCount > 0) messages.push(`${createdCount} allocation(s) created`);
+      
+      if (messages.length > 0) {
+        this.toastr.success(messages.join(' and ') + ' successfully');
       }
       
       this.closeModal();
@@ -1277,6 +1331,7 @@ export class AllocationsComponent implements OnInit {
     this.updateConfirmDialogData.set(null);
     this.pendingUpdateRequests.set([]);
     this.pendingCreateRequests.set([]);
+    this.pendingDeleteRequests.set([]);
   }
 
   onDeleteConfirmed() {
