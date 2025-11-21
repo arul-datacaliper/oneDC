@@ -103,9 +103,18 @@ public class OneDcDbContext : DbContext
             e.Property(x => x.Billable).HasDefaultValue(true);
             e.Property(x => x.BudgetHours).HasPrecision(10, 2);
             e.Property(x => x.BudgetCost).HasPrecision(12, 2);
+            
+            // Soft delete configuration
+            e.Property(x => x.IsDeleted).HasDefaultValue(false);
+            e.Property(x => x.DeletedAt);
+            e.Property(x => x.DeletedBy);
 
             e.HasIndex(x => x.Code).IsUnique();
             e.HasIndex(x => new { x.ClientId, x.Status });
+            e.HasIndex(x => x.IsDeleted); // Index for soft delete queries
+
+            // Global query filter - only include non-deleted by default
+            e.HasQueryFilter(p => !p.IsDeleted);
 
             // 🔗 Project → Client (many-to-one)
             e.HasOne(p => p.Client)

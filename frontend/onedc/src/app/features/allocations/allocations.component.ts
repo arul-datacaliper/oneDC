@@ -1248,7 +1248,17 @@ export class AllocationsComponent implements OnInit {
       if (error.status === 409) {
         this.toastr.error('Error: Duplicate allocation detected. Please refresh and try again.');
       } else {
-        this.toastr.error('Error processing allocations: ' + (error.error?.message || error.message || 'Unknown error'));
+        // Check for deleted project error
+        let errorMessage = error.error?.message || error.message || 'Unknown error';
+        const isDeletedProjectError = errorMessage.toLowerCase().includes('project not found') || 
+                                     errorMessage.toLowerCase().includes('project has been deleted') ||
+                                     errorMessage.toLowerCase().includes('deleted project');
+        
+        if (isDeletedProjectError) {
+          this.toastr.error('The selected project has been deleted and is no longer available for allocations. Please refresh the page and select a different project.');
+        } else {
+          this.toastr.error('Error processing allocations: ' + errorMessage);
+        }
       }
       console.error('Error processing allocations:', error);
     });

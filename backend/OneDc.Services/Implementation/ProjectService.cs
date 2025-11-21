@@ -91,6 +91,55 @@ public class ProjectService : IProjectService
         return true;
     }
 
+    public async Task<bool> SoftDeleteAsync(Guid id, Guid deletedBy)
+    {
+        var project = await _repo.GetByIdAsync(id);
+        if (project == null) return false;
+
+        // Mark as soft deleted
+        project.IsDeleted = true;
+        project.DeletedAt = DateTimeOffset.UtcNow;
+        project.DeletedBy = deletedBy;
+
+        await _repo.UpdateAsync(project);
+        await _repo.SaveChangesAsync();
+        
+        _logger.LogInformation("Project {ProjectId} soft deleted by user {UserId}", id, deletedBy);
+        return true;
+    }
+
+    public async Task<bool> RestoreAsync(Guid id)
+    {
+        // Use IgnoreQueryFilters to find soft-deleted projects
+        var project = await _dbContext.Projects
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.ProjectId == id && p.IsDeleted);
+            
+        if (project == null) return false;
+
+        // Restore the project
+        project.IsDeleted = false;
+        project.DeletedAt = null;
+        project.DeletedBy = null;
+
+        await _repo.UpdateAsync(project);
+        await _repo.SaveChangesAsync();
+        
+        _logger.LogInformation("Project {ProjectId} restored from soft delete", id);
+        return true;
+    }
+
+    public async Task<IEnumerable<Project>> GetDeletedProjectsAsync()
+    {
+        // Use IgnoreQueryFilters to get soft-deleted projects
+        return await _dbContext.Projects
+            .IgnoreQueryFilters()
+            .Where(p => p.IsDeleted)
+            .Include(p => p.Client)
+            .OrderByDescending(p => p.DeletedAt)
+            .ToListAsync();
+    }
+
     public async Task<ProjectResponseDto> CreateWithMembersAsync(ProjectCreateDto projectDto)
     {
         var strategy = _dbContext.Database.CreateExecutionStrategy();

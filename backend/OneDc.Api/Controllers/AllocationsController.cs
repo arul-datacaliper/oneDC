@@ -114,6 +114,16 @@ public class AllocationsController : BaseController
             var currentUserId = GetCurrentUserId();
             var currentUserRole = GetCurrentUserRole();
 
+            // Check if project exists and is not soft-deleted
+            var project = await _context.Projects
+                .Where(p => p.ProjectId == projectId && !p.IsDeleted)
+                .FirstOrDefaultAsync();
+            
+            if (project == null)
+            {
+                return BadRequest("Project not found or has been deleted.");
+            }
+
             // Role-based authorization for creating allocations
             if (currentUserRole == "EMPLOYEE")
             {
@@ -125,9 +135,17 @@ public class AllocationsController : BaseController
 
                 // Employees can only create allocations for projects they're assigned to (ProjectAllocations) or are team members of (ProjectMembers)
                 var isAssignedToProject = await _context.ProjectAllocations
+                    .Join(_context.Projects.Where(p => !p.IsDeleted), 
+                         pa => pa.ProjectId, 
+                         p => p.ProjectId, 
+                         (pa, p) => pa)
                     .AnyAsync(pa => pa.ProjectId == projectId && pa.UserId == currentUserId);
                 
                 var isProjectMember = await _context.ProjectMembers
+                    .Join(_context.Projects.Where(p => !p.IsDeleted), 
+                         pm => pm.ProjectId, 
+                         p => p.ProjectId, 
+                         (pm, p) => pm)
                     .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == currentUserId);
 
                 if (!isAssignedToProject && !isProjectMember)
@@ -140,7 +158,7 @@ public class AllocationsController : BaseController
                 // Approvers can create allocations for any user but only for projects they manage or are members of
                 var isApproverProject = await _context.Projects
                     .Include(p => p.ProjectMembers)
-                    .AnyAsync(p => p.ProjectId == projectId && 
+                    .AnyAsync(p => p.ProjectId == projectId && !p.IsDeleted &&
                                   (p.DefaultApprover == currentUserId || 
                                    p.ProjectMembers.Any(pm => pm.UserId == currentUserId)));
 
@@ -557,7 +575,7 @@ public class AllocationsController : BaseController
         IQueryable<Project> projectQuery = _context.Projects
             .Include(p => p.Client)
             .Include(p => p.ProjectMembers)
-            .Where(p => p.Status.ToLower() == "active");
+            .Where(p => p.Status.ToLower() == "active" && !p.IsDeleted);
 
         // Role-based filtering
         if (currentUserRole == "EMPLOYEE")

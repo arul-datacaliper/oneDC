@@ -16,6 +16,11 @@ public class Project
   public decimal? BudgetHours { get; set; }
   public decimal? BudgetCost { get; set; }
   public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+  
+  // Soft delete fields
+  public bool IsDeleted { get; set; } = false;
+  public DateTimeOffset? DeletedAt { get; set; }
+  public Guid? DeletedBy { get; set; }
     
   // Navigation properties
   public Client? Client { get; set; }

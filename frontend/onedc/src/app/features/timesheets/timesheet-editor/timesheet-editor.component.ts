@@ -727,8 +727,14 @@ export class TimesheetEditorComponent implements OnInit {
                                  lowerCaseError.includes('exceed') && lowerCaseError.includes('hour') ||
                                  lowerCaseError.includes('maximum') && lowerCaseError.includes('hour');
         
+        const isDeletedProjectError = lowerCaseError.includes('project not found') || 
+                                     lowerCaseError.includes('project has been deleted') ||
+                                     lowerCaseError.includes('deleted project');
+        
         if (isDailyLimitError) {
           errorMessage = 'Daily limit exceeded! You can only log up to 12 hours per day.';
+        } else if (isDeletedProjectError) {
+          errorMessage = 'The selected project has been deleted and is no longer available for timesheet entries. Please refresh the page and select a different project.';
         } else {
           errorMessage = actualErrorText || 'Failed to create entry';
         }

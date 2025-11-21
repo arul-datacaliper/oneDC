@@ -17,6 +17,32 @@ export interface ProjectUsageResponse {
   canChangeClient: boolean;
 }
 
+// Interface for project deletion validation response
+export interface ProjectDeletionValidation {
+  canDelete: boolean;
+  dependencies: {
+    allocationCount: number;
+    weeklyAllocationCount: number;
+    timesheetCount: number;
+    totalCount: number;
+    allocations?: Array<{
+      allocationId: string;
+      employeeName: string;
+      startDate: string;
+      endDate?: string;
+      allocationPct: number;
+    }>;
+    timesheets?: Array<{
+      entryId: string;
+      employeeName: string;
+      workDate: string;
+      hours: number;
+      status: string;
+    }>;
+  };
+  message: string;
+}
+
 export interface ProjectCreateDto {
   clientId: string;
   code: string;
@@ -64,6 +90,12 @@ export interface ProjectResponseDto {
   budgetHours?: number;
   budgetCost?: number;
   createdAt: string;
+  
+  // Soft delete fields
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  
   projectMembers: ProjectMemberResponseDto[];
   client?: any;
 }
@@ -93,6 +125,21 @@ export class ProjectsService {
 
   delete(id: string) {
     return this.http.delete(`${this.base}/${id}`);
+  }
+
+  // Get deleted projects
+  getDeletedProjects() {
+    return this.http.get<Project[]>(`${this.base}/deleted`);
+  }
+
+  // Restore a soft-deleted project
+  restoreProject(id: string) {
+    return this.http.post(`${this.base}/${id}/restore`, {});
+  }
+
+  // Validate if project can be deleted
+  validateDeletion(id: string) {
+    return this.http.get<ProjectDeletionValidation>(`${this.base}/${id}/delete-validation`);
   }
 
   // New methods for project members

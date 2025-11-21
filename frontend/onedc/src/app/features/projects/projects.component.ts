@@ -5,7 +5,7 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { forkJoin, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 
-import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto, ProjectUsageResponse } from '../../core/services/projects.service';
+import { ProjectsService, ProjectResponseDto, ProjectCreateDto, ProjectUpdateDto, ProjectMemberDto, ProjectUsageResponse, ProjectDeletionValidation } from '../../core/services/projects.service';
 import { ClientsService } from '../../core/services/clients.service';
 import { UsersService } from '../../core/services/users.service';
 import { AllocationService } from '../../core/services/allocation.service';
@@ -42,6 +42,8 @@ export class ProjectsComponent implements OnInit {
 
   // Signals for reactive state management
   projects = signal<ProjectResponseDto[]>([]);
+  deletedProjects = signal<ProjectResponseDto[]>([]);
+  showDeleted = signal<boolean>(false);
   clients = signal<Client[]>([]); // All clients
   users = signal<AppUser[]>([]);
   filteredProjects = signal<ProjectResponseDto[]>([]);
@@ -55,6 +57,11 @@ export class ProjectsComponent implements OnInit {
   searchTerm = signal<string>('');
   statusFilter = signal<string>('');
   clientFilter = signal<string>('');
+  
+  // Computed signal for current data source (active or deleted projects)
+  currentProjects = computed(() => 
+    this.showDeleted() ? this.deletedProjects() : this.projects()
+  );
   
   // Computed signal for active clients only (for project creation/editing)
   activeClients = computed(() => 
@@ -188,6 +195,42 @@ export class ProjectsComponent implements OnInit {
     });
   }
 
+  loadDeletedProjects() {
+    this.loading.set(true);
+    console.log('Loading deleted projects...');
+    
+    this.projectsService.getDeletedProjects().subscribe({
+      next: (data) => {
+        console.log('Deleted projects loaded:', data);
+        this.deletedProjects.set(data as ProjectResponseDto[]);
+        this.applyFilters();
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load deleted projects:', err);
+        this.toastr.error('Failed to load deleted projects');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  toggleDeletedView() {
+    this.showDeleted.set(!this.showDeleted());
+    this.clearFilters();
+    
+    if (this.showDeleted()) {
+      this.loadDeletedProjects();
+    } else {
+      this.loadProjects();
+    }
+  }
+
+  clearFilters() {
+    this.searchTerm.set('');
+    this.statusFilter.set('');
+    this.clientFilter.set('');
+  }
+
   loadClients() {
     console.log('Loading clients from API...');
     this.clientsService.getAll().subscribe({
@@ -238,7 +281,7 @@ export class ProjectsComponent implements OnInit {
   }
 
   applyFilters() {
-    let filtered = this.projects();
+    let filtered = this.currentProjects();
     
     if (this.searchTerm()) {
       const term = this.searchTerm().toLowerCase();
@@ -248,7 +291,8 @@ export class ProjectsComponent implements OnInit {
       );
     }
     
-    if (this.statusFilter()) {
+    // Don't apply status filter for deleted projects view
+    if (this.statusFilter() && !this.showDeleted()) {
       filtered = filtered.filter(p => p.status === this.statusFilter());
     }
     
@@ -565,22 +609,106 @@ export class ProjectsComponent implements OnInit {
   }
 
   async deleteProject(project: ProjectResponseDto) {
+    // First, validate if the project can be deleted
+    this.projectsService.validateDeletion(project.projectId).subscribe({
+      next: async (validation: ProjectDeletionValidation) => {
+        if (!validation.canDelete) {
+          // Show detailed error message with dependencies and soft delete option
+          let details = '';
+          if (validation.dependencies.allocationCount > 0) {
+            details += `\n• ${validation.dependencies.allocationCount} allocation(s)`;
+          }
+          if (validation.dependencies.weeklyAllocationCount > 0) {
+            details += `\n• ${validation.dependencies.weeklyAllocationCount} weekly allocation(s)`;
+          }
+          if (validation.dependencies.timesheetCount > 0) {
+            details += `\n• ${validation.dependencies.timesheetCount} timesheet entry(ies)`;
+          }
+
+          const softDeleteConfirmed = await this.confirmationDialogService.open({
+            title: 'Project Has Dependencies',
+            message: `Project "${project.name}" cannot be permanently deleted because it has the following dependencies:${details}\n\nYou can either:\n1. Remove all dependencies and try again\n2. Soft delete the project (can be restored later)`,
+            confirmText: 'Soft Delete',
+            cancelText: 'Cancel',
+            type: 'warning'
+          });
+          
+          if (softDeleteConfirmed) {
+            // Proceed with soft delete
+            this.projectsService.delete(project.projectId).subscribe({
+              next: (response: any) => {
+                if (response?.isSoftDeleted) {
+                  this.toastr.success('Project has been soft deleted due to dependencies. You can restore it from the deleted projects view.');
+                } else {
+                  this.toastr.success('Project deleted successfully');
+                }
+                this.loadProjects();
+              },
+              error: (err) => {
+                this.toastr.error('Failed to delete project');
+                console.error('Delete error:', err);
+              }
+            });
+          }
+          return;
+        }
+
+        // If validation passes, show normal confirmation dialog
+        const confirmed = await this.confirmationDialogService.open({
+          title: 'Confirm Deletion',
+          message: `Are you sure you want to delete project "${project.name}"? This action cannot be undone.`,
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          type: 'danger'
+        });
+
+        if (confirmed) {
+          this.projectsService.delete(project.projectId).subscribe({
+            next: (response: any) => {
+              if (response?.isSoftDeleted) {
+                this.toastr.success('Project has been soft deleted. You can restore it from the deleted projects view.');
+              } else {
+                this.toastr.success('Project deleted successfully');
+              }
+              this.loadProjects();
+            },
+            error: (err) => {
+              // Handle any backend errors
+              if (err.error?.errorCode === 'FOREIGN_KEY_CONSTRAINT') {
+                this.toastr.error(err.error.message || 'Cannot delete project due to existing dependencies');
+              } else {
+                this.toastr.error('Failed to delete project');
+              }
+              console.error('Delete error:', err);
+            }
+          });
+        }
+      },
+      error: (err) => {
+        this.toastr.error('Failed to validate project deletion');
+        console.error('Validation error:', err);
+      }
+    });
+  }
+
+  async restoreProject(project: ProjectResponseDto) {
     const confirmed = await this.confirmationDialogService.open({
-      title: 'Confirm Deletion',
-      message: `Are you sure you want to delete project "${project.name}"? This action cannot be undone.`,
-      confirmText: 'Delete',
+      title: 'Confirm Restore',
+      message: `Are you sure you want to restore project "${project.name}"? It will be moved back to the active projects list.`,
+      confirmText: 'Restore',
       cancelText: 'Cancel',
-      type: 'danger'
+      type: 'info'
     });
 
     if (confirmed) {
-      this.projectsService.delete(project.projectId).subscribe({
+      this.projectsService.restoreProject(project.projectId).subscribe({
         next: () => {
-          this.toastr.success('Project deleted successfully');
-          this.loadProjects();
+          this.toastr.success('Project restored successfully');
+          this.loadDeletedProjects();
         },
         error: (err) => {
-          this.toastr.error('Failed to delete project');
+          this.toastr.error('Failed to restore project');
+          console.error('Restore error:', err);
         }
       });
     }

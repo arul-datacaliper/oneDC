@@ -11,6 +11,11 @@ public interface IProjectService
     Task<Project?> UpdateAsync(Project project);
     Task<bool> DeleteAsync(Guid id);
     
+    // Soft delete methods
+    Task<bool> SoftDeleteAsync(Guid id, Guid deletedBy);
+    Task<bool> RestoreAsync(Guid id);
+    Task<IEnumerable<Project>> GetDeletedProjectsAsync();
+    
     // New methods for project members
     Task<ProjectResponseDto> CreateWithMembersAsync(ProjectCreateDto projectDto);
     Task<ProjectResponseDto?> UpdateWithMembersAsync(ProjectUpdateDto projectDto);

@@ -1,19 +1,23 @@
 using OneDc.Domain.Entities;
 using OneDc.Repository.Interfaces;
 using OneDc.Services.Interfaces;
+using OneDc.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace OneDc.Services.Implementation;
 
 public class TimesheetService : ITimesheetService
 {
     private readonly ITimesheetRepository _repo;
+    private readonly OneDcDbContext _context;
 
     // simple policy constants (move to settings later)
     private const decimal DAILY_CAP = 12.0m;
 
-    public TimesheetService(ITimesheetRepository repo)
+    public TimesheetService(ITimesheetRepository repo, OneDcDbContext context)
     {
         _repo = repo;
+        _context = context;
     }
 
     public Task<IEnumerable<TimesheetEntry>> GetMineAsync(Guid userId, DateOnly from, DateOnly to)
@@ -23,6 +27,15 @@ public class TimesheetService : ITimesheetService
     {
         if (dto.ProjectId == Guid.Empty)
             throw new ArgumentException("ProjectId is required.", nameof(dto.ProjectId));
+
+        // Validate that the project exists and is not soft-deleted
+        var projectExists = await _context.Projects
+            .AnyAsync(p => p.ProjectId == dto.ProjectId && !p.IsDeleted);
+        
+        if (!projectExists)
+        {
+            throw new ArgumentException("Project not found or has been deleted.", nameof(dto.ProjectId));
+        }
             
         ValidateHours(dto.Hours);
         RequireDescriptionIfHours(dto.Hours, dto.Description);
