@@ -4,6 +4,8 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { ToastrService } from 'ngx-toastr';
 
 import { OnboardingService, UserProfile, UserSkill, SkillLevel, CreateUserProfileRequest, CreateUserSkillRequest, OnboardingStatus } from '../../core/services/onboarding.service';
+import { EmployeesService } from '../../core/services/employees.service';
+import { Employee } from '../../shared/models';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -15,6 +17,7 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class OnboardingComponent implements OnInit {
   private onboardingService = inject(OnboardingService);
+  private employeesService = inject(EmployeesService);
   private authService = inject(AuthService);
   private fb = inject(FormBuilder);
   private toastr = inject(ToastrService);
@@ -24,6 +27,7 @@ export class OnboardingComponent implements OnInit {
   
   // Signals for reactive state
   userProfile = signal<UserProfile | null>(null);
+  employeeData = signal<Employee | null>(null);
   userSkills = signal<UserSkill[]>([]);
   onboardingStatus = signal<OnboardingStatus | null>(null);
   loading = signal<boolean>(false);
@@ -88,13 +92,27 @@ export class OnboardingComponent implements OnInit {
       dateOfJoining: [{ value: '', disabled: true }],
       reportingManager: [{ value: '', disabled: true }],
       // User-editable fields
-      phoneNumber: [''],
+      phoneNumber: ['', [Validators.pattern(/^\+?[\d\s\-\(\)]{10,15}$/)]],
       location: [''],
       totalExperienceYears: [null, [Validators.min(0), Validators.max(50)]],
       educationBackground: [''],
       certifications: [''],
       linkedInProfile: [''],
-      gitHubProfile: ['']
+      gitHubProfile: [''],
+      // Address fields
+      presentAddressLine1: [''],
+      presentAddressLine2: [''],
+      presentCity: [''],
+      presentState: [''],
+      presentCountry: [''],
+      presentZipCode: ['', [Validators.pattern(/^[A-Za-z0-9\s\-]{3,10}$/)]],
+      permanentAddressLine1: [''],
+      permanentAddressLine2: [''],
+      permanentCity: [''],
+      permanentState: [''],
+      permanentCountry: [''],
+      permanentZipCode: ['', [Validators.pattern(/^[A-Za-z0-9\s\-]{3,10}$/)]],
+      sameAsPresentAddress: [false] // Checkbox to copy present address to permanent
     });
 
     this.skillForm = this.fb.group({
@@ -145,6 +163,18 @@ export class OnboardingComponent implements OnInit {
       }
     });
 
+    // Load employee data for address information
+    this.employeesService.getById(userId).subscribe({
+      next: (employee) => {
+        this.employeeData.set(employee);
+        this.populateAddressFields(employee);
+      },
+      error: (error) => {
+        console.error('Error loading employee data:', error);
+        // Don't show error toast as this might be normal for new users
+      }
+    });
+
     // Load skills
     this.onboardingService.getUserSkills(userId).subscribe({
       next: (skills) => this.userSkills.set(skills),
@@ -189,6 +219,48 @@ export class OnboardingComponent implements OnInit {
     this.profileForm.get('reportingManager')?.setValue(profile.reportingManager || 'Not assigned');
   }
 
+  populateAddressFields(employee: Employee) {
+    // Update address fields
+    this.profileForm.patchValue({
+      presentAddressLine1: employee.presentAddressLine1 || '',
+      presentAddressLine2: employee.presentAddressLine2 || '',
+      presentCity: employee.presentCity || '',
+      presentState: employee.presentState || '',
+      presentCountry: employee.presentCountry || '',
+      presentZipCode: employee.presentZipCode || '',
+      permanentAddressLine1: employee.permanentAddressLine1 || '',
+      permanentAddressLine2: employee.permanentAddressLine2 || '',
+      permanentCity: employee.permanentCity || '',
+      permanentState: employee.permanentState || '',
+      permanentCountry: employee.permanentCountry || '',
+      permanentZipCode: employee.permanentZipCode || ''
+    });
+  }
+
+  // Helper method for copying present address to permanent address
+  onSameAddressChange(event: any) {
+    const isChecked = event.target.checked;
+    if (isChecked) {
+      const presentAddress = {
+        permanentAddressLine1: this.profileForm.get('presentAddressLine1')?.value || '',
+        permanentAddressLine2: this.profileForm.get('presentAddressLine2')?.value || '',
+        permanentCity: this.profileForm.get('presentCity')?.value || '',
+        permanentState: this.profileForm.get('presentState')?.value || '',
+        permanentCountry: this.profileForm.get('presentCountry')?.value || '',
+        permanentZipCode: this.profileForm.get('presentZipCode')?.value || ''
+      };
+      this.profileForm.patchValue(presentAddress);
+      
+      // Mark permanent address fields as touched to trigger validation
+      this.profileForm.get('permanentAddressLine1')?.markAsTouched();
+      this.profileForm.get('permanentAddressLine2')?.markAsTouched();
+      this.profileForm.get('permanentCity')?.markAsTouched();
+      this.profileForm.get('permanentState')?.markAsTouched();
+      this.profileForm.get('permanentCountry')?.markAsTouched();
+      this.profileForm.get('permanentZipCode')?.markAsTouched();
+    }
+  }
+
   // Step navigation
   goToStep(step: number) {
     const canProceed = this.canProceedToStep();
@@ -229,6 +301,26 @@ export class OnboardingComponent implements OnInit {
         // Note: Admin-managed fields (department, jobTitle, employeeId, dateOfJoining, reportingManager) 
         // are NOT included as they come from the AppUser table
       };
+
+      // Extract address fields for employee update
+      const addressData = {
+        presentAddressLine1: this.profileForm.get('presentAddressLine1')?.value || '',
+        presentAddressLine2: this.profileForm.get('presentAddressLine2')?.value || '',
+        presentCity: this.profileForm.get('presentCity')?.value || '',
+        presentState: this.profileForm.get('presentState')?.value || '',
+        presentCountry: this.profileForm.get('presentCountry')?.value || '',
+        presentZipCode: this.profileForm.get('presentZipCode')?.value || '',
+        permanentAddressLine1: this.profileForm.get('permanentAddressLine1')?.value || '',
+        permanentAddressLine2: this.profileForm.get('permanentAddressLine2')?.value || '',
+        permanentCity: this.profileForm.get('permanentCity')?.value || '',
+        permanentState: this.profileForm.get('permanentState')?.value || '',
+        permanentCountry: this.profileForm.get('permanentCountry')?.value || '',
+        permanentZipCode: this.profileForm.get('permanentZipCode')?.value || ''
+      };
+
+      // Check if address fields have changed
+      const currentEmployee = this.employeeData();
+      const addressChanged = currentEmployee ? this.hasAddressChanged(addressData, currentEmployee) : this.hasAddressData(addressData);
       
       this.loading.set(true);
       
@@ -236,29 +328,35 @@ export class OnboardingComponent implements OnInit {
       // Don't rely on userProfile() as it may contain a virtual profile from AppUser data
       const hasActualProfile = this.onboardingStatus()?.hasProfile ?? false;
       
-      const operation = hasActualProfile
+      const profileOperation = hasActualProfile
         ? this.onboardingService.updateUserProfile(userId, formData)
         : this.onboardingService.createUserProfile(userId, formData);
 
-      operation.subscribe({
+      // Save profile data first
+      profileOperation.subscribe({
         next: (profile) => {
           this.userProfile.set(profile);
-          this.toastr.success('Profile saved successfully!');
           
-          // Reload onboarding status first, then move to next step
-          this.onboardingService.getOnboardingStatus(userId).subscribe({
-            next: (status) => {
-              this.onboardingStatus.set(status);
-              this.loading.set(false);
-              this.nextStep();
-            },
-            error: (error) => {
-              console.error('Error loading onboarding status:', error);
-              this.loading.set(false);
-              // Still move to next step even if status update fails
-              this.nextStep();
-            }
-          });
+          // If address data has changed, update it
+          if (addressChanged) {
+            this.employeesService.update(userId, addressData).subscribe({
+              next: (employee) => {
+                this.employeeData.set(employee);
+                this.toastr.success('Profile and address information saved successfully!');
+                this.handlePostSaveActions();
+              },
+              error: (error) => {
+                console.error('Error updating address:', error);
+                this.toastr.warning('Profile saved successfully, but address update failed. Please try updating address again.');
+                this.loading.set(false);
+                this.nextStep();
+              }
+            });
+          } else {
+            // No address changes, just profile was updated
+            this.toastr.success('Profile saved successfully!');
+            this.handlePostSaveActions();
+          }
         },
         error: (error) => {
           console.error('Error saving profile:', error);
@@ -270,6 +368,43 @@ export class OnboardingComponent implements OnInit {
       this.toastr.warning('Please fill in all required fields');
       this.markFormGroupTouched(this.profileForm);
     }
+  }
+
+  // Helper method to check if address fields have any data
+  private hasAddressData(addressData: any): boolean {
+    return Object.values(addressData).some(value => value && value.toString().trim() !== '');
+  }
+
+  // Helper method to check if address fields have changed
+  private hasAddressChanged(newAddressData: any, currentEmployee: Employee): boolean {
+    const addressFields = [
+      'presentAddressLine1', 'presentAddressLine2', 'presentCity', 'presentState', 'presentCountry', 'presentZipCode',
+      'permanentAddressLine1', 'permanentAddressLine2', 'permanentCity', 'permanentState', 'permanentCountry', 'permanentZipCode'
+    ];
+
+    return addressFields.some(field => {
+      const newValue = newAddressData[field] || '';
+      const currentValue = (currentEmployee as any)[field] || '';
+      return newValue !== currentValue;
+    });
+  }
+
+  // Helper method to handle post-save actions
+  private handlePostSaveActions(): void {
+    // Reload onboarding status first, then move to next step
+    this.onboardingService.getOnboardingStatus(this.currentUserId()).subscribe({
+      next: (status) => {
+        this.onboardingStatus.set(status);
+        this.loading.set(false);
+        this.nextStep();
+      },
+      error: (error) => {
+        console.error('Error loading onboarding status:', error);
+        this.loading.set(false);
+        // Still move to next step even if status update fails
+        this.nextStep();
+      }
+    });
   }
 
   // Photo management
@@ -462,6 +597,15 @@ export class OnboardingComponent implements OnInit {
       if (field.errors['required']) return `${this.capitalizeFirstLetter(fieldName)} is required`;
       if (field.errors['min']) return `${this.capitalizeFirstLetter(fieldName)} must be at least ${field.errors['min'].min}`;
       if (field.errors['max']) return `${this.capitalizeFirstLetter(fieldName)} cannot exceed ${field.errors['max'].max}`;
+      if (field.errors['pattern']) {
+        if (fieldName === 'phoneNumber') {
+          return 'Please enter a valid phone number (10-15 digits, may include +, spaces, dashes, parentheses)';
+        }
+        if (fieldName.includes('ZipCode') || fieldName.includes('zipCode')) {
+          return 'Please enter a valid ZIP/postal code (3-10 characters, letters and numbers only)';
+        }
+        return `Please enter a valid ${this.capitalizeFirstLetter(fieldName)}`;
+      }
     }
     return '';
   }

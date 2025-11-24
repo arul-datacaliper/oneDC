@@ -84,28 +84,18 @@ public class CreateEmployeeRequest
 
 public class UpdateEmployeeRequest
 {
-    [Required]
-    [MinLength(2)]
-    public string FirstName { get; set; } = null!;
-    
-    [Required]
-    [MinLength(2)]
-    public string LastName { get; set; } = null!;
-    
-    [Required]
-    public UserRole Role { get; set; }
-    
-    [Required]
-    [Alphanumeric]
-    [MaxLength(20)]
-    public string EmployeeId { get; set; } = null!;
+    // Make required fields optional for partial updates
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public UserRole? Role { get; set; }
+    public string? EmployeeId { get; set; }
     
     public Gender? Gender { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public DateOnly? DateOfJoining { get; set; }
     public string? JobTitle { get; set; }
     public string? Department { get; set; }
-    public EmployeeType EmployeeType { get; set; }
+    public EmployeeType? EmployeeType { get; set; }
     public string? PersonalEmail { get; set; }
     public string? WorkEmail { get; set; }
     public string? ContactNumber { get; set; }
@@ -130,7 +120,7 @@ public class UpdateEmployeeRequest
     public string? PermanentCountry { get; set; }
     public string? PermanentZipCode { get; set; }
     
-    public bool IsActive { get; set; }
+    public bool? IsActive { get; set; }
 }
 
 [Route("api/[controller]")]
@@ -461,33 +451,36 @@ public class EmployeesController : ControllerBase
             var newManagerId = request.ManagerId;
             var managerChanged = oldManagerId != newManagerId;
 
-            // Update employee properties
-            existingEmployee.FirstName = request.FirstName;
-            existingEmployee.LastName = request.LastName;
-            existingEmployee.Role = request.Role;
-            existingEmployee.Gender = request.Gender;
-            existingEmployee.DateOfBirth = request.DateOfBirth;
-            existingEmployee.DateOfJoining = request.DateOfJoining;
-            existingEmployee.JobTitle = request.JobTitle;
-            existingEmployee.Department = request.Department;
-            existingEmployee.EmployeeType = request.EmployeeType;
-            existingEmployee.PersonalEmail = request.PersonalEmail;
-            existingEmployee.ContactNumber = request.ContactNumber;
-            existingEmployee.EmergencyContactNumber = request.EmergencyContactNumber;
-            existingEmployee.ManagerId = request.ManagerId; // Update manager assignment
-            existingEmployee.PresentAddressLine1 = request.PresentAddressLine1;
-            existingEmployee.PresentAddressLine2 = request.PresentAddressLine2;
-            existingEmployee.PresentCity = request.PresentCity;
-            existingEmployee.PresentState = request.PresentState;
-            existingEmployee.PresentCountry = request.PresentCountry;
-            existingEmployee.PresentZipCode = request.PresentZipCode;
-            existingEmployee.PermanentAddressLine1 = request.PermanentAddressLine1;
-            existingEmployee.PermanentAddressLine2 = request.PermanentAddressLine2;
-            existingEmployee.PermanentCity = request.PermanentCity;
-            existingEmployee.PermanentState = request.PermanentState;
-            existingEmployee.PermanentCountry = request.PermanentCountry;
-            existingEmployee.PermanentZipCode = request.PermanentZipCode;
-            existingEmployee.IsActive = request.IsActive;
+            // Update employee properties only if provided (partial update support)
+            if (!string.IsNullOrEmpty(request.FirstName)) existingEmployee.FirstName = request.FirstName;
+            if (!string.IsNullOrEmpty(request.LastName)) existingEmployee.LastName = request.LastName;
+            if (request.Role.HasValue) existingEmployee.Role = request.Role.Value;
+            if (request.Gender.HasValue) existingEmployee.Gender = request.Gender;
+            if (request.DateOfBirth.HasValue) existingEmployee.DateOfBirth = request.DateOfBirth;
+            if (request.DateOfJoining.HasValue) existingEmployee.DateOfJoining = request.DateOfJoining;
+            if (!string.IsNullOrEmpty(request.JobTitle)) existingEmployee.JobTitle = request.JobTitle;
+            if (!string.IsNullOrEmpty(request.Department)) existingEmployee.Department = request.Department;
+            if (request.EmployeeType.HasValue) existingEmployee.EmployeeType = request.EmployeeType.Value;
+            if (!string.IsNullOrEmpty(request.PersonalEmail)) existingEmployee.PersonalEmail = request.PersonalEmail;
+            if (!string.IsNullOrEmpty(request.ContactNumber)) existingEmployee.ContactNumber = request.ContactNumber;
+            if (!string.IsNullOrEmpty(request.EmergencyContactNumber)) existingEmployee.EmergencyContactNumber = request.EmergencyContactNumber;
+            if (request.ManagerId.HasValue) existingEmployee.ManagerId = request.ManagerId;
+            
+            // Address fields - update even if empty to allow clearing
+            if (request.PresentAddressLine1 != null) existingEmployee.PresentAddressLine1 = request.PresentAddressLine1;
+            if (request.PresentAddressLine2 != null) existingEmployee.PresentAddressLine2 = request.PresentAddressLine2;
+            if (request.PresentCity != null) existingEmployee.PresentCity = request.PresentCity;
+            if (request.PresentState != null) existingEmployee.PresentState = request.PresentState;
+            if (request.PresentCountry != null) existingEmployee.PresentCountry = request.PresentCountry;
+            if (request.PresentZipCode != null) existingEmployee.PresentZipCode = request.PresentZipCode;
+            if (request.PermanentAddressLine1 != null) existingEmployee.PermanentAddressLine1 = request.PermanentAddressLine1;
+            if (request.PermanentAddressLine2 != null) existingEmployee.PermanentAddressLine2 = request.PermanentAddressLine2;
+            if (request.PermanentCity != null) existingEmployee.PermanentCity = request.PermanentCity;
+            if (request.PermanentState != null) existingEmployee.PermanentState = request.PermanentState;
+            if (request.PermanentCountry != null) existingEmployee.PermanentCountry = request.PermanentCountry;
+            if (request.PermanentZipCode != null) existingEmployee.PermanentZipCode = request.PermanentZipCode;
+            
+            if (request.IsActive.HasValue) existingEmployee.IsActive = request.IsActive.Value;
 
             // Update work email if provided
             if (!string.IsNullOrEmpty(request.WorkEmail))

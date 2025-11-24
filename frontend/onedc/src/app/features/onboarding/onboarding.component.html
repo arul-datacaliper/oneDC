@@ -125,7 +125,7 @@
               <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
             </label>
             <input type="text" class="form-control bg-light" formControlName="jobTitle" readonly>
-            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+            <!-- <small class="text-muted">This field is managed by HR and cannot be edited</small> -->
           </div>
           
           <div class="col-md-6">
@@ -133,7 +133,7 @@
               <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
             </label>
             <input type="text" class="form-control bg-light" formControlName="department" readonly>
-            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+            <!-- <small class="text-muted">This field is managed by HR and cannot be edited</small> -->
           </div>
           
           <div class="col-md-6">
@@ -141,7 +141,7 @@
               <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
             </label>
             <input type="text" class="form-control bg-light" formControlName="employeeId" readonly>
-            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+            <!-- <small class="text-muted">This field is managed by HR and cannot be edited</small> -->
           </div>
           
           <div class="col-md-6">
@@ -149,7 +149,7 @@
               <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
             </label>
             <input type="text" class="form-control bg-light" formControlName="reportingManager" readonly>
-            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+            <!-- <small class="text-muted">This field is managed by HR and cannot be edited</small> -->
           </div>
           
           <div class="col-md-6">
@@ -157,7 +157,7 @@
               <i class="bi bi-info-circle text-muted ms-1" title="Managed by HR - Cannot be edited"></i>
             </label>
             <input type="text" class="form-control bg-light" formControlName="dateOfJoining" readonly>
-            <small class="text-muted">This field is managed by HR and cannot be edited</small>
+            <!-- <small class="text-muted">This field is managed by HR and cannot be edited</small> -->
           </div>
           
           <!-- User-Editable Information -->
@@ -187,7 +187,13 @@
           <div class="col-md-6">
             <label class="form-label">Phone Number</label>
             <input type="tel" class="form-control" formControlName="phoneNumber"
-                   placeholder="+1 (555) 123-4567">
+                   [class.is-invalid]="isFieldInvalid(profileForm, 'phoneNumber')"
+                   placeholder="+1 (555) 123-4567"
+                   maxlength="20">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'phoneNumber')">
+              {{ getFieldError(profileForm, 'phoneNumber') }}
+            </div>
+            <small class="form-text text-muted">Format: +1 (555) 123-4567 or +1-555-123-4567</small>
           </div>
           
           <div class="col-md-6">
@@ -229,6 +235,112 @@
             <label class="form-label">GitHub Profile</label>
             <input type="url" class="form-control" formControlName="gitHubProfile"
                    placeholder="https://github.com/yourusername">
+          </div>
+
+          <!-- Address Information -->
+          <div class="col-12 mt-4">
+            <h6 class="border-bottom pb-2 mb-3">Address Information</h6>
+          </div>
+
+          <!-- Present Address -->
+          <div class="col-12 mb-3">
+            <h6 class="text-primary mb-3"><i class="bi bi-house me-2"></i>Present Address</h6>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Address Line 1</label>
+            <input type="text" class="form-control" formControlName="presentAddressLine1"
+                   placeholder="Street address, P.O. box, company name, c/o">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Address Line 2 <small class="text-muted">(Optional)</small></label>
+            <input type="text" class="form-control" formControlName="presentAddressLine2"
+                   placeholder="Apartment, suite, unit, building, floor, etc.">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">City</label>
+            <input type="text" class="form-control" formControlName="presentCity"
+                   placeholder="City">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">State/Province</label>
+            <input type="text" class="form-control" formControlName="presentState"
+                   placeholder="State or Province">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Country</label>
+            <input type="text" class="form-control" formControlName="presentCountry"
+                   placeholder="Country">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">ZIP/Postal Code</label>
+            <input type="text" class="form-control" formControlName="presentZipCode"
+                   [class.is-invalid]="isFieldInvalid(profileForm, 'presentZipCode')"
+                   placeholder="ZIP or postal code"
+                   maxlength="10">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'presentZipCode')">
+              {{ getFieldError(profileForm, 'presentZipCode') }}
+            </div>
+            <small class="form-text text-muted">3-10 characters, letters and numbers only</small>
+          </div>
+
+          <!-- Permanent Address -->
+          <div class="col-12 mt-4 mb-3">
+            <h6 class="text-success mb-3"><i class="bi bi-geo-alt me-2"></i>Permanent Address</h6>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" formControlName="sameAsPresentAddress" 
+                     id="sameAsPresentAddress" (change)="onSameAddressChange($event)">
+              <label class="form-check-label" for="sameAsPresentAddress">
+                Same as present address
+              </label>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Address Line 1</label>
+            <input type="text" class="form-control" formControlName="permanentAddressLine1"
+                   placeholder="Street address, P.O. box, company name, c/o">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Address Line 2 <small class="text-muted">(Optional)</small></label>
+            <input type="text" class="form-control" formControlName="permanentAddressLine2"
+                   placeholder="Apartment, suite, unit, building, floor, etc.">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">City</label>
+            <input type="text" class="form-control" formControlName="permanentCity"
+                   placeholder="City">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">State/Province</label>
+            <input type="text" class="form-control" formControlName="permanentState"
+                   placeholder="State or Province">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">Country</label>
+            <input type="text" class="form-control" formControlName="permanentCountry"
+                   placeholder="Country">
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label">ZIP/Postal Code</label>
+            <input type="text" class="form-control" formControlName="permanentZipCode"
+                   [class.is-invalid]="isFieldInvalid(profileForm, 'permanentZipCode')"
+                   placeholder="ZIP or postal code"
+                   maxlength="10">
+            <div class="invalid-feedback" *ngIf="isFieldInvalid(profileForm, 'permanentZipCode')">
+              {{ getFieldError(profileForm, 'permanentZipCode') }}
+            </div>
+            <small class="form-text text-muted">3-10 characters, letters and numbers only</small>
           </div>
         </div>
         
