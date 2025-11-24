@@ -10,6 +10,7 @@ import { Employee, UserRole, Gender, EmployeeType, Address } from '../../shared/
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
+import { environment } from '../../../environments/environment';
 import { forkJoin, of, Observable, timer } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
 
@@ -614,6 +615,7 @@ export class EmployeesComponent implements OnInit {
   }
 
   openProfileModal(employee: Employee) {
+    console.log('Opening profile modal for employee:', employee);
     this.selectedEmployee.set(employee);
     this.showProfileModal.set(true);
     this.profileLoading.set(true);
@@ -638,6 +640,8 @@ export class EmployeesComponent implements OnInit {
       skills: skills$
     }).subscribe({
       next: (data) => {
+        console.log('Profile data received:', data.profile);
+        console.log('Skills data received:', data.skills);
         this.selectedEmployeeProfile.set(data.profile);
         this.selectedEmployeeSkills.set(data.skills);
         this.profileLoading.set(false);
@@ -1050,9 +1054,9 @@ export class EmployeesComponent implements OnInit {
     return '';
   }
 
-  // Navigate to full profile page for the selected employee
+  // Open profile modal for the selected employee
   viewFullProfile(employee: Employee): void {
-    this.router.navigate(['/profile', employee.userId]);
+    this.openProfileModal(employee);
   }
 
   // Get skill level text
@@ -1071,6 +1075,39 @@ export class EmployeesComponent implements OnInit {
     if (!managerId) return 'No Manager';
     const manager = this.employees().find(emp => emp.userId === managerId);
     return manager ? `${manager.firstName} ${manager.lastName}` : 'Unknown Manager';
+  }
+
+  // Get profile photo URL for the selected employee
+  getProfilePhotoUrl(): string | null {
+    const profile = this.selectedEmployeeProfile();
+    if (profile?.profilePhotoUrl) {
+      // The profilePhotoUrl from database storage contains the relative path: /api/files/profile-photos/{filename}
+      // If the URL is relative, prepend the API base URL
+      if (profile.profilePhotoUrl.startsWith('/')) {
+        // Use environment configuration for the base URL
+        const baseUrl = environment.apiBaseUrl.replace('/api', ''); // Remove /api to get just the server URL
+        return `${baseUrl}${profile.profilePhotoUrl}`;
+      }
+      // If it's already a full URL, return as is
+      return profile.profilePhotoUrl;
+    }
+    return null;
+  }
+
+  // Handle profile photo error (fallback to initials)
+  onProfilePhotoError(event: any): void {
+    const imgElement = event.target as HTMLImageElement;
+    if (imgElement) {
+      imgElement.style.display = 'none';
+      // Show initials div instead
+      const avatarDiv = imgElement.parentElement;
+      if (avatarDiv) {
+        const initialsDiv = avatarDiv.querySelector('.avatar-initials') as HTMLElement;
+        if (initialsDiv) {
+          initialsDiv.style.display = 'flex';
+        }
+      }
+    }
   }
 
   // Debug method to get all form errors

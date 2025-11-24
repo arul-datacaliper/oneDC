@@ -9,6 +9,7 @@ import { OnboardingService, UserProfile, UserSkill } from '../../core/services/o
 import { Employee, Gender, EmployeeType, UserRole, Address } from '../../shared/models';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/components/searchable-dropdown.component';
 import { ConfirmationDialogService } from '../../core/services/confirmation-dialog.service';
+import { environment } from '../../../environments/environment';
 import { forkJoin, of, Observable, timer } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
 
@@ -824,5 +825,38 @@ export class EmployeesComponent implements OnInit {
   private capitalizeFirstLetter(str: string): string {
     if (!str) return str;
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  // Get profile photo URL for the selected employee
+  getProfilePhotoUrl(): string | null {
+    const profile = this.selectedEmployeeProfile();
+    if (profile?.profilePhotoUrl) {
+      // The profilePhotoUrl from database storage contains the relative path: /api/files/profile-photos/{filename}
+      // If the URL is relative, prepend the API base URL
+      if (profile.profilePhotoUrl.startsWith('/')) {
+        // Use environment configuration for the base URL
+        const baseUrl = environment.apiBaseUrl.replace('/api', ''); // Remove /api to get just the server URL
+        return `${baseUrl}${profile.profilePhotoUrl}`;
+      }
+      // If it's already a full URL, return as is
+      return profile.profilePhotoUrl;
+    }
+    return null;
+  }
+
+  // Handle profile photo error (fallback to initials)
+  onProfilePhotoError(event: any): void {
+    const imgElement = event.target as HTMLImageElement;
+    if (imgElement) {
+      imgElement.style.display = 'none';
+      // Show initials div instead
+      const avatarDiv = imgElement.parentElement;
+      if (avatarDiv) {
+        const initialsDiv = avatarDiv.querySelector('.avatar-initials') as HTMLElement;
+        if (initialsDiv) {
+          initialsDiv.style.display = 'flex';
+        }
+      }
+    }
   }
 }
