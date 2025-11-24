@@ -94,6 +94,11 @@ public class TimesheetService : ITimesheetService
         if (entry.UserId != userId) throw new UnauthorizedAccessException("Cannot submit another user's timesheet.");
         if (entry.Status != TimesheetStatus.DRAFT && entry.Status != TimesheetStatus.REJECTED) 
             throw new InvalidOperationException("Only DRAFT and REJECTED entries can be submitted.");
+        
+        // Prevent submission of 0-hour entries
+        if (entry.Hours <= 0)
+            throw new InvalidOperationException("Cannot submit timesheet entries with 0 hours. Please update the hours before submitting.");
+        
         RequireDescriptionIfHours(entry.Hours, entry.Description);
 
         entry.Status = TimesheetStatus.SUBMITTED;
