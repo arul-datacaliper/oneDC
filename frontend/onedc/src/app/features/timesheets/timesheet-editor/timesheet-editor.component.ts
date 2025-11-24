@@ -562,6 +562,26 @@ export class TimesheetEditorComponent implements OnInit {
   }
 
   buildRow(r: TimesheetEntry) {
+    // Convert string TaskType from backend to numeric enum value
+    let taskTypeValue = TaskType.DEV; // default
+    if (typeof r.taskType === 'string') {
+      // Map string values to enum values
+      switch (r.taskType) {
+        case 'DEV': taskTypeValue = TaskType.DEV; break;
+        case 'QA': taskTypeValue = TaskType.QA; break;
+        case 'UX': taskTypeValue = TaskType.UX; break;
+        case 'UI': taskTypeValue = TaskType.UI; break;
+        case 'MEETING': taskTypeValue = TaskType.MEETING; break;
+        case 'RND': taskTypeValue = TaskType.RND; break;
+        case 'ADHOC': taskTypeValue = TaskType.ADHOC; break;
+        case 'PROCESS': taskTypeValue = TaskType.PROCESS; break;
+        case 'OPERATIONS': taskTypeValue = TaskType.OPERATIONS; break;
+        default: taskTypeValue = TaskType.DEV; break;
+      }
+    } else if (typeof r.taskType === 'number') {
+      taskTypeValue = r.taskType;
+    }
+
     const g = this.fb.group({
       entryId: [r.entryId],
       workDate: [r.workDate, [Validators.required, this.futureDateValidator]],
@@ -570,7 +590,7 @@ export class TimesheetEditorComponent implements OnInit {
       hours: [r.hours, [Validators.required, Validators.min(0), Validators.max(24)]],
       description: [r.description ?? ''],
       ticketRef: [r.ticketRef ?? ''],
-      taskType: [r.taskType ?? TaskType.DEV, Validators.required],
+      taskType: [taskTypeValue, Validators.required],
       status: [r.status],
       dirty: [false]
     });
@@ -660,6 +680,14 @@ export class TimesheetEditorComponent implements OnInit {
     }
 
     this.submitting.set(true); // Set submitting state
+
+    // Debug the task type conversion
+    console.log('Task Type Debug:', {
+      original: val.taskType,
+      type: typeof val.taskType,
+      converted: Number(val.taskType),
+      isNaN: isNaN(Number(val.taskType))
+    });
 
     const dto = {
       projectId: val.projectId!,

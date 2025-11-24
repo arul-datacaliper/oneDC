@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using OneDc.Services.Interfaces;
+using OneDc.Domain.Entities;
 using System.Security.Claims;
 
 namespace OneDc.Api.Controllers;
@@ -42,18 +43,26 @@ public class TimesheetsController : BaseController
         }
     }
 
-    public record CreateReq(Guid ProjectId, DateOnly WorkDate, decimal Hours, string? Description, string? TicketRef, Guid? TaskId);
-    public record UpdateReq(decimal Hours, string? Description, string? TicketRef, Guid? TaskId);
+    public record CreateReq(Guid ProjectId, DateOnly WorkDate, decimal Hours, string? Description, string? TicketRef, Guid? TaskId, int TaskType);
+    public record UpdateReq(decimal Hours, string? Description, string? TicketRef, Guid? TaskId, int? TaskType);
 
     // POST api/timesheets  (create DRAFT)
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateReq body)
+    public async Task<IActionResult> Create([FromBody] CreateReq req)
     {
         try
         {
             var userId = GetCurrentUserId();
+            
+            // Convert TaskType from int to enum
+            if (!Enum.IsDefined(typeof(TaskType), req.TaskType))
+            {
+                return BadRequest(new { error = "Invalid TaskType value" });
+            }
+            var taskType = (TaskType)req.TaskType;
+            
             var created = await _svc.CreateDraftAsync(userId,
-                new TimesheetCreateDto(body.ProjectId, body.WorkDate, body.Hours, body.Description, body.TicketRef, body.TaskId));
+                new TimesheetCreateDto(req.ProjectId, req.WorkDate, req.Hours, req.Description, req.TicketRef, req.TaskId, taskType));
             return CreatedAtAction(nameof(GetMine), new { from = created.WorkDate, to = created.WorkDate }, created);
         }
         catch (UnauthorizedAccessException ex)
@@ -68,13 +77,25 @@ public class TimesheetsController : BaseController
 
     // PUT api/timesheets/{id}  (edit DRAFT)
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReq body)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReq req)
     {
         try
         {
             var userId = GetCurrentUserId();
+            
+            // Convert TaskType from int to enum if provided
+            TaskType? taskType = null;
+            if (req.TaskType.HasValue)
+            {
+                if (!Enum.IsDefined(typeof(TaskType), req.TaskType.Value))
+                {
+                    return BadRequest(new { error = "Invalid TaskType value" });
+                }
+                taskType = (TaskType)req.TaskType.Value;
+            }
+            
             var updated = await _svc.UpdateDraftAsync(userId, id,
-                new TimesheetUpdateDto(body.Hours, body.Description, body.TicketRef, body.TaskId));
+                new TimesheetUpdateDto(req.Hours, req.Description, req.TicketRef, req.TaskId, taskType));
             return Ok(updated);
         }
         catch (UnauthorizedAccessException ex)
