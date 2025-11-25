@@ -5,7 +5,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AdminService, AdminDashboardMetrics, TopProjectMetrics, ProjectReleaseInfo } from '../../core/services/admin.service';
 import { EmployeeService, EmployeeDashboardMetrics, EmployeeTask, TimesheetSummary, ProjectUtilization } from '../../core/services/employee.service';
-import { AllocationService, EmployeeAllocationSummary, AllocationSummary } from '../../core/services/allocation.service';
+import { AllocationService, EmployeeAllocationSummary, AllocationSummary, WeeklyCapacity } from '../../core/services/allocation.service';
 import { OnboardingService, UserProfile } from '../../core/services/onboarding.service';
 import { TasksService, ProjectTask, TaskStatus } from '../../core/services/tasks.service';
 import { Subscription, filter, forkJoin, of } from 'rxjs';
@@ -475,8 +475,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     // Get current week start date or use selected date
     let weekStartDate: string;
+    let weekEndDate: string;
     if (this.selectedWeekStart()) {
       weekStartDate = this.selectedWeekStart();
+      weekEndDate = this.selectedWeekEnd();
     } else {
       const today = new Date();
       const currentWeekStart = new Date(today.setDate(today.getDate() - today.getDay()));
@@ -486,19 +488,69 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Set week end date (6 days after start)
       const weekEnd = new Date(currentWeekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
-      this.selectedWeekEnd.set(weekEnd.toISOString().split('T')[0]);
+      weekEndDate = weekEnd.toISOString().split('T')[0];
+      this.selectedWeekEnd.set(weekEndDate);
     }
 
-    // Load both employee and project allocations
-    this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
-      next: (allocations: EmployeeAllocationSummary[]) => {
-        this.employeeAllocations.set(allocations);
-        this.updatePieChartData(); // Update chart data when allocations are loaded
-        this.isLoadingAllocations = false;
+    // Use the more comprehensive allocation logic that considers half-day leaves
+    // and provides more detailed capacity calculations
+    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate).subscribe({
+      next: (capacityData) => {
+        // Transform capacity data to employee allocation summary format
+        const enhancedAllocations: EmployeeAllocationSummary[] = capacityData.map(cap => ({
+          userId: cap.userId,
+          userName: cap.userName,
+          totalAllocatedHours: Math.max(0, cap.capacityHours - cap.availableHours), // Allocated hours
+          totalProjects: 0, // This would need to be calculated separately if needed
+          weeklyCapacity: cap.capacityHours, // Use actual capacity (after holidays/leaves)
+          utilizationPercentage: cap.capacityHours > 0 ? 
+            Math.round((Math.max(0, cap.capacityHours - cap.availableHours) / cap.capacityHours) * 100 * 100) / 100 : 0
+        }));
+
+        // Get project allocation counts for each employee
+        this.allocationService.getAllocationsForWeek(weekStartDate).subscribe({
+          next: (allocations) => {
+            // Count projects per employee
+            const projectCounts = allocations.reduce((acc, alloc) => {
+              if (!acc[alloc.userId]) {
+                acc[alloc.userId] = new Set();
+              }
+              acc[alloc.userId].add(alloc.projectId);
+              return acc;
+            }, {} as {[key: string]: Set<string>});
+
+            // Update total projects count
+            enhancedAllocations.forEach(emp => {
+              emp.totalProjects = projectCounts[emp.userId]?.size || 0;
+            });
+
+            this.employeeAllocations.set(enhancedAllocations);
+            this.updatePieChartData();
+            this.isLoadingAllocations = false;
+          },
+          error: (error) => {
+            console.error('Error loading project counts:', error);
+            // Still use the capacity data even if project counts fail
+            this.employeeAllocations.set(enhancedAllocations);
+            this.updatePieChartData();
+            this.isLoadingAllocations = false;
+          }
+        });
       },
       error: (error: any) => {
-        console.error('Error loading employee allocations:', error);
-        this.isLoadingAllocations = false;
+        console.error('Error loading employee capacity data:', error);
+        // Fallback to the original method
+        this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
+          next: (allocations: EmployeeAllocationSummary[]) => {
+            this.employeeAllocations.set(allocations);
+            this.updatePieChartData();
+            this.isLoadingAllocations = false;
+          },
+          error: (fallbackError: any) => {
+            console.error('Error loading employee allocations (fallback):', fallbackError);
+            this.isLoadingAllocations = false;
+          }
+        });
       }
     });
     
