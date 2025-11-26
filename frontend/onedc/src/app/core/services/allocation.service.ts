@@ -45,7 +45,7 @@ export interface EmployeeAllocationSummary {
   userName: string;
   totalAllocatedHours: number;
   totalProjects: number;
-  weeklyCapacity: number;
+  weeklyCapacity: number; // Now supports fractional hours like 40.5
   utilizationPercentage: number;
 }
 

@@ -3,6 +3,26 @@
   font-size: 0.85rem;
 }
 
+// Capacity details styling
+.capacity-details {
+  summary {
+    list-style: none;
+    &::-webkit-details-marker {
+      display: none;
+    }
+    &:hover {
+      color: #0d6efd;
+      text-decoration: underline;
+    }
+  }
+  
+  .capacity-breakdown {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+}
+
 // Clickable table rows
 .cursor-pointer {
   cursor: pointer;

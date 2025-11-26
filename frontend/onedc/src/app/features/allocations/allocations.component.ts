@@ -695,7 +695,52 @@ export class AllocationsComponent implements OnInit {
     // Load utilized hours for the selected employee
     if (userId) {
       this.loadUtilizedHours(userId);
+      // Also ensure weekly capacity is loaded for this user
+      this.loadWeeklyCapacityForUser(userId);
     }
+  }
+
+  // Load weekly capacity for a specific user
+  private loadWeeklyCapacityForUser(userId: string) {
+    const currentWeekStart = this.currentWeekStart();
+    const currentWeekEnd = this.allocationService.getWeekEndDate(currentWeekStart);
+    
+    if (!currentWeekStart || !currentWeekEnd) return;
+    
+    // Check if capacity is already loaded for this user
+    const existingCapacity = this.weeklyCapacities().get(userId);
+    if (existingCapacity) {
+      console.log('✅ Weekly capacity already loaded for user:', userId, existingCapacity);
+      return;
+    }
+    
+    console.log('🔄 Loading weekly capacity for selected user:', userId);
+    
+    this.allocationService.getWeeklyCapacity(currentWeekStart, currentWeekEnd, [userId]).subscribe({
+      next: (capacities) => {
+        console.log('✅ Received capacity data for user:', capacities);
+        
+        if (capacities.length > 0) {
+          const capacity = capacities[0];
+          console.log(`📊 Capacity for ${capacity.userName}:`, {
+            workingDays: capacity.workingDays,
+            holidayDays: capacity.holidayDays,
+            leaveDays: capacity.leaveDays,
+            actualWorkingDays: capacity.actualWorkingDays,
+            capacityHours: capacity.capacityHours,
+            availableHours: capacity.availableHours
+          });
+          
+          // Update the capacity map
+          const newCapacityMap = new Map(this.weeklyCapacities());
+          newCapacityMap.set(userId, capacity);
+          this.weeklyCapacities.set(newCapacityMap);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading weekly capacity for user:', error);
+      }
+    });
   }
 
   // Method to load utilized hours for a specific user
@@ -1783,8 +1828,20 @@ export class AllocationsComponent implements OnInit {
     return employee?.userName || '';
   }
 
-  // Get available hours for the selected user (45 hours base capacity)
+  // Get available hours for the selected user (uses actual capacity after holidays/leaves)
+  // This method now properly considers holidays and approved leave days when calculating available hours
   getAvailableHours(): number {
+    const selectedUserId = this.selectedUserId();
+    if (!selectedUserId) return 0;
+    
+    // Get the actual weekly capacity that considers holidays and leaves
+    const capacity = this.getUserWeeklyCapacity(selectedUserId);
+    if (capacity) {
+      // Use the availableHours from capacity data (already considers existing allocations)
+      return Math.max(0, capacity.availableHours);
+    }
+    
+    // Fallback to base calculation if capacity data not available
     const baseCapacity = 45; // Base weekly capacity in hours
     const allocatedHours = this.getTotalAllocatedHours();
     return Math.max(0, baseCapacity - allocatedHours);
@@ -1806,11 +1863,35 @@ export class AllocationsComponent implements OnInit {
     return cachedValue || 0;
   }
 
-  // Get utilization percentage for the selected user
+  // Get actual capacity hours for the selected user (after holidays/leaves)
+  getActualCapacityHours(): number {
+    const selectedUserId = this.selectedUserId();
+    if (!selectedUserId) return 45; // Default capacity
+    
+    const capacity = this.getUserWeeklyCapacity(selectedUserId);
+    if (capacity) {
+      return capacity.capacityHours;
+    }
+    
+    return 45; // Default capacity if no data available
+  }
+
+  // Get utilization percentage for the selected user (uses actual capacity after holidays/leaves)
   getUtilizationPercentage(): number {
-    const baseCapacity = 45; // Base weekly capacity in hours
+    const selectedUserId = this.selectedUserId();
+    if (!selectedUserId) return 0;
+    
+    // Get the actual weekly capacity that considers holidays and leaves
+    const capacity = this.getUserWeeklyCapacity(selectedUserId);
     const allocatedHours = this.getTotalAllocatedHours();
     
+    if (capacity && capacity.capacityHours > 0) {
+      // Use actual capacity hours (after holidays/leaves deductions)
+      return Math.round((allocatedHours / capacity.capacityHours) * 100);
+    }
+    
+    // Fallback to base calculation if capacity data not available
+    const baseCapacity = 45; // Base weekly capacity in hours
     return Math.round((allocatedHours / baseCapacity) * 100);
   }
 

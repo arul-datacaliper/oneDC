@@ -485,7 +485,8 @@ public class AllocationsController : BaseController
             {
                 lr.EmployeeId,
                 lr.StartDate,
-                lr.EndDate
+                lr.EndDate,
+                lr.IsHalfDay
             })
             .ToListAsync();
         
@@ -494,7 +495,8 @@ public class AllocationsController : BaseController
         {
             lr.EmployeeId,
             StartDate = DateOnly.FromDateTime(lr.StartDate),
-            EndDate = DateOnly.FromDateTime(lr.EndDate)
+            EndDate = DateOnly.FromDateTime(lr.EndDate),
+            lr.IsHalfDay
         }).ToList();
 
         // Calculate working days in the week (excluding weekends)
@@ -516,12 +518,13 @@ public class AllocationsController : BaseController
                 var allocatedHours = allocation?.TotalAllocatedHours ?? 0;
                 
                 // Calculate weekly capacity for this employee
-                int workingDays = totalWorkingDays;
+                decimal workingDays = totalWorkingDays;
                 
                 // Subtract holidays (applies to all employees)
                 workingDays -= holidays.Count;
                 
-                // Subtract approved leave days for this employee
+                // Subtract approved leave days for this employee (supporting fractional days)
+                decimal leaveDays = 0;
                 var employeeLeaves = approvedLeavesProcessed.Where(al => al.EmployeeId == emp.UserId).ToList();
                 foreach (var leave in employeeLeaves)
                 {
@@ -538,16 +541,41 @@ public class AllocationsController : BaseController
                             dayOfWeek != DayOfWeek.Sunday && 
                             !holidays.Contains(date))
                         {
-                            workingDays--;
+                            if (leave.IsHalfDay)
+                            {
+                                leaveDays += 0.5m; // Half-day leave
+                            }
+                            else
+                            {
+                                leaveDays += 1m; // Full-day leave
+                            }
                         }
                     }
                 }
                 
-                // Ensure working days is not negative
-                workingDays = Math.Max(0, workingDays);
+                // Calculate final working days (supporting fractional days)
+                decimal finalWorkingDays = workingDays - leaveDays;
+                finalWorkingDays = Math.Max(0, finalWorkingDays);
                 
-                // Calculate capacity: working days × 9 hours
-                var weeklyCapacity = workingDays * 9;
+                // Debug logging for this user's calculation
+                Console.WriteLine($"=== EMPLOYEE SUMMARY CAPACITY DEBUG for {emp.FirstName} {emp.LastName} ===");
+                Console.WriteLine($"totalWorkingDays: {totalWorkingDays}");
+                Console.WriteLine($"holidays.Count: {holidays.Count}");
+                Console.WriteLine($"workingDays after holidays: {workingDays}");
+                Console.WriteLine($"leaveDays: {leaveDays}");
+                Console.WriteLine($"finalWorkingDays: {finalWorkingDays}");
+                Console.WriteLine($"finalWorkingDays * 9: {finalWorkingDays * 9}");
+                Console.WriteLine($"allocatedHours: {allocatedHours}");
+                
+                // Calculate capacity: working days × 9 hours (keep as decimal for accuracy)
+                var capacityHours = finalWorkingDays * 9;
+                var weeklyCapacity = Math.Round(capacityHours, 1); // Keep one decimal place for fractional hours
+                
+                Console.WriteLine($"capacityHours: {capacityHours}");
+                Console.WriteLine($"weeklyCapacity (rounded to int): {weeklyCapacity}");
+                Console.WriteLine($"utilizationPercentage: {(weeklyCapacity > 0 ? Math.Round((decimal)allocatedHours / weeklyCapacity * 100, 2) : 0)}");
+                Console.WriteLine("=== END EMPLOYEE SUMMARY DEBUG ===");
+                Console.WriteLine();
                 
                 return new EmployeeAllocationSummaryDto
                 {
@@ -1053,7 +1081,7 @@ public class EmployeeAllocationSummaryDto
     public string UserName { get; set; } = string.Empty;
     public decimal TotalAllocatedHours { get; set; }
     public int TotalProjects { get; set; }
-    public int WeeklyCapacity { get; set; }
+    public decimal WeeklyCapacity { get; set; } // Changed from int to decimal to support fractional hours
     public decimal UtilizationPercentage { get; set; }
 }
 

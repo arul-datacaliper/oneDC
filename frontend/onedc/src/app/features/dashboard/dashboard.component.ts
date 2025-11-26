@@ -366,6 +366,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   isLoadingEmployeeData = false;
   isLoadingAllocations = false;
 
+  // Simple cache for allocation data to improve performance
+  private allocationCache = new Map<string, {
+    employees: EmployeeAllocationSummary[],
+    projects: AllocationSummary[],
+    timestamp: number
+  }>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   // Computed property to get current user data
   currentUser = computed(() => {
     return this.authService.getCurrentUser();
@@ -400,6 +408,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+    
+    // Clear cache on component destroy
+    this.allocationCache.clear();
   }
 
   @HostListener('window:focus', ['$event'])
@@ -420,52 +431,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadAdminDashboard() {
-    this.loadAdminMetrics();
-    this.loadTopProjects();
-    this.loadProjectsWithReleaseInfo();
-    this.loadEmployeeAllocations();
-  }
+    // Load all admin dashboard data in parallel for better performance
+    const adminMetricsRequest = this.adminService.getDashboardMetrics().pipe(
+      catchError(error => {
+        console.error('Error loading admin metrics:', error);
+        return of(null);
+      })
+    );
+    
+    const topProjectsRequest = this.adminService.getTopProjects().pipe(
+      catchError(error => {
+        console.error('Error loading top projects:', error);
+        return of([]);
+      })
+    );
+    
+    const projectReleaseInfoRequest = this.adminService.getProjectsWithReleaseInfo().pipe(
+      catchError(error => {
+        console.error('Error loading projects with release info:', error);
+        return of([]);
+      })
+    );
 
-  private loadAdminMetrics() {
+    // Set loading states
     this.isLoadingAdminMetrics = true;
-    this.adminService.getDashboardMetrics().subscribe({
-      next: (metrics) => {
-        this.adminMetrics = metrics;
+    this.isLoadingTopProjects = true;
+    this.isLoadingProjectsReleaseInfo = true;
+
+    // Load core admin data in parallel
+    forkJoin({
+      metrics: adminMetricsRequest,
+      topProjects: topProjectsRequest,
+      releaseInfo: projectReleaseInfoRequest
+    }).subscribe({
+      next: (results) => {
+        this.adminMetrics = results.metrics;
+        this.topProjects = results.topProjects;
+        this.projectsWithReleaseInfo = results.releaseInfo;
+        
         this.isLoadingAdminMetrics = false;
+        this.isLoadingTopProjects = false;
+        this.isLoadingProjectsReleaseInfo = false;
       },
       error: (error) => {
-        console.error('Error loading admin metrics:', error);
+        console.error('Error loading admin dashboard data:', error);
         this.isLoadingAdminMetrics = false;
-      }
-    });
-  }
-
-  private loadTopProjects() {
-    this.isLoadingTopProjects = true;
-    this.adminService.getTopProjects().subscribe({
-      next: (projects: TopProjectMetrics[]) => {
-        this.topProjects = projects;
         this.isLoadingTopProjects = false;
-      },
-      error: (error: any) => {
-        console.error('Error loading top projects:', error);
-        this.isLoadingTopProjects = false;
-      }
-    });
-  }
-
-  private loadProjectsWithReleaseInfo() {
-    this.isLoadingProjectsReleaseInfo = true;
-    this.adminService.getProjectsWithReleaseInfo().subscribe({
-      next: (projects: ProjectReleaseInfo[]) => {
-        this.projectsWithReleaseInfo = projects;
-        this.isLoadingProjectsReleaseInfo = false;
-      },
-      error: (error: any) => {
-        console.error('Error loading projects with release info:', error);
         this.isLoadingProjectsReleaseInfo = false;
       }
     });
+
+    // Load allocations separately since they're more complex
+    this.loadEmployeeAllocations();
   }
 
   private loadEmployeeAllocations() {
@@ -492,54 +509,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedWeekEnd.set(weekEndDate);
     }
 
-    // Use the more comprehensive allocation logic that considers half-day leaves
-    // and provides more detailed capacity calculations
-    this.allocationService.getWeeklyCapacity(weekStartDate, weekEndDate).subscribe({
-      next: (capacityData) => {
-        // Transform capacity data to employee allocation summary format
-        const enhancedAllocations: EmployeeAllocationSummary[] = capacityData.map(cap => ({
-          userId: cap.userId,
-          userName: cap.userName,
-          totalAllocatedHours: Math.max(0, cap.capacityHours - cap.availableHours), // Allocated hours
-          totalProjects: 0, // This would need to be calculated separately if needed
-          weeklyCapacity: cap.capacityHours, // Use actual capacity (after holidays/leaves)
-          utilizationPercentage: cap.capacityHours > 0 ? 
-            Math.round((Math.max(0, cap.capacityHours - cap.availableHours) / cap.capacityHours) * 100 * 100) / 100 : 0
-        }));
+    // Check cache first for performance optimization
+    const cacheKey = weekStartDate;
+    const cachedData = this.allocationCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cachedData && (now - cachedData.timestamp) < this.CACHE_DURATION) {
+      // Use cached data
+      this.employeeAllocations.set(cachedData.employees);
+      this.projectAllocations.set(cachedData.projects);
+      this.updatePieChartData();
+      this.isLoadingAllocations = false;
+      return;
+    }
 
-        // Get project allocation counts for each employee
-        this.allocationService.getAllocationsForWeek(weekStartDate).subscribe({
-          next: (allocations) => {
-            // Count projects per employee
-            const projectCounts = allocations.reduce((acc, alloc) => {
-              if (!acc[alloc.userId]) {
-                acc[alloc.userId] = new Set();
-              }
-              acc[alloc.userId].add(alloc.projectId);
-              return acc;
-            }, {} as {[key: string]: Set<string>});
-
-            // Update total projects count
-            enhancedAllocations.forEach(emp => {
-              emp.totalProjects = projectCounts[emp.userId]?.size || 0;
-            });
-
-            this.employeeAllocations.set(enhancedAllocations);
-            this.updatePieChartData();
-            this.isLoadingAllocations = false;
-          },
-          error: (error) => {
-            console.error('Error loading project counts:', error);
-            // Still use the capacity data even if project counts fail
-            this.employeeAllocations.set(enhancedAllocations);
-            this.updatePieChartData();
-            this.isLoadingAllocations = false;
-          }
+    // Load fresh data if not in cache or cache expired
+    const employeeAllocationsRequest = this.allocationService.getEmployeeAllocationSummary(weekStartDate);
+    const projectAllocationsRequest = this.allocationService.getProjectAllocationSummary(weekStartDate);
+    
+    // Load both requests in parallel using forkJoin for better performance
+    forkJoin({
+      employees: employeeAllocationsRequest,
+      projects: projectAllocationsRequest
+    }).subscribe({
+      next: (results) => {
+        // Cache the results
+        this.allocationCache.set(cacheKey, {
+          employees: results.employees,
+          projects: results.projects,
+          timestamp: now
         });
+        
+        // Set employee allocations
+        this.employeeAllocations.set(results.employees);
+        
+        // Set project allocations
+        this.projectAllocations.set(results.projects);
+        
+        // Update pie chart data
+        this.updatePieChartData();
+        
+        this.isLoadingAllocations = false;
       },
       error: (error: any) => {
-        console.error('Error loading employee capacity data:', error);
-        // Fallback to the original method
+        console.error('Error loading allocation data:', error);
+        
+        // Try to use cached data even if expired as fallback
+        if (cachedData) {
+          this.employeeAllocations.set(cachedData.employees);
+          this.projectAllocations.set(cachedData.projects);
+          this.updatePieChartData();
+          this.isLoadingAllocations = false;
+          return;
+        }
+        
+        // Final fallback: Try to load at least employee allocations
         this.allocationService.getEmployeeAllocationSummary(weekStartDate).subscribe({
           next: (allocations: EmployeeAllocationSummary[]) => {
             this.employeeAllocations.set(allocations);
@@ -553,27 +577,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
         });
       }
     });
-    
-    // Load project allocations
-    this.loadProjectAllocations(weekStartDate);
-  }
-  
-  private loadProjectAllocations(weekStartDate?: string) {
-    const startDate = weekStartDate || this.selectedWeekStart();
-    
-    this.allocationService.getProjectAllocationSummary(startDate).subscribe({
-      next: (allocations: AllocationSummary[]) => {
-        this.projectAllocations.set(allocations);
-      },
-      error: (error: any) => {
-        console.error('Error loading project allocations:', error);
-      }
-    });
   }
   
   // Update pie chart data based on employee allocations
   private updatePieChartData() {
     const allocations = this.employeeAllocations();
+    
+    // Early return if no data to avoid unnecessary calculations
+    if (!allocations || allocations.length === 0) {
+      this.pieChartData = {
+        labels: ['No Data'],
+        datasets: [{
+          data: [1],
+          backgroundColor: ['rgba(108, 117, 125, 0.5)'],
+          borderColor: ['rgba(108, 117, 125, 1)'],
+          borderWidth: 2
+        }]
+      };
+      return;
+    }
     
     const over100 = allocations.filter(emp => emp.utilizationPercentage > 100).length;
     const full = allocations.filter(emp => emp.utilizationPercentage === 100).length;
@@ -637,49 +659,56 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Get date range for filtering
       const { startDate, endDate } = this.getDateRange();
       
-      // Load employee metrics with date range
-      this.employeeService.getEmployeeDashboardMetrics(currentUser.userId, startDate, endDate).subscribe({
-        next: (metrics) => {
-          this.employeeMetrics = metrics;
-        },
-        error: (error) => {
+      // Prepare all requests for parallel loading
+      const metricsRequest = this.employeeService.getEmployeeDashboardMetrics(currentUser.userId, startDate, endDate).pipe(
+        catchError(error => {
           console.error('Error loading employee metrics:', error);
-        }
-      });
-
-      // Load assigned tasks
-      this.employeeService.getAssignedTasks(currentUser.userId).subscribe({
-        next: (tasks) => {
-          this.employeeTasks = tasks;
-        },
-        error: (error) => {
+          return of(null);
+        })
+      );
+      
+      const tasksRequest = this.employeeService.getAssignedTasks(currentUser.userId).pipe(
+        catchError(error => {
           console.error('Error loading employee tasks:', error);
-        }
-      });
-
-      // Load timesheet summary
-      this.employeeService.getTimesheetSummary(currentUser.userId).subscribe({
-        next: (summary) => {
-          this.timesheetSummary = summary;
-        },
-        error: (error) => {
+          return of([]);
+        })
+      );
+      
+      const timesheetRequest = this.employeeService.getTimesheetSummary(currentUser.userId).pipe(
+        catchError(error => {
           console.error('Error loading timesheet summary:', error);
-        }
-      });
+          return of(null);
+        })
+      );
+      
+      const utilizationRequest = this.employeeService.getProjectUtilization(currentUser.userId, startDate, endDate).pipe(
+        catchError(error => {
+          console.error('Error loading project utilization:', error);
+          return of([]);
+        })
+      );
 
-      // Load project utilization with date range (using same startDate/endDate from above)
-      this.employeeService.getProjectUtilization(currentUser.userId, startDate, endDate).subscribe({
-        next: (utilization) => {
-          this.projectUtilization = utilization;
+      // Load all employee data in parallel
+      forkJoin({
+        metrics: metricsRequest,
+        tasks: tasksRequest,
+        timesheet: timesheetRequest,
+        utilization: utilizationRequest
+      }).subscribe({
+        next: (results) => {
+          this.employeeMetrics = results.metrics;
+          this.employeeTasks = results.tasks;
+          this.timesheetSummary = results.timesheet;
+          this.projectUtilization = results.utilization;
           this.isLoadingEmployeeData = false;
         },
         error: (error) => {
-          console.error('Error loading project utilization:', error);
+          console.error('Error loading employee dashboard data:', error);
           this.isLoadingEmployeeData = false;
         }
       });
       
-      // Load approver projects if user is an approver
+      // Load approver projects if user is an approver (separate since it's conditional)
       if (this.canApprove()) {
         this.loadApproverProjects();
       }
@@ -1102,6 +1131,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Refresh data
   refresh(): void {
+    // Clear cache to force fresh data load
+    this.allocationCache.clear();
+    
     // Clear current data to show loading state
     if (this.isAdmin()) {
       this.adminMetrics = null;
